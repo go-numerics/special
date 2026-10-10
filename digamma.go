@@ -104,22 +104,57 @@ func Digamma(x float64) float64 {
 	}
 	if x > -40 {
 		n := math.Ceil(-x)
-		t := x + n // exact, in [0, 1)
-		var s dd.DD
-		if t == 0 {
-			return math.NaN()
-		}
+		t := x + n // exact, in (0, 1)
 		// ψ(t) = ψ(1+t) - 1/t
-		s = dd.Sub(digamma1p(t), recipDD(t))
+		p := digamma1p(t)
+		s := dd.Sub(p, recipDD(t))
+		mag := math.Abs(p.Hi) + 1/t
 		for k := 0.0; k < n; k++ {
-			s = dd.Sub(s, recipDD(x+k))
+			r := recipDD(x + k)
+			s = dd.Sub(s, r)
+			mag += math.Abs(r.Hi)
+		}
+		if math.Abs(s.Hi) < 0x1p-12*mag {
+			// Near a zero of ψ the terms cancel and the fitted core's
+			// 2^-56 is not enough: redo ψ(t) to about 2^-100.
+			s = digammaFrac(t)
+			for k := 0.0; k < n; k++ {
+				s = dd.Sub(s, recipDD(x+k))
+			}
 		}
 		return s.Float()
 	}
-	// ψ(x) = ψ(-x) - 1/x - π cot(πx)
-	c := cosPi(x) / sinPi(x)
+	// ψ(x) = ψ(-x) - 1/x - π cot(πx), with cot(πx) in double-double so
+	// that the cancellation near the zeros of ψ costs as little as the
+	// asymptotic series' own accuracy allows.
+	c := dd.Mul(piDD, dd.Div(cosPiDD(x), sinPiDD(x)))
 	r := dd.Sub(digammaAsym(-x), recipDD(x))
-	return dd.AddF(r, -math.Pi*c).Float()
+	return dd.Sub(r, c).Float()
+}
+
+// digammaFrac returns ψ(t) for 0 < t < 1 to about 2^-100 relative to the
+// terms involved: ψ(t) = ψ(t+40) - Σ_{k<40} 1/(t+k), the reciprocals and
+// the asymptotic series at t+40 (DLMF 5.11.2, its first three terms in
+// double-double) all carried in double-double. It is slow and used only
+// where Digamma's terms cancel.
+func digammaFrac(t float64) dd.DD {
+	var sum dd.DD
+	for k := 0.0; k < 40; k++ {
+		sum = dd.Add(sum, dd.Div(dd.F(1), sumDD(t, k)))
+	}
+	w := sumDD(t, 40)
+	iw := dd.Div(dd.F(1), w)
+	iw2 := dd.Mul(iw, iw)
+	a := dd.Sub(logDD(w), dd.MulF(iw, 0.5))
+	a = dd.Sub(a, dd.DivF(iw2, 12))
+	iw4 := dd.Mul(iw2, iw2)
+	a = dd.Add(a, dd.DivF(iw4, 120))
+	a = dd.Sub(a, dd.DivF(dd.Mul(iw4, iw2), 252))
+	// remaining B_2k/(2k w^2k), k = 4..10, in float64 (each < 1e-15)
+	z := iw2.Hi
+	tail := z * z * z * z * (-1.0/240 + z*(1.0/132+z*(-691.0/32760+z*(1.0/12+z*(-3617.0/8160+z*(43867.0/14364+z*(-174611.0/6600)))))))
+	a = dd.AddF(a, -tail)
+	return dd.Sub(a, sum)
 }
 
 // digamma1pNeg returns ψ(1+x) for x in (-0.5, 0) as ψ(2+x) - 1/(1+x), with

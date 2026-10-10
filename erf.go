@@ -62,17 +62,7 @@ func erfcxCorrected(z dd.DD) dd.DD {
 // Gaussian factor does not amplify the rounding of z² (the error a naive
 // exp(-x*x) incurs grows like 2x² ulp).
 func erfcMant(z dd.DD) (dd.DD, int) {
-	return erfcMantWith(z, dd.ExpMant)
-}
-
-// erfcMantPrecise is erfcMant with the Gaussian factor to about 2^-100
-// (dd.ExpMantPrecise), for the residuals of the inverse functions.
-func erfcMantPrecise(z dd.DD) (dd.DD, int) {
-	return erfcMantWith(z, dd.ExpMantPrecise)
-}
-
-func erfcMantWith(z dd.DD, exp func(dd.DD) (dd.DD, int)) (dd.DD, int) {
-	em, k := exp(dd.Neg(dd.Mul(z, z)))
+	em, k := dd.ExpMant(dd.Neg(dd.Mul(z, z)))
 	if em.Hi == 0 {
 		return em, 0
 	}

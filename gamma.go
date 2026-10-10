@@ -15,9 +15,6 @@ var lnSqrt2Pi = dd.DD{Hi: 0.91893853320467278056, Lo: -3.8782941580672414e-17}
 // log(pi) as a double-double.
 var lnPi = dd.DD{Hi: 1.1447298858494002, Lo: 1.0265951162707826e-17}
 
-// pi as a double-double.
-var piDD = dd.DD{Hi: piHi, Lo: piLo}
-
 // gammaMax is the largest x with Γ(x) finite in float64.
 const gammaMax = 171.62437695630272
 
@@ -136,8 +133,8 @@ func Gamma(x float64) float64 {
 }
 
 // gammaPos returns Γ(x) as a double-double for non-integer 0 < x <= gammaMax
-// and +Inf beyond. Below 10 the result is a double-double; from 10 the
-// exponential limits it to about 0.8 ulp and the Lo part is zero.
+// and +Inf beyond (relative error about 2^-56 from the fitted core below 10,
+// about 2^-90 from Stirling's series and dd.ExpMant above).
 func gammaPos(x float64) dd.DD {
 	switch {
 	case x > gammaMax:
@@ -159,7 +156,8 @@ func gammaPos(x float64) dd.DD {
 		}
 		return g
 	}
-	return dd.F(dd.Exp(logGammaStirling(x)))
+	m, k := dd.ExpMant(logGammaStirling(x))
+	return dd.Ldexp(m, k)
 }
 
 // gammaTiny returns Γ(x) for 0 < |x| < 2^-56: Γ(x) = 1/x - γ + O(x), the
@@ -202,8 +200,7 @@ func gammaNeg(x float64) float64 {
 		return math.Copysign(0, gammaSignNeg(x))
 	}
 	// Reflection: Γ(x) = -π / (x sin(πx) Γ(-x)).
-	s := sinPi(x)
-	den := dd.MulFF(x, s)
+	den := dd.MulF(sinPiDD(x), x)
 	q := dd.Div(piDD, den) // π / (x sin πx)
 	// Γ(x) = -q / Γ(-x) = -q exp(-log Γ(-x))
 	lg := logGammaStirling(-x)

@@ -13,28 +13,24 @@ func sumDD(a, b float64) dd.DD {
 }
 
 // log1pmxDD returns log(1+x) - x for a double-double x > -1. For
-// |x| <= 1/4 it sums the series -x²/2 + x³/3 - x⁴/4 + ... with the first
-// two terms in double-double (the rest is below 1/3 of the result and
-// summed in float64), which keeps full relative accuracy as x -> 0; beyond,
-// log1p(x) - x in double-double has no cancellation to speak of.
+// |x| < 2^-10 it sums the series -x²/2 + x³/3 - x⁴/4 + ... with the first
+// two terms in double-double (the float64 rest is below 2^-10 of the
+// result); beyond, log1p(x) - x with log1pDD accurate to 2^-90, which loses
+// at most log2(2/|x|) < 11 bits to the cancellation.
 func log1pmxDD(x dd.DD) dd.DD {
-	if math.Abs(x.Hi) > 0.25 {
+	if math.Abs(x.Hi) >= 0x1p-10 {
 		return dd.Sub(log1pDD(x), x)
 	}
 	x2 := dd.Mul(x, x)
 	r := dd.Add(dd.MulF(x2, -0.5), dd.DivF(dd.Mul(x2, x), 3))
-	// tail: Σ_{k>=4} (-1)^(k+1) x^k / k
+	// tail: Σ_{k>=4} (-1)^(k+1) x^k / k; |x| < 2^-10 so 8 terms reach
+	// 2^-80 of the result.
 	xh := x.Hi
-	s, p := 0.0, xh*xh*xh
-	for k := 4.0; k < 120; k++ {
-		p *= -xh
-		t := p / k
-		s += t
-		if math.Abs(t) <= 0x1p-60*math.Abs(r.Hi) {
-			break
-		}
+	t := 0.0
+	for k := 11.0; k >= 4; k-- {
+		t = 1/k - xh*t
 	}
-	return dd.AddF(r, s)
+	return dd.AddF(r, -xh*xh*xh*xh*t)
 }
 
 // logGammaDiff returns log Γ(b) - log Γ(a+b) for b >= 10 and 0 < a <= b
@@ -148,7 +144,8 @@ func Beta(a, b float64) float64 {
 		}
 		if b < 10 && a > 0x1p-56 {
 			s := sumDD(a, b)
-			gs := dd.MulF(gammaPos(s.Hi), 1+Digamma(s.Hi)*s.Lo)
+			g := gammaPos(s.Hi)
+			gs := dd.Add(g, dd.MulF(g, Digamma(s.Hi)*s.Lo))
 			return dd.Div(dd.Mul(gammaPos(a), gammaPos(b)), gs).Float()
 		}
 		return dd.Exp(logBetaPos(a, b))

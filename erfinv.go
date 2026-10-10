@@ -86,7 +86,7 @@ func erfcInvLarge(q float64) float64 {
 	var r float64
 	var ex float64
 	if x >= 0.5 {
-		m, k := erfcMantPrecise(dd.F(x))
+		m, k := erfcMant(dd.F(x))
 		r = dd.AddF(dd.Div(m, dd.F(math.Ldexp(q, -k))), -1).Float()
 		ex = erfcxDD(x).Hi
 	} else {
@@ -175,7 +175,7 @@ func Ndtri(p float64) float64 {
 	z := ndtrZ(x)
 	var r, ratio float64
 	if z.Hi >= 0.5 {
-		m, k := erfcMantPrecise(z)
+		m, k := erfcMant(z)
 		r = dd.AddF(dd.Div(m, dd.F(math.Ldexp(p, 1-k))), -1).Float()
 		ratio = erfcxCorrected(z).Hi * sqrtPiOver2.Hi // Φ(x)/φ(x)
 	} else {

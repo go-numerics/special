@@ -160,8 +160,8 @@ func zetaAbove2(s float64) dd.DD {
 
 // zetaReflect returns ζ(s) for s < -1 by the reflection formula.
 func zetaReflect(s float64) float64 {
-	sn := sinPi(s / 2) // s/2 exact
-	if sn == 0 {
+	sn := sinPiDD(s / 2) // s/2 exact
+	if sn.Hi == 0 {
 		return 0 // trivial zero
 	}
 	t := -s // exact; Γ(1-s) = Γ(1+t) = t Γ(t)
@@ -171,12 +171,12 @@ func zetaReflect(s float64) float64 {
 	l = dd.Add(l, logGammaPos(t))
 	m, e := dd.ExpMant(l)
 	if math.IsInf(m.Hi, 0) {
-		return math.Copysign(math.Inf(1), sn)
+		return math.Copysign(math.Inf(1), sn.Hi)
 	}
 	// ζ(1-s) = ζ(1+t); 1+t rounds, which ζ'(u)/ζ(u) ~ -2^-u ln 2 (u > 3)
 	// makes harmless.
 	z := zetaAbove2(1 + t)
-	return math.Ldexp(dd.Mul(dd.MulF(m, sn), z).Float(), e)
+	return math.Ldexp(dd.Mul(dd.Mul(m, sn), z).Float(), e)
 }
 
 // HurwitzZeta returns the Hurwitz zeta function ζ(s, q) = Σ_{k>=0} (k+q)^-s

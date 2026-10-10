@@ -137,27 +137,27 @@ func TestExp(t *testing.T) {
 	}
 }
 
-func TestExpMantPrecise(t *testing.T) {
+func TestExpMant(t *testing.T) {
 	worst := 0.0
 	for i := 0; i < 2000; i++ {
 		hi := -700 + 1400*float64(i)/2000 + 1e-4*float64(i%13)
 		a := DD{hi, hi * 0x1p-58 * float64(i%5-2)}
 		a = AddF(a, 0)
-		m, k := ExpMantPrecise(a)
+		m, k := ExpMant(a)
 		got := new(big.Float).SetPrec(400).SetMantExp(bf(m), k)
 		want := bigExp(bf(a))
 		d := new(big.Float).SetPrec(400).Sub(got, want)
 		r, _ := new(big.Float).Quo(d, want).Float64()
 		worst = math.Max(worst, math.Abs(r))
 	}
-	t.Logf("ExpMantPrecise worst relative error 2^%.1f", math.Log2(worst))
+	t.Logf("ExpMant worst relative error 2^%.1f", math.Log2(worst))
 	if worst > 0x1p-95 {
-		t.Errorf("ExpMantPrecise relative error %g", worst)
+		t.Errorf("ExpMant relative error %g", worst)
 	}
 	for _, x := range []float64{math.NaN(), 2e7, -2e7} {
-		m, _ := ExpMantPrecise(DD{x, 0})
+		m, _ := ExpMant(DD{x, 0})
 		if !(m.Hi != m.Hi || math.IsInf(m.Hi, 1) || m.Hi == 0) {
-			t.Errorf("ExpMantPrecise(%v) = %v", x, m)
+			t.Errorf("ExpMant(%v) = %v", x, m)
 		}
 	}
 }
