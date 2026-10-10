@@ -66,7 +66,7 @@ def jv_mp(v, x):
     if math.isnan(v) or math.isnan(x):
         return math.nan
     if math.isinf(v):
-        if v > 0 and math.isfinite(x) and (x >= 0 or True):
+        if v > 0 and math.isfinite(x) and x >= 0:
             return 0.0
         return math.nan
     if x < 0 and not isint(v):
@@ -374,6 +374,21 @@ def two_arg_cases(name, kind, integer=False):
     return c
 
 
+def jn_zero_mp(n, k):
+    return mp.besseljzero(int(n), int(k))
+
+
+def jn_zeros_cases():
+    c = []
+    for n in range(0, 11):
+        for k in range(1, 51):
+            c.append(("n <= 10, k <= 50", (float(n), float(k))))
+    for n in (20, 35, 50, 75, 100, 200, 500):
+        for k in range(1, 21):
+            c.append(("n >= 20, k <= 20", (float(n), float(k))))
+    return c
+
+
 def _sp():
     import scipy.special as sc
     return sc
@@ -403,6 +418,9 @@ def fixtures():
         "kv": lambda: (2, two_arg_cases("kv", "K"), kv_any, sc.kv, "K_v(x)"),
         "ive": lambda: (2, two_arg_cases("ive", "Ie"), ive_any, sc.ive, "I_v(x) e^-|x|"),
         "kve": lambda: (2, two_arg_cases("kve", "Ke"), kve_any, sc.kve, "K_v(x) e^x"),
+        "jn_zeros": lambda: (2, jn_zeros_cases(), jn_zero_mp,
+                             lambda n, k: sc.jn_zeros(int(n), int(k))[-1],
+                             "k-th positive zero of J_n, (n, k) = args"),
     }
 
 
@@ -417,7 +435,7 @@ class _Lazy(dict):
 
 
 FIXTURES = _Lazy(["j0", "j1", "y0", "y1", "i0", "i1", "k0", "k1", "i0e", "i1e", "k0e", "k1e",
-                  "jv", "yv", "jn", "yn", "iv", "kv", "ive", "kve"])
+                  "jv", "yv", "jn", "yn", "iv", "kv", "ive", "kve", "jn_zeros"])
 
 
 # ------------------------------------------------------------- tables (Go)

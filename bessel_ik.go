@@ -22,7 +22,7 @@ func besselTemmeIK(u, x float64) (ku, ku1 float64) {
 	g1, g2 := besselRGammaPair(u)
 	rgp := g2 - u*g1 // 1/Gamma(1+u)
 	rgm := g2 + u*g1 // 1/Gamma(1-u)
-	a := math.Log(x / 2)
+	a := besselLogHalf(x)
 	b := besselPowHalf(x, u)
 	sigma := -a * u
 	c := 1.0
@@ -63,62 +63,61 @@ var besselInv2PiDD = dd.DD{Hi: 0.15915494309189535, Lo: -9.839338337591243e-18}
 // besselCF1IK evaluates I_{v+1}/I_v by its continued fraction (A&S 9.1.73
 // adapted) with the modified Lentz method.
 func besselCF1IK(v, x float64) dd.DD {
-	const tiny = 0x1p-511
-	C, f := tiny, tiny
-	D := 0.0
-	for k := 1; k < besselMaxIter; k++ {
+	C, D := 0x1p-511, 0.0
+	k := 1
+	for ; k < besselMaxIter; k++ {
 		b := 2 * (v + float64(k)) / x
 		C = b + 1/C
-		D = b + D
-		if D == 0 {
-			D = tiny
-		}
-		D = 1 / D
-		delta := C * D
-		f *= delta
-		if math.Abs(delta-1) <= 0x1p-52 {
-			return besselCF1Tail(v, x, 2*k+20, 1)
+		D = 1 / (b + D)
+		if math.Abs(C*D-1) <= 0x1p-52 {
+			break
 		}
 	}
-	return dd.F(f)
+	return besselCF1Tail(v, x, 2*k+20, 1)
 }
 
 // besselCF2IK returns K_u(x) e^x and K_{u+1}(x) e^x for x > 1 by Steed's
 // algorithm for the continued fraction of U(u+1/2, 2u+1, 2x) (Thompson and
 // Barnett 1986; Boost CF2_ik).
 func besselCF2IK(u, x float64) (ku, ku1 float64) {
-	a := u*u - 0.25
-	b := 2 * (x + 1)
-	D := 1 / b
+	// The recurrences in double-double: the float64 version of this sum
+	// costs several ulps (the sum S of Steed's algorithm accumulates one
+	// rounding per term).
+	a := dd.AddF(dd.MulFF(u, u), -0.25)
+	b := dd.F(2 * (x + 1))
+	D := dd.Div(dd.F(1), b)
 	f, delta := D, D
-	prev, cur := 0.0, 1.0
-	C := -a
+	prev, cur := dd.F(0), dd.F(1)
+	C := dd.Neg(a)
 	Q := C
-	S := 1 + Q*delta
+	S := dd.Add(dd.F(1), dd.Mul(Q, delta))
 	for k := 2; k < besselMaxIter; k++ {
-		a -= 2 * float64(k-1)
-		b += 2
-		D = 1 / (b + a*D)
-		delta *= b*D - 1
-		f += delta
-		q := (prev - (b-2)*cur) / a
+		a = dd.AddF(a, -2*float64(k-1))
+		b = dd.AddF(b, 2)
+		D = dd.Div(dd.F(1), dd.Add(b, dd.Mul(a, D)))
+		delta = dd.Mul(delta, dd.AddF(dd.Mul(b, D), -1))
+		f = dd.Add(f, delta)
+		q := dd.Div(dd.Sub(prev, dd.Mul(dd.AddF(b, -2), cur)), a)
 		prev, cur = cur, q
-		C *= -a / float64(k)
-		Q += C * q
-		S += Q * delta
-		if q < 0x1p-52 {
-			C *= q
-			prev /= q
-			cur /= q
+		C = dd.DivF(dd.Mul(C, dd.Neg(a)), float64(k))
+		Q = dd.Add(Q, dd.Mul(C, q))
+		S = dd.Add(S, dd.Mul(Q, delta))
+		if q.Hi < 0x1p-52 { // rescale (Boost): C, prev, cur by q
+			C = dd.Mul(C, q)
+			prev = dd.Div(prev, q)
+			cur = dd.Div(cur, q)
 		}
-		if math.Abs(Q*delta) < math.Abs(S)*0x1p-53 {
+		if math.Abs(Q.Hi*delta.Hi) < math.Abs(S.Hi)*0x1p-106 {
 			break
 		}
 	}
-	ku = math.Sqrt(math.Pi/(2*x)) / S
-	ku1 = ku * (0.5 + u + x + (u*u-0.25)*f) / x
-	return ku, ku1
+	k := dd.Div(dd.Sqrt(dd.DivF(besselPiOver2DD, x)), S)
+	t := dd.AddF(dd.Add(dd.Mul(a0(u), f), dd.F(0.5+u)), x)
+	return k.Float(), dd.DivF(dd.Mul(k, t), x).Float()
 }
+
+// a0 returns u^2 - 1/4 as a double-double.
+func a0(u float64) dd.DD { return dd.AddF(dd.MulFF(u, u), -0.25) }
 
 // besselAsymIK returns I_v(x) e^-x (which = 'I') or K_v(x) e^x by the
 // large-x expansions DLMF 10.40.1-2, with ok false when the terms do not
@@ -392,7 +391,7 @@ func besselK0Small(x float64) float64 {
 	const Y = 1.137250900268554688
 	a := x * x / 4
 	a = (besselRational(besselK0P1[:], besselK0Q1[:], a)+Y)*a + 1
-	return besselPoly(besselK0P2[:], x*x) - math.Log(x)*a
+	return besselPoly(besselK0P2[:], x*x) - besselLog(x)*a
 }
 
 // besselK0Large is K0(x) e^x sqrt(x) for x > 1.
@@ -462,7 +461,7 @@ func besselK1Small(x float64) float64 {
 	const Y = 8.69547128677368164e-02
 	a := x * x / 4
 	a = ((besselRational(besselK1P1[:], besselK1Q1[:], a)+Y)*a*a + a/2 + 1) * x / 2
-	return besselRational(besselK1P2[:], besselK1Q2[:], x*x)*x + 1/x + math.Log(x)*a
+	return besselRational(besselK1P2[:], besselK1Q2[:], x*x)*x + 1/x + besselLog(x)*a
 }
 
 // besselK1Large is K1(x) e^x sqrt(x) for x > 1.

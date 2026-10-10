@@ -86,9 +86,6 @@ func besselReduce(x float64) (q int, f dd.DD) {
 		w[0], w[1], w[2], w[3] = w[1], w[2], w[3], 0
 		sh += 64
 	}
-	if w[0] == 0 {
-		return q, dd.DD{}
-	}
 	lz := uint(bits.LeadingZeros64(w[0]))
 	if lz > 0 {
 		w[0] = w[0]<<lz | w[1]>>(64-lz)

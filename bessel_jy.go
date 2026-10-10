@@ -78,7 +78,7 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 	rgm := g2 + u*g1 // 1/Gamma(1-u)
 	spv2 := sinPi(u / 2)
 	xp := besselPowHalf(x, u)
-	a := math.Log(x / 2)
+	a := besselLogHalf(x)
 	sigma := -a * u
 	d := 1.0
 	if math.Abs(sigma) >= 0x1p-52 {
@@ -123,34 +123,26 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 // 9.1.73) by the modified Lentz method (W. J. Lentz, Applied Optics 15,
 // 1976); s is the sign of J_v relative to the starting value.
 func besselCF1JY(v, x float64) (fv dd.DD, s int) {
-	const tiny = 0x1p-511
-	C, f := tiny, tiny
-	D := 0.0
+	// Lentz's iteration finds the depth k at which the fraction has
+	// converged and the sign; the value is then re-evaluated from that
+	// depth (doubled) backwards in double-double by besselCF1Tail, which
+	// rounds once per level instead of accumulating one rounding per level
+	// in a running product.
+	C, D := 0x1p-511, 0.0
 	s = 1
-	for k := 1; k < besselMaxIter; k++ {
+	k := 1
+	for ; k < besselMaxIter; k++ {
 		b := 2 * (v + float64(k)) / x
 		C = b - 1/C
-		D = b - D
-		if C == 0 {
-			C = tiny
-		}
-		if D == 0 {
-			D = tiny
-		}
-		D = 1 / D
-		delta := C * D
-		f *= delta
+		D = 1 / (b - D)
 		if D < 0 {
 			s = -s
 		}
-		if math.Abs(delta-1) < 0x1p-52 {
-			// Re-evaluate the converged fraction from its tail: the
-			// backward evaluation rounds once per level instead of
-			// accumulating one rounding per level in the product f.
-			return besselCF1Tail(v, x, 2*k+20, -1), s
+		if math.Abs(C*D-1) < 0x1p-52 {
+			break
 		}
 	}
-	return dd.F(-f), s
+	return besselCF1Tail(v, x, 2*k+20, -1), s
 }
 
 // besselCF1Tail evaluates 1/(b_1 + sg/(b_2 + sg/(b_3 + ...))) with
@@ -169,11 +161,7 @@ func besselCF1Tail(v, x float64, n int, sg float64) dd.DD {
 	for j := n; j >= 1; j-- {
 		h, l := dd.TwoSum(v, float64(j))
 		b := dd.DivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
-		den := dd.Add(b, dd.MulF(r, sg))
-		if den.Hi == 0 {
-			den = dd.F(0x1p-511)
-		}
-		r = dd.Div(dd.F(1), den)
+		r = dd.Div(dd.F(1), dd.Add(b, dd.MulF(r, sg)))
 	}
 	return r
 }
@@ -182,7 +170,8 @@ func besselCF1Tail(v, x float64, n int, sg float64) dd.DD {
 // the complex continued fraction of Steed's method (A. R. Barnett et al.,
 // Comput. Phys. Commun. 8, 1974; Boost CF2_jy), in real arithmetic.
 func besselCF2JY(v, x float64) (p, q dd.DD) {
-	const tiny = 0x1p-511
+	// Lentz's iteration in float64 to find the depth of convergence, then
+	// the double-double evaluation from (four times) that depth.
 	fr, fi := -0.5/x, 1.0
 	Cr, Ci := fr, fi
 	v2 := v * v
@@ -192,18 +181,8 @@ func besselCF2JY(v, x float64) (p, q dd.DD) {
 	Ci = bi + a*Cr/temp
 	Cr = br + a/temp
 	Dr, Di := br, bi
-	if math.Abs(Cr)+math.Abs(Ci) < tiny {
-		Cr = tiny
-	}
-	temp = Dr*Dr + Di*Di
-	Dr = Dr / temp
-	Di = -Di / temp
-	dr := Cr*Dr - Ci*Di
-	di := Ci*Dr + Cr*Di
-	temp = fr
-	fr = temp*dr - fi*di
-	fi = temp*di + fi*dr
-	for k := 2; k < besselMaxIter; k++ {
+	k := 2
+	for ; k < besselMaxIter; k++ {
 		a = float64(k) - 0.5
 		a = a*a - v2
 		bi += 2
@@ -212,34 +191,22 @@ func besselCF2JY(v, x float64) (p, q dd.DD) {
 		Ci = bi - a*Ci/temp
 		Dr = br + a*Dr
 		Di = bi + a*Di
-		if math.Abs(Cr)+math.Abs(Ci) < tiny {
-			Cr = tiny
-		}
-		if math.Abs(Dr)+math.Abs(Di) < tiny {
-			Dr = tiny
-		}
 		temp = Dr*Dr + Di*Di
 		Dr = Dr / temp
 		Di = -Di / temp
-		dr = Cr*Dr - Ci*Di
-		di = Ci*Dr + Cr*Di
-		temp = fr
-		fr = temp*dr - fi*di
-		fi = temp*di + fi*dr
+		dr := Cr*Dr - Ci*Di
+		di := Ci*Dr + Cr*Di
 		if math.Abs(dr-1)+math.Abs(di) < 0x1p-52 {
-			return besselCF2Tail(v, x, 4*k+40)
+			break
 		}
 	}
-	return dd.F(fr), dd.F(fi)
+	return besselCF2Tail(v, x, 4*k+40)
 }
 
 // besselCF2Tail evaluates the fraction of besselCF2JY from level n down in
 // double-double complex arithmetic: p + iq = -1/(2x) + i + (i/x) T with
 // T = a_1/(b_1 + a_2/(b_2 + ...)), a_k = (k-1/2)^2 - v^2, b_k = 2(x + ik).
 func besselCF2Tail(v, x float64, n int) (p, q dd.DD) {
-	if n > 100000 {
-		n = 100000
-	}
 	v2 := dd.MulFF(v, v)
 	var tr, ti dd.DD
 	for k := n; k >= 1; k-- {
@@ -266,19 +233,22 @@ func besselSeries(v, x, sg float64, scaled bool) (m float64, e int) {
 	if scaled {
 		L = dd.AddF(L, -x)
 	}
-	q := sg * x * x / 4
-	t, s := 1.0, 0.0 // terms after the first, added to 1 once at the end
+	// terms and sum in double-double: for I the terms may grow a long way
+	// before they fall, and one rounding per term would add up
+	q := dd.MulF(dd.MulFF(x, x), sg/4)
+	t, s := dd.F(1), dd.F(1)
 	for k := 1; k < 100000; k++ {
 		fk := float64(k)
-		t *= q / (fk * (fk + v))
-		s += t
-		if math.Abs(t) <= 0x1p-56*math.Abs(1+s) {
+		h, l := dd.TwoSum(fk, v)
+		t = dd.Div(dd.Mul(t, q), dd.MulF(dd.DD{Hi: h, Lo: l}, fk))
+		s = dd.Add(s, t)
+		if math.Abs(t.Hi) <= 0x1p-60*math.Abs(s.Hi) {
 			break
 		}
 	}
 	k := math.Floor(L.Hi / dd.Ln2Hi)
 	r := dd.Sub(L, dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
-	return gs * dd.MulF(dd.AddF(dd.F(1), s), dd.Exp(r)).Float(), int(k)
+	return gs * dd.MulF(s, dd.Exp(r)).Float(), int(k)
 }
 
 // besselJSeries returns J_v(x) by its power series (see besselSeries).
@@ -375,17 +345,25 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 	}
 	if v > besselMaxOrder {
 		// Only the series is available this far out.
-		if math.Log(x*x/4/v) < -1 {
+		if 2*besselLogHalf(x)-besselLog(v) < -1 {
 			return besselJSeries(v, x), math.Inf(-1)
 		}
 		return math.NaN(), math.NaN()
+	}
+	if needY && x < 1 && v >= 1 && LogGamma(v)+v*math.Log(2/x)-math.Log(math.Pi) > 710.5 {
+		// |Y_v(x)| ~ Gamma(v) (2/x)^v / pi overflows (DLMF 10.7.4).
+		J = math.NaN()
+		if needJ {
+			J = besselJSeries(v, x)
+		}
+		return J, math.Inf(-1)
 	}
 	n := int(math.Floor(v + 0.5))
 	u := v - float64(n) // -1/2 <= u < 1/2
 	// The two power series of Y (besselYSeries) where the second, of
 	// relative size (x/2)^(2v) cot(v pi), is negligible or nearly so;
 	// Temme's sum loses accuracy there through exp(+-u log(x/2)).
-	if (x < 1 && u != 0 && 2*v*math.Log(x/2)+math.Log1p(math.Abs(cosPi(v)/sinPi(v))) < -10) || x < 0x1p-900 {
+	if (x < 1 && u != 0 && 2*v*besselLogHalf(x)+math.Log1p(math.Abs(cosPi(v)/sinPi(v))) < -10) || x < 0x1p-900 {
 		J = math.NaN()
 		if needJ {
 			J = besselJSeries(v, x)
@@ -454,17 +432,18 @@ func besselSteed(nu, x float64, fv dd.DD) (j, gamma, p, q dd.DD) {
 // besselRecur runs the three-term recurrence
 // f_{k+1} = 2(u+k)/x f_k + sg f_{k-1} (sg = -1 for J and Y, +1 for K)
 // upwards from f_u = a, f_{u+1} = b to f_{u+n}, f_{u+n+1}, in double-double;
-// the values are kept below 2^600 by exact power-of-two rescaling and the
+// the values are kept in range by exact power-of-two rescaling and the
 // result is (fn * 2^e, fn1 * 2^e).
 func besselRecur(u, x float64, n int, a, b dd.DD, sg float64) (fn, fn1 dd.DD, e int) {
 	for k := 1; k <= n; k++ {
 		h, l := dd.TwoSum(u, float64(k))
 		f := dd.DivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
-		a, b = b, dd.Add(dd.Mul(f, b), dd.MulF(a, sg))
-		if m := math.Abs(b.Hi); m > 0x1p600 {
-			a, b = besselScaleDD(a, -600), besselScaleDD(b, -600)
-			e += 600
+		if math.Abs(b.Hi)*f.Hi > 0x1p1000 || math.Abs(a.Hi) > 0x1p1000 {
+			ex := math.Ilogb(b.Hi)
+			a, b = besselScaleDD(a, -ex), besselScaleDD(b, -ex)
+			e += ex
 		}
+		a, b = b, dd.Add(dd.Mul(f, b), dd.MulF(a, sg))
 	}
 	return a, b, e
 }
@@ -476,15 +455,12 @@ func besselRecurDown(u, x float64, n int, a, b dd.DD) (ju1, ju dd.DD, e int) {
 	for k := n; k >= 1; k-- {
 		h, l := dd.TwoSum(u, float64(k))
 		f := dd.DivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
-		next := dd.Sub(dd.Mul(f, b), a)
-		if next.Hi == 0 {
-			next = dd.MulF(a, 0x1p-106) // pretend one bit survived (Boost)
+		if math.Abs(b.Hi)*f.Hi > 0x1p1000 || math.Abs(a.Hi) > 0x1p1000 {
+			ex := math.Ilogb(b.Hi)
+			a, b = besselScaleDD(a, -ex), besselScaleDD(b, -ex)
+			e += ex
 		}
-		a, b = b, next
-		if m := math.Abs(b.Hi); m > 0x1p600 {
-			a, b = besselScaleDD(a, -600), besselScaleDD(b, -600)
-			e += 600
-		}
+		a, b = b, dd.Sub(dd.Mul(f, b), a)
 	}
 	return a, b, e
 }
@@ -705,3 +681,12 @@ func besselPowHalf(x, u float64) float64 {
 // of the power series of J, where the series is used: the alternating sum
 // then cancels by less than a factor 2.
 const besselJSeriesRatio = 0.02
+
+// besselLog returns log(x) for x > 0 through dd.Log, which normalises
+// subnormal arguments (math.Log on amd64 does not).
+func besselLog(x float64) float64 { return dd.Log(x).Hi }
+
+// besselLogHalf returns log(x/2) for x > 0, exact in x (x/2 may round).
+func besselLogHalf(x float64) float64 {
+	return dd.Sub(dd.Log(x), dd.DD{Hi: dd.Ln2Hi, Lo: dd.Ln2Lo}).Float()
+}

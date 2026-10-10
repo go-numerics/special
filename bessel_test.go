@@ -32,3 +32,10 @@ func init() {
 	register("jn", func(a []float64) float64 { return Jn(int(a[0]), a[1]) }, B)
 	register("yn", func(a []float64) float64 { return Yn(int(a[0]), a[1]) }, B)
 }
+
+func init() {
+	register("jn_zeros", func(a []float64) float64 {
+		z := JnZeros(int(a[0]), int(a[1]))
+		return z[len(z)-1]
+	}, map[string]float64{"*": 1e300})
+}

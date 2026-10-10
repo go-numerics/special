@@ -104,27 +104,8 @@ func besselPointTaylor(tab [][6]float64, n2, x float64, singular bool) float64 {
 
 // besselRational evaluates (p[0] + p[1] z + ...)/(q[0] + q[1] z + ...)
 // (coefficients in ascending order, as in Boost's evaluate_rational).
-// For |z| > 1 both polynomials are evaluated in 1/z from the other end,
-// as Boost does (same degree here, so the powers of z cancel).
 func besselRational(p, q []float64, z float64) float64 {
-	n, d := 0.0, 0.0
-	if math.Abs(z) <= 1 || len(p) != len(q) {
-		for i := len(p) - 1; i >= 0; i-- {
-			n = n*z + p[i]
-		}
-		for i := len(q) - 1; i >= 0; i-- {
-			d = d*z + q[i]
-		}
-		return n / d
-	}
-	w := 1 / z
-	for i := 0; i < len(p); i++ {
-		n = n*w + p[i]
-	}
-	for i := 0; i < len(q); i++ {
-		d = d*w + q[i]
-	}
-	return n / d
+	return besselPoly(p, z) / besselPoly(q, z)
 }
 
 // besselPoly evaluates p[0] + p[1] z + ... (ascending order).
