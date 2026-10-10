@@ -267,18 +267,18 @@ func besselSeries(v, x, sg float64, scaled bool) (m float64, e int) {
 		L = dd.AddF(L, -x)
 	}
 	q := sg * x * x / 4
-	t, s := 1.0, 1.0
+	t, s := 1.0, 0.0 // terms after the first, added to 1 once at the end
 	for k := 1; k < 100000; k++ {
 		fk := float64(k)
 		t *= q / (fk * (fk + v))
 		s += t
-		if math.Abs(t) <= 0x1p-56*math.Abs(s) {
+		if math.Abs(t) <= 0x1p-56*math.Abs(1+s) {
 			break
 		}
 	}
 	k := math.Floor(L.Hi / dd.Ln2Hi)
 	r := dd.Sub(L, dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
-	return gs * dd.Exp(r) * s, int(k)
+	return gs * dd.MulF(dd.AddF(dd.F(1), s), dd.Exp(r)).Float(), int(k)
 }
 
 // besselJSeries returns J_v(x) by its power series (see besselSeries).
@@ -313,8 +313,13 @@ func besselExpMul(L dd.DD, s float64) float64 {
 // besselLdexpExp returns m * 2^e * e^t without intermediate overflow or
 // underflow, e^t reduced in double-double.
 func besselLdexpExp(m float64, e int, t float64) float64 {
-	if m == 0 || math.IsNaN(m) || math.IsInf(m, 0) {
+	switch {
+	case m == 0 || math.IsNaN(m) || math.IsInf(m, 0):
 		return m
+	case t > 1e5: // overflows whatever m and e are (|e| stays far below)
+		return math.Copysign(math.Inf(1), m)
+	case t < -1e5:
+		return math.Copysign(0, m)
 	}
 	k := math.Floor(t / dd.Ln2Hi)
 	r := dd.Sub(dd.F(t), dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
@@ -329,21 +334,22 @@ func besselLdexpExp(m float64, e int, t float64) float64 {
 func besselYSeries(v, x float64) float64 {
 	L, _ := besselLogPowGamma(v, x)
 	m := -x * x / 4
-	ta, sa := 1.0, 1.0
-	tb, sb := 1.0, 1.0
+	ta, sa := 1.0, 0.0 // tails after the leading 1, added once at the end
+	tb, sb := 1.0, 0.0
 	for k := 1; k < 1000; k++ {
 		fk := float64(k)
 		ta *= m / (fk * (fk - v))
 		tb *= m / (fk * (fk + v))
 		sa += ta
 		sb += tb
-		if math.Abs(ta) <= 0x1p-54*math.Abs(sa) && math.Abs(tb) <= 0x1p-54*math.Abs(sb) {
+		if math.Abs(ta) <= 0x1p-56*math.Abs(1+sa) && math.Abs(tb) <= 0x1p-56*math.Abs(1+sb) {
 			break
 		}
 		if ta == 0 && tb == 0 {
 			break
 		}
 	}
+	sa, sb = 1+sa, 1+sb
 	// -Gamma(v)/(pi (x/2)^v) sa + (x/2)^v/Gamma(v+1) cot(v pi) sb
 	first := -besselExpMul(dd.Neg(L), sa/(math.Pi*v))
 	second := 0.0

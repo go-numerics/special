@@ -134,7 +134,9 @@ func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
 	if math.Abs(mu-1) > 4*x { // first term above 1/2: the sum would cancel
 		return 0, false
 	}
-	t, s := 1.0, 1.0
+	// the terms after the first are summed apart and added to 1 once: one
+	// rounding instead of one per term
+	t, s := 1.0, 0.0
 	prev := math.Inf(1)
 	for k := 1; k < 200; k++ {
 		o := float64(2*k - 1)
@@ -147,7 +149,11 @@ func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
 			if which == 'K' {
 				c = besselPiOver2DD
 			}
-			return dd.MulF(dd.Sqrt(dd.DivF(c, x)), s).Float(), true
+			xs, sc := x, 1.0
+			if x > 0x1p1000 { // keep c/x normal
+				xs, sc = x*0x1p-200, 0x1p-100
+			}
+			return dd.Mul(dd.Sqrt(dd.DivF(c, xs)), dd.AddF(dd.F(1), s)).Float() * sc, true
 		}
 		if at > prev {
 			break
@@ -261,10 +267,10 @@ func I0(x float64) float64 {
 }
 
 // besselI0eLarge is I0(x) e^-x for x >= 7.75: Boost's minimax polynomial in
-// 1/x up to 30, the asymptotic series DLMF 10.40.1 (summed to below 2^-64,
+// 1/x up to 20, the asymptotic series DLMF 10.40.1 (summed to below 2^-64,
 // prefactor in double-double) beyond.
 func besselI0eLarge(x float64) float64 {
-	if x >= 30 {
+	if x > 20 {
 		if r, ok := besselAsymIK(0, x, 'I'); ok {
 			return r
 		}
@@ -281,20 +287,29 @@ func I0e(x float64) float64 {
 	case math.IsInf(x, 1):
 		return 0
 	case x < 7.75:
-		return besselI0Small(x) * math.Exp(-x)
+		return besselLdexpExp(besselI0Small(x), 0, -x)
 	}
 	return besselI0eLarge(x)
 }
 
 // Boost.Math bessel_i0.hpp (53-bit branch) coefficients.
 var (
-	besselI0Ps = [...]float64{1.00000000000000000e+00, 2.49999999999999909e-01, 2.77777777777782257e-02, 1.73611111111023792e-03, 6.94444444453352521e-05, 1.92901234513219920e-06, 3.93675991102510739e-08, 6.15118672704439289e-10, 7.59407002058973446e-12, 7.59389793369836367e-14, 6.27767773636292611e-16, 4.34709704153272287e-18, 2.63417742690109154e-20, 1.13943037744822825e-22, 9.07926920085624812e-25}
 	besselI0Pm = [...]float64{3.98942280401425088e-01, 4.98677850604961985e-02, 2.80506233928312623e-02, 2.92211225166047873e-02, 4.44207299493659561e-02, 1.30970574605856719e-01, -3.35052280231727022e+00, 2.33025711583514727e+02, -1.13366350697172355e+04, 4.24057674317867331e+05, -1.23157028595698731e+07, 2.80231938155267516e+08, -5.01883999713777929e+09, 7.08029243015109113e+10, -7.84261082124811106e+11, 6.76825737854096565e+12, -4.49034849696138065e+13, 2.24155239966958995e+14, -8.13426467865659318e+14, 2.02391097391687777e+15, -3.08675715295370878e+15, 2.17587543863819074e+15}
 )
 
 func besselI0Small(x float64) float64 {
-	a := x * x / 4
-	return a*besselPoly(besselI0Ps[:], a) + 1
+	// sum (x^2/4)^k / (k!)^2 (DLMF 10.25.2) in double-double: all terms
+	// are positive, so the sum is as accurate as its terms.
+	q := dd.MulF(dd.MulFF(x, x), 0.25)
+	t, s := dd.F(1), dd.F(1)
+	for k := 1; k < 60; k++ {
+		t = dd.DivF(dd.Mul(t, q), float64(k*k))
+		s = dd.Add(s, t)
+		if t.Hi < 0x1p-60*s.Hi {
+			break
+		}
+	}
+	return s.Float()
 }
 
 // I1 returns the modified Bessel function of the first kind of order one,
@@ -319,7 +334,7 @@ func I1(x float64) float64 {
 
 // besselI1eLarge is I1(x) e^-x for x >= 7.75 (as besselI0eLarge).
 func besselI1eLarge(x float64) float64 {
-	if x >= 30 {
+	if x > 20 {
 		if r, ok := besselAsymIK(1, x, 'I'); ok {
 			return r
 		}
@@ -339,21 +354,28 @@ func I1e(x float64) float64 {
 	case math.IsInf(x, 1):
 		return sign * 0
 	case x < 7.75:
-		return sign * besselI1Small(x) * math.Exp(-x)
+		return sign * besselLdexpExp(besselI1Small(x), 0, -x)
 	}
 	return sign * besselI1eLarge(x)
 }
 
 // Boost.Math bessel_i1.hpp (53-bit branch) coefficients.
 var (
-	besselI1Ps = [...]float64{8.333333333333333803e-02, 6.944444444444341983e-03, 3.472222222225921045e-04, 1.157407407354987232e-05, 2.755731926254790268e-07, 4.920949692800671435e-09, 6.834657311305621830e-11, 7.593969849687574339e-13, 6.904822652741917551e-15, 5.220157095351373194e-17, 3.410720494727771276e-19, 1.625212890947171108e-21, 1.332898928162290861e-23}
 	besselI1Pm = [...]float64{3.989422804014406054e-01, -1.496033551613111533e-01, -4.675104253598537322e-02, -4.090895951581637791e-02, -5.719036414430205390e-02, -1.528189554374492735e-01, 3.458284470977172076e+00, -2.426181371595021021e+02, 1.178785865993440669e+04, -4.404655582443487334e+05, 1.277677779341446497e+07, -2.903390398236656519e+08, 5.192386898222206474e+09, -7.313784438967834057e+10, 8.087824484994859552e+11, -6.967602516005787001e+12, 4.614040809616582764e+13, -2.298849639457172489e+14, 8.325554073334618015e+14, -2.067285045778906105e+15, 3.146401654361325073e+15, -2.213318202179221945e+15}
 )
 
 func besselI1Small(x float64) float64 {
-	a := x * x / 4
-	q := [3]float64{1, 0.5, besselPoly(besselI1Ps[:], a)}
-	return x * besselPoly(q[:], a) / 2
+	// (x/2) sum (x^2/4)^k / (k! (k+1)!) in double-double
+	q := dd.MulF(dd.MulFF(x, x), 0.25)
+	t, s := dd.F(1), dd.F(1)
+	for k := 1; k < 60; k++ {
+		t = dd.DivF(dd.Mul(t, q), float64(k*(k+1)))
+		s = dd.Add(s, t)
+		if t.Hi < 0x1p-60*s.Hi {
+			break
+		}
+	}
+	return dd.MulF(s, x/2).Float()
 }
 
 // Boost.Math bessel_k0.hpp (53-bit branch) coefficients.
@@ -378,6 +400,17 @@ func besselK0Large(x float64) float64 {
 	return besselRational(besselK0P3[:], besselK0Q3[:], 1/x) + 1
 }
 
+// besselK0e is K0(x) e^x for x > 1: Boost's rational approximation up to
+// 20, the asymptotic series DLMF 10.40.2 beyond.
+func besselK0e(x float64) float64 {
+	if x > 20 {
+		if r, ok := besselAsymIK(0, x, 'K'); ok {
+			return r
+		}
+	}
+	return besselK0Large(x) / math.Sqrt(x)
+}
+
 // K0 returns the modified Bessel function of the second kind of order
 // zero, K0(x) = integral_0^Inf cos(x sinh t) dt, for x > 0. K0(0) = +Inf,
 // K0(+Inf) = 0, K0(x < 0) = NaN, K0(NaN) = NaN; underflows to 0 beyond
@@ -391,10 +424,12 @@ func K0(x float64) float64 {
 		return math.NaN()
 	case x == 0:
 		return math.Inf(1)
+	case math.IsInf(x, 1):
+		return 0
 	case x <= 1:
 		return besselK0Small(x)
 	}
-	return besselLdexpExp(besselK0Large(x)/math.Sqrt(x), 0, -x)
+	return besselLdexpExp(besselK0e(x), 0, -x)
 }
 
 // K0e returns K0(x) e^x for x > 0 (NaN for x < 0, +Inf at 0, 0 at +Inf).
@@ -404,10 +439,12 @@ func K0e(x float64) float64 {
 		return math.NaN()
 	case x == 0:
 		return math.Inf(1)
+	case math.IsInf(x, 1):
+		return 0
 	case x <= 1:
-		return besselK0Small(x) * math.Exp(x)
+		return besselLdexpExp(besselK0Small(x), 0, x)
 	}
-	return besselK0Large(x) / math.Sqrt(x)
+	return besselK0e(x)
 }
 
 // Boost.Math bessel_k1.hpp (53-bit branch) coefficients.
@@ -433,6 +470,16 @@ func besselK1Large(x float64) float64 {
 	return besselRational(besselK1P3[:], besselK1Q3[:], 1/x) + 1.45034217834472656
 }
 
+// besselK1e is K1(x) e^x for x > 1 (as besselK0e).
+func besselK1e(x float64) float64 {
+	if x > 20 {
+		if r, ok := besselAsymIK(1, x, 'K'); ok {
+			return r
+		}
+	}
+	return besselK1Large(x) / math.Sqrt(x)
+}
+
 // K1 returns the modified Bessel function of the second kind of order one
 // for x > 0. K1(0) = +Inf, K1(+Inf) = 0, K1(x < 0) = NaN, K1(NaN) = NaN;
 // overflows to +Inf for x below about 5.6e-309 and underflows beyond ~745.
@@ -445,10 +492,12 @@ func K1(x float64) float64 {
 		return math.NaN()
 	case x == 0:
 		return math.Inf(1)
+	case math.IsInf(x, 1):
+		return 0
 	case x <= 1:
 		return besselK1Small(x)
 	}
-	return besselLdexpExp(besselK1Large(x)/math.Sqrt(x), 0, -x)
+	return besselLdexpExp(besselK1e(x), 0, -x)
 }
 
 // K1e returns K1(x) e^x for x > 0 (NaN for x < 0, +Inf at 0, 0 at +Inf).
@@ -458,10 +507,12 @@ func K1e(x float64) float64 {
 		return math.NaN()
 	case x == 0:
 		return math.Inf(1)
+	case math.IsInf(x, 1):
+		return 0
 	case x <= 1:
-		return besselK1Small(x) * math.Exp(x)
+		return besselLdexpExp(besselK1Small(x), 0, x)
 	}
-	return besselK1Large(x) / math.Sqrt(x)
+	return besselK1e(x)
 }
 
 // besselIvArgs handles the special values shared by Iv and Ive; done
