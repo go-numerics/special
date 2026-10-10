@@ -145,16 +145,17 @@ func Exp(a DD) float64 {
 // ExpMant returns m, k with exp(a) = m * 2^k, m in about [0.7, 1.42] as a
 // double-double (relative error about 2^-54.7, from math.Expm1), so that a
 // caller can multiply further factors in before the single final rounding.
-// For a.Hi > 710 it returns m = +Inf (or NaN for NaN); for a.Hi < -745.2,
-// m = 0.
+// k is not limited to the float64 exponent range: a scaled result may be
+// combined with others before math.Ldexp decides overflow or underflow.
+// For |a.Hi| > 1e7 it returns m = +Inf or m = 0 with k = 0 (NaN for NaN).
 func ExpMant(a DD) (m DD, k int) {
 	x := a.Hi
 	switch {
 	case x != x:
 		return DD{x, 0}, 0
-	case x > 710:
+	case x > 1e7:
 		return DD{math.Inf(1), 0}, 0
-	case x < -745.2:
+	case x < -1e7:
 		return DD{}, 0
 	}
 	kf := math.Floor(x/Ln2Hi + 0.5)

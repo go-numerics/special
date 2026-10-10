@@ -157,7 +157,17 @@ def erfcx_G(u):
         return x * mp.exp(x * x) * mp.erfc(x)
 
 
+def zeta_R(s):
+    # zeta(s) - 1/(s-1), entire
+    if s == 1:
+        return +mp.euler
+    with mp.workprec(mp.prec + 60):
+        return mp.zeta(s) - 1 / (s - 1)
+
+
 JOBS = {
+    "zetaPieces": ("zetaPieces: R(s) = ζ(s) - 1/(s-1) on [-1, 2] (entire: ζ's only pole removed).",
+                   zeta_R, [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]),
     "erfSmallPieces": ("erfSmallPieces: E(u) = erf(√u)/√u on [0, 1/4]; erf(x) = x E(x²) for |x| <= 1/2.",
                        erf_E, [0.0, 0.25]),
     "erfcxPieces": ("erfcxPieces: erfcx(x) = exp(x²) erfc(x) on [0.5, 8].",

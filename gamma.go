@@ -21,8 +21,12 @@ var piDD = dd.DD{Hi: piHi, Lo: piLo}
 // gammaMax is the largest x with Γ(x) finite in float64.
 const gammaMax = 171.62437695630272
 
-// factorials[n] = n! correctly rounded, n = 0..170.
-var factorials [171]float64
+// factorials[n] = n! correctly rounded, n = 0..170; factorialsDD[n] = n! as
+// a double-double (exact to about 2^-100).
+var (
+	factorials   [171]float64
+	factorialsDD [171]dd.DD
+)
 
 func init() {
 	// The products are formed in double-double and rounded once: every
@@ -32,9 +36,11 @@ func init() {
 	// region (checked against mpmath) would expose.
 	p := dd.F(1)
 	factorials[0] = 1
+	factorialsDD[0] = p
 	for k := 1; k <= 170; k++ {
 		p = dd.MulF(p, float64(k))
 		factorials[k] = p.Float()
+		factorialsDD[k] = p
 	}
 }
 

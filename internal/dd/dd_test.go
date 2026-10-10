@@ -154,7 +154,7 @@ func TestExpMantPrecise(t *testing.T) {
 	if worst > 0x1p-95 {
 		t.Errorf("ExpMantPrecise relative error %g", worst)
 	}
-	for _, x := range []float64{math.NaN(), 800, -800} {
+	for _, x := range []float64{math.NaN(), 2e7, -2e7} {
 		m, _ := ExpMantPrecise(DD{x, 0})
 		if !(m.Hi != m.Hi || math.IsInf(m.Hi, 1) || m.Hi == 0) {
 			t.Errorf("ExpMantPrecise(%v) = %v", x, m)
