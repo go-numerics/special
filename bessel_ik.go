@@ -720,10 +720,6 @@ func Kv(v, x float64) float64 {
 	}
 	v = math.Abs(v)
 	switch {
-	case v == 0 && false:
-		return K0e(x)
-	case v == 1 && false:
-		return K1e(x)
 	case v == 0:
 		return K0(x)
 	case v == 1:
@@ -742,14 +738,10 @@ func Kve(v, x float64) float64 {
 	}
 	v = math.Abs(v)
 	switch {
-	case v == 0 && true:
-		return K0e(x)
-	case v == 1 && true:
-		return K1e(x)
 	case v == 0:
-		return K0(x)
+		return K0e(x)
 	case v == 1:
-		return K1(x)
+		return K1e(x)
 	}
 	_, k := besselIK(v, x, false, true, true)
 	return k

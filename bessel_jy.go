@@ -240,6 +240,12 @@ func besselSeries(v, x, sg float64, scaled bool) (m float64, e int) {
 	if scaled {
 		L = dd.AddF(L, -x)
 	}
+	switch { // beyond any representable value (keeps int(k) small)
+	case L.Hi > 1e5:
+		return gs * math.Inf(1), 0
+	case L.Hi < -1e5:
+		return 0, 0
+	}
 	// terms and sum in double-double: for I the terms may grow a long way
 	// before they fall, and one rounding per term would add up
 	q := dd.MulF(dd.MulFF(x, x), sg/4)
@@ -271,9 +277,12 @@ func besselJSeries(v, x float64) float64 {
 func besselSeriesOK(v, x, ratio float64) bool {
 	m := v + 1
 	if v < 0 {
-		m = math.Inf(1)
-		for k := 1.0; k <= math.Ceil(-v)+1; k++ {
-			m = math.Min(m, math.Abs(k*(k+v)))
+		// |k (k+v)| over k >= 1 is least at k = 1 or next to k = -v
+		m = math.Abs(1 + v)
+		for _, k := range []float64{math.Floor(-v), math.Ceil(-v)} {
+			if k >= 1 {
+				m = math.Min(m, math.Abs(k*(k+v)))
+			}
 		}
 	}
 	return x*x/4 <= ratio*m
@@ -282,6 +291,13 @@ func besselSeriesOK(v, x, ratio float64) bool {
 // besselExpMul returns exp(L) * s, without spurious overflow or underflow
 // of exp(L) when the product is representable.
 func besselExpMul(L dd.DD, s float64) float64 {
+	// beyond any representable product (keeps int(k) small on 32-bit)
+	switch {
+	case L.Hi > 1e5:
+		return s * math.Inf(1)
+	case L.Hi < -1e5:
+		return s * 0
+	}
 	k := math.Floor(L.Hi / dd.Ln2Hi)
 	r := dd.Sub(L, dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
 	return math.Ldexp(dd.Exp(r)*s, int(k))

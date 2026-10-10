@@ -3,6 +3,8 @@ package special
 import (
 	"math"
 	"testing"
+
+	"github.com/go-numerics/special/internal/dd"
 )
 
 // Special values and the branches the accuracy fixtures do not reach.
@@ -130,6 +132,9 @@ func TestBesselHugeOrder(t *testing.T) {
 	if k := Kv(v, 1); !math.IsInf(k, 1) {
 		t.Errorf("Kv(2e7+0.5, 1) = %g", k)
 	}
+	if i := Iv(-v, 5000); !math.IsInf(i, 1) {
+		t.Errorf("Iv(-2e7-0.5, 5000) = %g, want +Inf", i)
+	}
 	if k := Kv(v, 1e7); !math.IsNaN(k) {
 		t.Errorf("Kv(2e7+0.5, 1e7) = %g, want NaN (not supported)", k)
 	}
@@ -144,6 +149,22 @@ func TestBesselNegativeOrderReflection(t *testing.T) {
 	const want = 463785078.28438944
 	if got := Iv(-20.3, 5); math.Abs(got-want) > 4*ulp(want) {
 		t.Errorf("Iv(-20.3, 5) = %.17g, want %.17g", got, want)
+	}
+}
+
+func TestBesselExponentClamp(t *testing.T) {
+	// log-prefixes beyond +-1e5 saturate before any int conversion
+	if m, e := besselSeries(9e6, 1e-300, 1, false); m != 0 || e != 0 {
+		t.Errorf("besselSeries underflow = %g, %d", m, e)
+	}
+	if m, _ := besselSeries(-9e6-0.5, 1e-300, 1, false); !math.IsInf(m, 0) {
+		t.Errorf("besselSeries overflow = %g", m)
+	}
+	if r := besselExpMul(dd.F(2e5), -1); !math.IsInf(r, -1) {
+		t.Errorf("besselExpMul(2e5) = %g", r)
+	}
+	if r := besselExpMul(dd.F(-2e5), 1); r != 0 {
+		t.Errorf("besselExpMul(-2e5) = %g", r)
 	}
 }
 
