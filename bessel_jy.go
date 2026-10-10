@@ -10,10 +10,17 @@ import (
 // Boost.Math bessel_jy.hpp (Xiaogang Zhang, John Maddock; Boost Software
 // License 1.0): Temme's series for Y near the origin, Steed's method with
 // the continued fractions CF1 and CF2 elsewhere, small-argument series where
-// they converge without cancellation. The large-argument branch is replaced
-// by besselAsymJY (modulus-phase, phase in double-double), and the Gamma
-// function ratios of Temme's method come from the Taylor series of 1/Gamma
-// rather than from Gamma itself.
+// they converge without cancellation. Differences, all for accuracy:
+//   - the continued fractions are re-evaluated backwards in double-double
+//     from the depth at which Lentz's iteration converged, and Steed's
+//     normalisation and the recurrences run in double-double;
+//   - Steed's method is applied at the order v itself when x >= v (no
+//     recurrence through the oscillatory region), and at negative orders
+//     directly (no reflection formula and its cancellation);
+//   - the large-argument branch is besselAsymJY (modulus-phase, phase in
+//     double-double), with a fallback to Steed's method next to a zero;
+//   - the Gamma function ratios of Temme's method come from the Taylor
+//     series of 1/Gamma, the series prefixes from double-double logarithms.
 
 // besselMaxIter bounds every continued fraction and series; CF1 needs
 // O(x) steps when x > v.
@@ -511,13 +518,18 @@ func besselIsInt(v float64) bool {
 // ±Inf (the sign of 1/Gamma(v+1)) for non-integer v < 0; Jv(v, +Inf) = 0;
 // Jv(+Inf, x) = 0 and Jv(-Inf, x) = NaN; NaN in, NaN out.
 //
-// Algorithm: Boost.Math bessel_jy.hpp (Temme's method for x <= 2, Steed's
-// CF1/CF2 method above, power series for small x), with negative orders by
-// the reflection formula J_{-nu} = cos(nu pi) J_nu - sin(nu pi) Y_nu with
-// exact sinPi/cosPi, and Hankel's expansion in modulus-phase form with a
-// double-double phase for large x (besselAsymJY). Orders beyond 1e7 are
-// supported only where the power series or the large-x expansion applies;
-// elsewhere the result is NaN.
+// Algorithm: after Boost.Math bessel_jy.hpp (N. M. Temme, J. Comput. Phys.
+// 21, 1976, for Y at x <= 1/4; Steed's method with the continued fractions
+// CF1 and CF2 of A. R. Barnett et al., Comput. Phys. Commun. 8, 1974,
+// above; the power series for small x), carried in double-double; the
+// large-x expansion in modulus-phase form (DLMF 10.18.17-18) with the
+// phase in double-double and Payne-Hanek reduction. Negative orders use
+// Steed's method directly when x >= |v|, else the reflection formula
+// J_{-nu} = cos(nu pi) J_nu - sin(nu pi) Y_nu with exact sinPi/cosPi.
+// Orders beyond 1e7 are supported only where the power series or the
+// large-x expansion applies; elsewhere the result is NaN. The cost of
+// Steed's method grows like x, so above x = 1e6 the large-x expansion is
+// used even next to a zero.
 func Jv(v, x float64) float64 {
 	switch {
 	case math.IsNaN(v) || math.IsNaN(x):
@@ -557,8 +569,8 @@ func Jv(v, x float64) float64 {
 // Yv(v, +Inf) = 0; Yv(+Inf, x > 0) = -Inf, Yv(-Inf, x) = NaN; NaN in, NaN
 // out. Large negative values overflow to -Inf.
 //
-// Algorithm: as Jv (Boost.Math bessel_jy.hpp with the large-x branch
-// replaced by the double-double modulus-phase expansion).
+// Algorithm: as Jv; for small x and non-integer v, the two power series of
+// the definition where the second is negligible.
 func Yv(v, x float64) float64 {
 	switch {
 	case math.IsNaN(v) || math.IsNaN(x) || x < 0:
