@@ -5,7 +5,7 @@
 cd "$(dirname "$0")/.."
 f=$1; old=$2; new=$3
 cp "$f" "$f.orig"
-python3.12 - "$f" "$old" "$new" <<'PY'
+python3 - "$f" "$old" "$new" <<'PY'
 import sys
 p, old, new = sys.argv[1:]
 s = open(p).read()

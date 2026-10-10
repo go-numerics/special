@@ -145,7 +145,7 @@ func digammaFrac(t float64) dd.DD {
 	w := sumDD(t, 40)
 	iw := dd.Div(dd.F(1), w)
 	iw2 := dd.Mul(iw, iw)
-	a := dd.Sub(logDD(w), dd.MulF(iw, 0.5))
+	a := dd.Sub(dd.AddF(dd.LogAccurate(w.Hi), w.Lo/w.Hi), dd.MulF(iw, 0.5))
 	a = dd.Sub(a, dd.DivF(iw2, 12))
 	iw4 := dd.Mul(iw2, iw2)
 	a = dd.Add(a, dd.DivF(iw4, 120))

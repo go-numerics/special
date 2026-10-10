@@ -165,9 +165,59 @@ def zeta_R(s):
         return mp.zeta(s) - 1 / (s - 1)
 
 
+def zeta_g(s):
+    # (zeta(s) - 1) 2^s on [2, 64]
+    with mp.workprec(mp.prec + 80):
+        return (mp.zeta(s) - 1) * mp.power(2, s)
+
+
+def ellipk_m(m):
+    return mp.ellipk(m)
+
+
+def ellipe_m(m):
+    return mp.ellipe(m)
+
+
+def ellipk_A(p):
+    # K(1-p) + log(p) K(p)/pi, analytic at p = 0 (value log 4)
+    if p == 0:
+        return mp.log(4)
+    with mp.workprec(mp.prec + 60):
+        return mp.ellipk(1 - p) + mp.log(p) * mp.ellipk(p) / mp.pi
+
+
+def ellipe_A(p):
+    # E(1-p) + log(p) (K(p) - E(p))/pi, analytic at p = 0 (value 1)
+    if p == 0:
+        return mpf(1)
+    with mp.workprec(mp.prec + 60):
+        return mp.ellipe(1 - p) + mp.log(p) * (mp.ellipk(p) - mp.ellipe(p)) / mp.pi
+
+
+def ellip_D(p):
+    # (K(p) - E(p))/p, analytic, pi/4 at 0
+    if p == 0:
+        return mp.pi / 4
+    with mp.workprec(mp.prec + 60):
+        return (mp.ellipk(p) - mp.ellipe(p)) / p
+
+
 JOBS = {
-    "zetaPieces": ("zetaPieces: R(s) = ζ(s) - 1/(s-1) on [-1, 2] (entire: ζ's only pole removed).",
-                   zeta_R, [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]),
+    "ellipDPieces": ("ellipDPieces: D(p) = (K(p) - E(p))/p on [0, 0.5] (no cancellation as p -> 0).",
+                     ellip_D, [0.0, 0.125, 0.25, 0.375, 0.5]),
+    "zetaTailPieces": ("zetaTailPieces: g(s) = (ζ(s) - 1) 2^s on [6, 64].",
+                       zeta_g, [6.0 + 2 * k for k in range(30)]),
+    "ellipKPieces": ("ellipKPieces: K(m) on [-1, 0.5].",
+                     ellipk_m, [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5]),
+    "ellipEPieces": ("ellipEPieces: E(m) on [-1, 0.5].",
+                     ellipe_m, [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5]),
+    "ellipKLogPieces": ("ellipKLogPieces: A(p) = K(1-p) + log(p) K(p)/π on [0, 0.5] (DLMF 19.12.1 structure).",
+                        ellipk_A, [0.0, 0.125, 0.25, 0.375, 0.5]),
+    "ellipELogPieces": ("ellipELogPieces: A(p) = E(1-p) + log(p) (K(p) - E(p))/π on [0, 0.5].",
+                        ellipe_A, [0.0, 0.125, 0.25, 0.375, 0.5]),
+    "zetaPieces": ("zetaPieces: R(s) = ζ(s) - 1/(s-1) on [-1, 6] (entire: ζ's only pole removed).",
+                   zeta_R, [-1.0 + 0.5 * k for k in range(15)]),
     "erfSmallPieces": ("erfSmallPieces: E(u) = erf(√u)/√u on [0, 1/4]; erf(x) = x E(x²) for |x| <= 1/2.",
                        erf_E, [0.0, 0.25]),
     "erfcxPieces": ("erfcxPieces: erfcx(x) = exp(x²) erfc(x) on [0.5, 8].",

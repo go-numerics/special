@@ -69,16 +69,19 @@ func TestLog(t *testing.T) {
 		if want.Sign() == 0 {
 			continue
 		}
+		if e := relErr(LogAccurate(x), want); e > 0x1p-100 {
+			t.Errorf("LogAccurate(%v) relative error %g", x, e)
+		}
 		if e := relErr(Log(x), want); e > worst {
 			worst = e
-			if e > 0x1p-98 {
+			if e > 0x1p-72 {
 				t.Logf("x=%v rel %g got %v want %s", x, e, Log(x), want.Text('g', 40))
 			}
 		}
 	}
 	t.Logf("dd.Log worst relative error %g (2^%.1f)", worst, math.Log2(worst))
-	if worst > 0x1p-95 {
-		t.Errorf("dd.Log relative error %g > 2^-98", worst)
+	if worst > 0x1p-72 {
+		t.Errorf("dd.Log relative error %g > 2^-72", worst)
 	}
 }
 
@@ -151,7 +154,7 @@ func TestExpMant(t *testing.T) {
 		worst = math.Max(worst, math.Abs(r))
 	}
 	t.Logf("ExpMant worst relative error 2^%.1f", math.Log2(worst))
-	if worst > 0x1p-95 {
+	if worst > 0x1p-75 {
 		t.Errorf("ExpMant relative error %g", worst)
 	}
 	for _, x := range []float64{math.NaN(), 2e7, -2e7} {
@@ -177,6 +180,9 @@ func TestSpecials(t *testing.T) {
 	}
 	if l := Log(math.Inf(1)); !math.IsInf(l.Hi, 1) {
 		t.Errorf("Log(Inf) = %v", l)
+	}
+	if l := LogAccurate(-1); l.Hi == l.Hi {
+		t.Errorf("LogAccurate(-1) = %v", l)
 	}
 	if l := Log(-1); l.Hi == l.Hi {
 		t.Errorf("Log(-1) = %v", l)

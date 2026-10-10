@@ -123,9 +123,9 @@ func hurwitzPos(s float64, q dd.DD) scaled {
 // integers k >= 1; NaN for NaN and -Inf. ζ overflows to ±Inf for
 // s < -260 (roughly).
 //
-// Algorithm: on [-1, 2], ζ(s) = 1/(s-1) + R(s) with R entire and fitted to
-// mpmath (zz_zetaPieces_coeffs.go), so the pole is exact; for s > 2,
-// 1 + ζ(s, 2) by Euler–Maclaurin (hurwitzPos); for s < -1 the reflection
+// Algorithm: on [-1, 6], ζ(s) = 1/(s-1) + R(s) with R entire and fitted to
+// mpmath (zz_zetaPieces_coeffs.go), so the pole is exact; on (6, 64),
+// 1 + g(s) 2^-s with g fitted to mpmath; for s < -1 the reflection
 // formula ζ(s) = 2^s π^(s-1) sin(πs/2) Γ(1-s) ζ(1-s) (DLMF 25.4.1) with the
 // powers and the gamma function combined in double-double before one
 // exponential and sin(πs/2) reduced exactly, so the trivial zeros are exact
@@ -139,7 +139,7 @@ func Zeta(s float64) float64 {
 	case s >= 64:
 		// ζ(s) - 1 < 2^-63: rounds to 1.
 		return 1
-	case s > 2:
+	case s > 6:
 		return zetaAbove2(s).Float()
 	case s >= -1:
 		h, l := dd.TwoSum(s, -1)
@@ -149,13 +149,20 @@ func Zeta(s float64) float64 {
 	return zetaReflect(s)
 }
 
-// zetaAbove2 returns ζ(s) = 1 + ζ(s, 2) for s > 2 as a double-double.
+// zetaAbove2 returns ζ(s) for s > 2 as a double-double: on (2, 6] from the
+// fitted regular part 1/(s-1) + R(s); on (6, 64) as 1 + g(s) 2^-s with
+// g(s) = (ζ(s) - 1) 2^s fitted to mpmath (zz_zetaTailPieces_coeffs.go) and
+// 2^-s = exp(-s ln 2) in double-double; beyond 64, 1 + 2^-s.
 func zetaAbove2(s float64) dd.DD {
-	if s >= 64 {
+	switch {
+	case s >= 64:
 		return dd.AddF(dd.F(1), math.Exp2(-s))
+	case s <= 6:
+		return dd.Add(recipDD(s-1), evalPiecesDD(zetaPieces[:], s)) // s-1 exact
 	}
-	h := hurwitzPos(s, dd.F(2))
-	return dd.AddF(dd.Ldexp(h.m, h.e), 1)
+	m, e := dd.ExpMant(dd.MulF(ln2DD, -s))
+	g := evalPiecesDD(zetaTailPieces[:], s)
+	return dd.AddF(dd.Ldexp(dd.Mul(m, g), e), 1)
 }
 
 // zetaReflect returns ζ(s) for s < -1 by the reflection formula.
