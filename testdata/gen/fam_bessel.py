@@ -199,11 +199,16 @@ def jy_large(v, x, which):
         return None
     P = sum(t * (-1) ** (k // 2) for k, t in enumerate(terms) if k % 2 == 0)
     Q = sum(t * (-1) ** (k // 2) for k, t in enumerate(terms) if k % 2 == 1)
-    chi = X - (mpf(v) / 2 + mpf(1) / 4) * mp.pi
+    # chi = X - phi; mpmath reduces cos X and sin X exactly however large
+    # X is, but X - phi at the working precision would not be.
+    phi = (mpf(v) / 2 + mpf(1) / 4) * mp.pi
+    cx, sx = mp.cos(X), mp.sin(X)
+    cchi = cx * mp.cos(phi) + sx * mp.sin(phi)
+    schi = sx * mp.cos(phi) - cx * mp.sin(phi)
     a = mp.sqrt(2 / (mp.pi * X))
     if which == "J":
-        return a * (P * mp.cos(chi) - Q * mp.sin(chi))
-    return a * (P * mp.sin(chi) + Q * mp.cos(chi))
+        return a * (P * cchi - Q * schi)
+    return a * (P * schi + Q * cchi)
 
 
 def ik_large_scaled(v, x, which):

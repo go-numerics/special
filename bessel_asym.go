@@ -188,10 +188,16 @@ func besselAsymJY(v, x float64) (j, y float64, ok bool) {
 	}
 	// e_1 + e_2 in double-double.
 	mu1 := dd.AddF(dd.MulFF(2*v, 2*v), -1)
-	e1 := dd.DivF(mu1, 8*x)
-	x3 := dd.MulF(dd.MulFF(x, x), x)
-	e2 := dd.Div(dd.Mul(mu1, dd.AddF(dd.MulFF(2*v, 2*v), -25)), dd.MulF(x3, 384))
-	eps := dd.AddF(dd.Add(e1, e2), phase)
+	var eps dd.DD
+	if x < 0x1p300 {
+		e1 := dd.DivF(mu1, 8*x)
+		x3 := dd.MulF(dd.MulFF(x, x), x)
+		e2 := dd.Div(dd.Mul(mu1, dd.AddF(dd.MulFF(2*v, 2*v), -25)), dd.MulF(x3, 384))
+		eps = dd.AddF(dd.Add(e1, e2), phase)
+	} else {
+		// e2 and beyond are below 2^-900; e1 needs no extra precision.
+		eps = dd.F(mu1.Hi / 8 / x)
+	}
 	// theta*(2/pi) = x*(2/pi) - (v + 1/2) + eps*(2/pi), reduced mod 4.
 	q, f := besselReduce(x)
 	vm := math.Mod(v, 4) // exact
