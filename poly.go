@@ -173,3 +173,15 @@ func pieceIndex(p []polyPiece, t float64) int {
 	}
 	return i
 }
+
+// logf is math.Log made correct for subnormal arguments on every
+// architecture: Go's amd64 assembly implementation of math.Log (log_amd64.s,
+// Go 1.27) splits the exponent without normalising subnormals first, so it
+// returns about -709.09 for every subnormal x (log(5e-324) is -744.44).
+// Scaling by 2^54 into the normal range first sidesteps it.
+func logf(x float64) float64 {
+	if x > 0 && x < 0x1p-1022 {
+		return math.Log(x*0x1p54) - 54*math.Ln2
+	}
+	return math.Log(x)
+}

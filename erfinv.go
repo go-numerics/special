@@ -22,12 +22,12 @@ func erfInvGuess(p, q float64) float64 {
 	}
 	if q >= 0.25 {
 		const y = 2.249481201171875
-		g := math.Sqrt(-2 * math.Log(q))
+		g := math.Sqrt(-2 * logf(q))
 		xs := q - 0.25
 		r := polevl(xs, erfInvP2[:]) / polevl(xs, erfInvQ2[:])
 		return g / (y + r)
 	}
-	x := math.Sqrt(-math.Log(q))
+	x := math.Sqrt(-logf(q)) // logf: q may be subnormal
 	var y, xs float64
 	var p0, q0 []float64
 	switch {
