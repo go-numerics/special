@@ -79,13 +79,11 @@ func besselReduce(x float64) (q int, f dd.DD) {
 		r2, bw = bits.Sub64(0, r2, bw)
 		r3, _ = bits.Sub64(1<<62, r3, bw)
 	}
-	// normalise the 256-bit number r3:r2:r1:r0 (value F*2^-254)
+	// normalise the 256-bit number r3:r2:r1:r0 (value F*2^-254). No double
+	// lies within 2^-62 of a multiple of pi/2 (in units of pi/2, about
+	// 2^-61.6 at the closest), so the top word r3 is never zero.
 	w := [4]uint64{r3, r2, r1, r0}
 	sh := 0
-	for w[0] == 0 && sh < 192 {
-		w[0], w[1], w[2], w[3] = w[1], w[2], w[3], 0
-		sh += 64
-	}
 	lz := uint(bits.LeadingZeros64(w[0]))
 	if lz > 0 {
 		w[0] = w[0]<<lz | w[1]>>(64-lz)

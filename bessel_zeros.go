@@ -20,15 +20,8 @@ func JnZeros(n int, nt int) []float64 {
 		return []float64{}
 	}
 	out := make([]float64, nt)
-	prev := 0.0
 	for k := 1; k <= nt; k++ {
-		g := besselJZeroGuess(n, k)
-		z := besselJZeroRefine(n, g)
-		if !(z > prev+1) { // converged to an earlier zero: step on from it
-			z = besselJZeroRefine(n, prev+math.Pi)
-		}
-		out[k-1] = z
-		prev = z
+		out[k-1] = besselJZeroRefine(n, besselJZeroGuess(n, k))
 	}
 	return out
 }
@@ -62,9 +55,6 @@ func besselJZeroGuess(n, k int) float64 {
 		f := s - math.Acos(1/z) - w
 		dz := f / (s / z)
 		z -= dz
-		if z < 1 {
-			z = 1 + 1e-6
-		}
 		if math.Abs(dz) < 1e-12*z {
 			break
 		}

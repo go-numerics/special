@@ -315,15 +315,12 @@ func besselYSeries(v, x float64) float64 {
 		if math.Abs(ta) <= 0x1p-56*math.Abs(1+sa) && math.Abs(tb) <= 0x1p-56*math.Abs(1+sb) {
 			break
 		}
-		if ta == 0 && tb == 0 {
-			break
-		}
 	}
 	sa, sb = 1+sa, 1+sb
 	// -Gamma(v)/(pi (x/2)^v) sa + (x/2)^v/Gamma(v+1) cot(v pi) sb
 	first := -besselExpMul(dd.Neg(L), sa/(math.Pi*v))
 	second := 0.0
-	if L.Hi > -746 && v != math.Trunc(v) {
+	if L.Hi > -746 {
 		second = besselExpMul(L, sb*cosPi(v)/sinPi(v))
 	}
 	return first + second
@@ -363,7 +360,7 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 	// The two power series of Y (besselYSeries) where the second, of
 	// relative size (x/2)^(2v) cot(v pi), is negligible or nearly so;
 	// Temme's sum loses accuracy there through exp(+-u log(x/2)).
-	if (x < 1 && u != 0 && 2*v*besselLogHalf(x)+math.Log1p(math.Abs(cosPi(v)/sinPi(v))) < -10) || x < 0x1p-900 {
+	if x < 1 && u != 0 && 2*v*besselLogHalf(x)+math.Log1p(math.Abs(cosPi(v)/sinPi(v))) < -10 {
 		J = math.NaN()
 		if needJ {
 			J = besselJSeries(v, x)

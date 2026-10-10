@@ -32,13 +32,8 @@ const besselZeroTaylorMax = 100
 // of the function and of its derivative, tab[i] = {z, y(z), y'(z)}, each a
 // double-double, so |x - z| <= ~pi/4 beyond the first point.
 func besselPointTaylor(tab [][6]float64, n2, x float64, singular bool) float64 {
+	// x is in [tab[0] - pi/4, 100] here, so this first guess is an index.
 	i := int((x-tab[0][0])/(math.Pi/2) + 0.5)
-	if i < 0 {
-		i = 0
-	}
-	if i >= len(tab) {
-		i = len(tab) - 1
-	}
 	// For Y, whose singularity at 0 limits the radius of convergence about
 	// z to z, the point is chosen by |x - z|/z; for J by |x - z|.
 	dist := func(j int) float64 {

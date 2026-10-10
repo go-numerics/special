@@ -190,6 +190,11 @@ func besselIKCore(v, x float64, needI, needK bool) (ie float64, ei int, ke float
 		return ie, ei, ke, 0
 	}
 	if v > besselMaxOrder {
+		// Only the series is run this far out (K is then beyond overflow);
+		// elsewhere the result is NaN.
+		if !besselSeriesOK(v, x, 1) {
+			return math.NaN(), 0, math.NaN(), 0
+		}
 		if needI {
 			ie, ei = besselSeries(v, x, 1, true)
 		}

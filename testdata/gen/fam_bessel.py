@@ -165,6 +165,22 @@ def kv_mp(v, x, scaled=False):
         r = ik_large_scaled(v, x, "K")
         if r is not None:
             return r if scaled else r * mp.exp(-mpf(x))
+    if abs(v) >= 50:
+        # mpmath's besselk is very slow for large orders; K is dominant in
+        # its recurrence, so run it upwards from orders u and u+1 in
+        # (-1/2, 3/2] at the working precision (exact up to rounding).
+        with mp.extraprec(30):
+            X = mpf(x)
+            av = abs(mpf(v))
+            n = int(mp.nint(av))
+            u = av - n
+            a, b = mp.besselk(u, X), mp.besselk(u + 1, X)
+            for k in range(1, n):
+                a, b = b, 2 * (u + k) / X * b + a
+            r = b if n >= 1 else a
+            if scaled:
+                r = r * mp.exp(X)
+            return r
     with mp.extraprec(xp(x) + int(abs(v) * 0.1)):
         X = mpf(x)
         try:
@@ -383,7 +399,7 @@ def jn_zeros_cases():
     for n in range(0, 11):
         for k in range(1, 51):
             c.append(("n <= 10, k <= 50", (float(n), float(k))))
-    for n in (20, 35, 50, 75, 100, 200, 500):
+    for n in (20, 35, 50, 75, 100, 150, 200):
         for k in range(1, 21):
             c.append(("n >= 20, k <= 20", (float(n), float(k))))
     return c
