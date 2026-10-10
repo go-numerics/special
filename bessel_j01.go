@@ -8,11 +8,8 @@ import (
 
 // Bessel functions of order 0 and 1 of the first and second kind.
 //
-// On (0, 8] these are the minimax rational approximations of Boost.Math
-// (bessel_j0.hpp, bessel_j1.hpp, bessel_y0.hpp, bessel_y1.hpp; Xiaogang
-// Zhang and John Maddock, Boost Software License 1.0), in which the zeros of
-// the function in the interval are factored out exactly, so the relative
-// error stays small next to them.
+// Near 0 the power series of DLMF 10.2.2 (J) and 10.8.1-2 (Y, with the
+// logarithm in double-double) are summed; they converge quickly there.
 //
 // Between the power series near 0 and x = 100 the function is summed as a
 // Taylor series about the nearest zero of the function or of its
@@ -206,13 +203,15 @@ func besselY1Series(x float64) float64 {
 //
 //	J0(x) = (1/pi) * integral_0^pi cos(x sin t) dt,
 //
-// for real x (even in x). J0(0) = 1, J0(±Inf) = 0, J0(NaN) = NaN.
+// for real x (even in x). J0(0) = 1, J0(±Inf) = 0 (the limit; SciPy returns
+// NaN), J0(NaN) = NaN.
 //
-// Algorithm: Boost.Math's minimax rational approximations with the first
-// two zeros factored out on [0, 8]; a Taylor series about the nearest zero
-// (Harrison 2009) on [8, 100); Hankel's expansion in modulus-phase form with
-// the phase in double-double and exact (Payne-Hanek) reduction beyond. The
-// error stays within a few ulps of the value also next to the zeros.
+// Algorithm: the power series for |x| <= 1.5; a Taylor series about the
+// nearest zero of J0 or J1 (tabulated in double-double, coefficients from
+// Bessel's equation; Harrison 2009) up to 100; Hankel's expansion in
+// modulus-phase form with the phase in double-double and exact
+// (Payne-Hanek) reduction beyond. The error stays within a few ulps of the
+// value, also next to the zeros.
 func J0(x float64) float64 {
 	x = math.Abs(x)
 	switch {
@@ -233,8 +232,9 @@ func J0(x float64) float64 {
 // J1(x) = (1/pi) * integral_0^pi cos(t - x sin t) dt, for real x (odd in x).
 // J1(0) = 0, J1(±Inf) = 0, J1(NaN) = NaN.
 //
-// Algorithm: as J0 (Boost.Math bessel_j1.hpp on [0, 8], Taylor series about
-// the nearest zero on [8, 100), modulus-phase Hankel expansion beyond).
+// Algorithm: as J0 (power series for |x| <= 2, Taylor series about the
+// zeros of J1 and of its derivative up to 100, modulus-phase Hankel
+// expansion beyond).
 func J1(x float64) float64 {
 	sign := 1.0
 	if x < 0 {
@@ -258,9 +258,9 @@ func J1(x float64) float64 {
 // Y0(x) = (2/pi)(log(x/2) + gamma) J0(x) + ..., defined for x > 0.
 // Y0(0) = -Inf, Y0(+Inf) = 0, Y0(x < 0) = NaN, Y0(NaN) = NaN.
 //
-// Algorithm: Boost.Math bessel_y0.hpp on (0, 8] with the three zeros
-// factored out (and the logarithm taken as log1p of the exact distance to
-// the zero), a Taylor series about the nearest zero on [8, 100), and the
+// Algorithm: the series DLMF 10.8.2 for x <= 0.6; a Taylor series about the
+// zeros of Y0 and Y1 up to 100 (the point chosen by |x - z|/z, since the
+// logarithmic singularity at 0 bounds the radius of convergence); the
 // modulus-phase Hankel expansion beyond.
 func Y0(x float64) float64 {
 	switch {
@@ -283,7 +283,7 @@ func Y0(x float64) float64 {
 // for x > 0. Y1(0) = -Inf, Y1(+Inf) = 0, Y1(x < 0) = NaN, Y1(NaN) = NaN;
 // Y1(x) overflows to -Inf for x below about 3.5e-309.
 //
-// Algorithm: as Y0 (Boost.Math bessel_y1.hpp on (0, 8]).
+// Algorithm: as Y0 (series DLMF 10.8.1 for x <= 1.5).
 func Y1(x float64) float64 {
 	switch {
 	case math.IsNaN(x) || x < 0:

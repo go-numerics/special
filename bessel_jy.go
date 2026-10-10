@@ -28,9 +28,9 @@ const besselMaxOrder = 1e7
 const besselSteedMaxX = 1e6
 
 // besselTemmeMaxX is where Steed's method takes over from Temme's series
-// (Boost switches at 2; CF2 still converges quickly above 1, and Steed's
-// method in double-double keeps the relative accuracy of Y next to its
-// zeros, which Temme's sum does not).
+// (Boost switches at 2). Temme's sums cancel next to the zeros of Y_u and
+// are evaluated in float64; Steed's method in double-double keeps the
+// relative accuracy there, at the price of a slower CF2 for small x.
 const besselTemmeMaxX = 0.25
 
 // besselLogPowGamma returns log|(x/2)^v / Gamma(v+1)| as a double-double
@@ -370,8 +370,7 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 		}
 		return J, besselYSeries(v, x)
 	}
-	switch {
-	case x <= besselTemmeMaxX:
+	if x <= besselTemmeMaxX {
 		// Temme's series for Y_u, Y_{u+1}, forward recurrence to Y_v,
 		// Y_{v+1}; J from CF1 and the Wronskian J_{v+1} Y_v - J_v Y_{v+1}
 		// = 2/(pi x).
@@ -384,6 +383,8 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 			J = math.Ldexp(dd.Div(dd.DivF(besselTwoOverPiDD, x), den).Float(), -e)
 		}
 		return J, math.Ldexp(yv.Float(), e)
+	}
+	switch {
 	case x >= v:
 		// Steed's method at the order v itself (Barnett et al. 1974): with
 		// x >= v CF2 converges quickly and no recurrence crosses the
@@ -597,12 +598,12 @@ func Yv(v, x float64) float64 {
 // for any real x: J_{-n}(x) = (-1)^n J_n(x) and J_n(-x) = (-1)^n J_n(x).
 // Jn(n, 0) = 0 for n != 0, Jn(n, ±Inf) = 0, Jn(n, NaN) = NaN.
 //
-// Algorithm: J0 and J1 for n = 0, 1; the double-double modulus-phase Hankel
-// expansion for large x; forward recurrence from J0 and J1 for n < x;
-// otherwise the power series (x < 5 or n > x^2/4) or backward recurrence
-// from Steed's CF1, normalised by whichever of J0(x), J1(x) is larger
-// (Boost.Math bessel_jn.hpp normalises by J0 only, which fails next to its
-// zeros).
+// Algorithm: J0 and J1 for n = 0, 1; otherwise as Jv: the power series for
+// small x, the double-double modulus-phase Hankel expansion for large x,
+// and Steed's method in double-double between (at the order n itself for
+// x >= n, after backward recurrence from n for x < n). The forward
+// recurrence from J0 and J1 used by Cephes and Boost is not used: it loses
+// the relative accuracy next to the zeros of J_n.
 func Jn(n int, x float64) float64 {
 	sign := 1.0
 	if n < 0 {
@@ -642,9 +643,9 @@ func Jn(n int, x float64) float64 {
 // negative n), Yn(n, x < 0) = NaN, Yn(n, +Inf) = 0, Yn(n, NaN) = NaN; large
 // negative values overflow to -Inf.
 //
-// Algorithm: Y0 and Y1 for n = 0, 1; the double-double modulus-phase Hankel
-// expansion for large x; otherwise forward recurrence from Y0 and Y1, which
-// is stable for Y (Boost.Math bessel_yn.hpp).
+// Algorithm: Y0 and Y1 for n = 0, 1; otherwise as Yv (Temme's series and
+// forward recurrence for small x, Steed's method in double-double, the
+// modulus-phase Hankel expansion for large x).
 func Yn(n int, x float64) float64 {
 	sign := 1.0
 	if n < 0 {
