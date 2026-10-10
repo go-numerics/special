@@ -73,6 +73,11 @@ var perfCases = []perfCase{
 		func(a *ndarray.Array) (*ndarray.Array, error) {
 			return Map1(func(x float64) float64 { return special.Polygamma(1, x) }, a)
 		}, 0.1, 100, "Polygamma1"),
+	u2(special.GammaP, GammaP, [2]float64{0.5, 50}, [2]float64{0.1, 60}, "GammaP"),
+	u2(special.GammaPInv, GammaPInv, [2]float64{0.5, 50}, [2]float64{1e-6, 0.999999}, "GammaPInv"),
+	{"BetaInc", [][2]float64{{0.5, 50}, {0.5, 50}, {0.01, 0.99}},
+		func(v []float64) float64 { return special.BetaInc(v[0], v[1], v[2]) },
+		func(a []*ndarray.Array) (*ndarray.Array, error) { return BetaInc(a[0], a[1], a[2]) }},
 	u1(special.EllipK, EllipK, -10, 0.999, "EllipK"),
 	u1(special.EllipE, EllipE, -10, 0.999, "EllipE"),
 }

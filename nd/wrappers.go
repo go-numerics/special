@@ -135,3 +135,23 @@ func Factorial2(n *ndarray.Array) (*ndarray.Array, error) {
 }
 
 func isInt(x float64) bool { return x == math.Trunc(x) && math.Abs(x) <= math.MaxInt32 }
+
+// GammaP applies special.GammaP element-wise to the broadcast arguments.
+func GammaP(a, x *ndarray.Array) (*ndarray.Array, error) { return Map2(special.GammaP, a, x) }
+
+// GammaQ applies special.GammaQ element-wise to the broadcast arguments.
+func GammaQ(a, x *ndarray.Array) (*ndarray.Array, error) { return Map2(special.GammaQ, a, x) }
+
+// GammaPInv applies special.GammaPInv element-wise to the broadcast arguments.
+func GammaPInv(a, p *ndarray.Array) (*ndarray.Array, error) { return Map2(special.GammaPInv, a, p) }
+
+// GammaQInv applies special.GammaQInv element-wise to the broadcast arguments.
+func GammaQInv(a, q *ndarray.Array) (*ndarray.Array, error) { return Map2(special.GammaQInv, a, q) }
+
+// BetaInc applies special.BetaInc element-wise to the broadcast arguments.
+func BetaInc(a, b, x *ndarray.Array) (*ndarray.Array, error) { return Map3(special.BetaInc, a, b, x) }
+
+// BetaIncC applies special.BetaIncC element-wise to the broadcast arguments.
+func BetaIncC(a, b, x *ndarray.Array) (*ndarray.Array, error) {
+	return Map3(special.BetaIncC, a, b, x)
+}

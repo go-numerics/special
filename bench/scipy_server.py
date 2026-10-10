@@ -46,6 +46,9 @@ CASES = {
     "Zeta": (sc.zeta, [(1.01, 60)]),
     "HurwitzZeta": (sc.zeta, [(1.5, 20), (0.1, 20)]),
     "Polygamma1": (lambda x: sc.polygamma(1, x), [(0.1, 100)]),
+    "GammaP": (sc.gammainc, [(0.5, 50), (0.1, 60)]),
+    "GammaPInv": (sc.gammaincinv, [(0.5, 50), (1e-6, 0.999999)]),
+    "BetaInc": (sc.betainc, [(0.5, 50), (0.5, 50), (0.01, 0.99)]),
     "EllipK": (sc.ellipk, [(-10, 0.999)]),
     "EllipE": (sc.ellipe, [(-10, 0.999)]),
 }

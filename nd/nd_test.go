@@ -76,7 +76,8 @@ func TestBinaryBroadcast(t *testing.T) {
 		sc func(a, b float64) float64
 	}{
 		"Beta": {Beta, special.Beta}, "LogBeta": {LogBeta, special.LogBeta}, "Binom": {Binom, special.Binom},
-		"Xlogy": {Xlogy, special.Xlogy}, "Xlog1py": {Xlog1py, special.Xlog1py}, "HurwitzZeta": {HurwitzZeta, special.HurwitzZeta},
+		"Xlogy": {Xlogy, special.Xlogy}, "GammaP": {GammaP, special.GammaP}, "GammaQ": {GammaQ, special.GammaQ},
+		"GammaPInv": {GammaPInv, special.GammaPInv}, "GammaQInv": {GammaQInv, special.GammaQInv}, "Xlog1py": {Xlog1py, special.Xlog1py}, "HurwitzZeta": {HurwitzZeta, special.HurwitzZeta},
 		"Polygamma": {Polygamma, func(n, x float64) float64 {
 			if !isInt(n) {
 				return math.NaN()
@@ -206,5 +207,28 @@ func TestParallelAndReductions(t *testing.T) {
 	ls, err := LogSoftmax(small)
 	if err != nil || data(t, ls)[2] != special.LogSoftmax(nil, []float64{1, 2, 3})[2] {
 		t.Errorf("LogSoftmax: %v %v", ls, err)
+	}
+}
+
+func TestTernaryBetaInc(t *testing.T) {
+	a := arr(t, []float64{0.5, 2}, 2, 1)
+	b := arr(t, []float64{3}, 1)
+	x := arr(t, []float64{0.1, 0.5, 0.9}, 3)
+	for name, f := range map[string]struct {
+		nd func(a, b, x *ndarray.Array) (*ndarray.Array, error)
+		sc func(a, b, x float64) float64
+	}{"BetaInc": {BetaInc, special.BetaInc}, "BetaIncC": {BetaIncC, special.BetaIncC}} {
+		r, err := f.nd(a, b, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+		d := data(t, r)
+		for i, av := range []float64{0.5, 2} {
+			for j, xv := range []float64{0.1, 0.5, 0.9} {
+				if w := f.sc(av, 3, xv); !same(d[i*3+j], w) {
+					t.Errorf("%s(%v,3,%v) = %v want %v", name, av, xv, d[i*3+j], w)
+				}
+			}
+		}
 	}
 }
