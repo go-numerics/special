@@ -104,14 +104,35 @@ func cosPi(x float64) float64 {
 // sinPiReduced returns sin(pi*r), 0 <= r <= 0.25, forming pi*r in
 // double-double so that rounding the product does not cost an ulp.
 func sinPiReduced(r float64) float64 {
-	p := piHi * r
+	p := float64(piHi * r)
 	e := math.FMA(piHi, r, -p) + piLo*r
 	return math.Sin(p) + e*math.Cos(p)
 }
 
 // cosPiReduced returns cos(pi*r), 0 <= r <= 0.25.
 func cosPiReduced(r float64) float64 {
-	p := piHi * r
+	p := float64(piHi * r)
 	e := math.FMA(piHi, r, -p) + piLo*r
 	return math.Cos(p) - e*math.Sin(p)
+}
+
+// polyPiece is one piece of a piecewise polynomial approximation generated
+// by testdata/gen/fit.py: on [lo, hi] the function is
+// coef[0]*s^n + ... + coef[n] with s = t - c (coefficients descending).
+type polyPiece struct {
+	lo, hi, c float64
+	coef      []float64
+}
+
+// evalPieces evaluates a piecewise polynomial whose pieces have equal width
+// and are contiguous; t outside [p[0].lo, p[n-1].hi] uses the nearest piece.
+func evalPieces(p []polyPiece, t float64) float64 {
+	w := p[0].hi - p[0].lo
+	i := int((t - p[0].lo) / w)
+	if i < 0 {
+		i = 0
+	} else if i >= len(p) {
+		i = len(p) - 1
+	}
+	return polevl(t-p[i].c, p[i].coef)
 }

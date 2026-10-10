@@ -34,8 +34,13 @@ func FastTwoSum(a, b float64) (s, e float64) {
 
 // TwoProd returns p, e with p = fl(a*b) and p + e = a*b exactly (barring
 // underflow).
+//
+// The explicit float64 conversion is load-bearing: the Go specification
+// allows a*b to be fused with a later addition (an FMA on arm64, ppc64le,
+// s390x, riscv64, loong64), which would break every error-free
+// transformation built on p. A conversion forces the rounding.
 func TwoProd(a, b float64) (p, e float64) {
-	p = a * b
+	p = float64(a * b)
 	e = math.FMA(a, b, -p)
 	return
 }
