@@ -132,30 +132,66 @@ const (
 	Ln2Lo = 2.31904681384629955842e-17
 )
 
-// Exp returns exp(a.Hi + a.Lo) rounded to float64 with an error below one
-// ulp (about 0.8 ulp): the argument is reduced by k*ln2 in double-double, the
-// reduced exponential is formed as 1 + expm1(r) so that math.Expm1's error
-// is scaled by |expm1(r)|/(1+expm1(r)) <= 0.3, and the low part of the
-// argument enters through the first-order term.
+// Exp returns exp(a.Hi + a.Lo) rounded to float64: the double-double
+// mantissa from ExpMant is accurate to about 2^-97, so the result is
+// correctly rounded except in cases closer to a rounding boundary than that.
 func Exp(a DD) float64 {
+	m, k := ExpMant(a)
+	return math.Ldexp(m.Hi+m.Lo, k)
+}
+
+// ExpMant returns m, k with exp(a) = m * 2^k, m in [1, 2) as a
+// double-double accurate to about 2^-97 relative, so that a caller can
+// multiply further factors in before the single final rounding. k is not
+// limited to the float64 exponent range: a scaled result may be combined
+// with others before math.Ldexp decides overflow or underflow. For
+// |a.Hi| > 1e7 it returns m = +Inf or m = 0 with k = 0 (NaN for NaN).
+//
+// Method (Tang, "Table-driven implementation of the exponential function in
+// IEEE floating-point arithmetic", ACM TOMS 15(2), 1989, carried to
+// double-double): a = (64k + j) ln2/64 + r with ln2/64 split in three parts
+// and every partial product exact, |r| <= ln2/128; exp(r) by its Taylor series
+// with the terms through r⁴/24 in double-double and r⁵/120 + ... + r^10/10!
+// (below 2^-44 relative) in float64; 2^(j/64) from a 300-bit
+// mpmath table (zz_exptable.go).
+func ExpMant(a DD) (m DD, k int) {
 	x := a.Hi
-	if x != x {
-		return x
+	switch {
+	case x != x:
+		return DD{x, 0}, 0
+	case x > 1e7:
+		return DD{math.Inf(1), 0}, 0
+	case x < -1e7:
+		return DD{}, 0
 	}
-	if x > 709.8 {
-		return math.Exp(x + a.Lo) // overflow region; math.Exp decides
+	n := math.Floor(x/ln2o64Hi + 0.5)
+	// r = a - n ln2/64, each partial product exact (TwoProd).
+	r := Sub(a, MulFF(n, ln2o64Hi))
+	r = Sub(r, Add(MulFF(n, ln2o64Mid), MulFF(n, ln2o64Lo)))
+	ni := int(n)
+	j := ni & 63
+	k = (ni - j) / 64
+	// exp(r) = 1 + r + r²/2 + r³/6 + r⁴ Σ_{i>=0} r^i/(i+4)!; |r| < 0.0055
+	// so r^11/11! < 2^-106 ends the series.
+	r2 := Mul(r, r)
+	rh := r.Hi
+	p := 1.0 / 3628800
+	for _, c := range [...]float64{1.0 / 362880, 1.0 / 40320, 1.0 / 5040, 1.0 / 720, 1.0 / 120} {
+		p = p*rh + c
 	}
-	if x < -745.2 {
-		return 0
-	}
-	k := math.Floor(x/Ln2Hi + 0.5)
-	// r = a - k*ln2 in double-double. k*Ln2Hi is exact through TwoProd.
-	r := Sub(a, Add(MulFF(k, Ln2Hi), MulFF(k, Ln2Lo)))
-	em := math.Expm1(r.Hi)
-	// exp(r.Hi + r.Lo) = (1+em)(1+r.Lo) ~= 1 + em + r.Lo*(1+em)
-	s, e := TwoSum(1, em)
-	e += r.Lo * (1 + em)
-	return math.Ldexp(s+e, int(k))
+	r4 := Mul(r2, r2)
+	tail := r4.Hi * rh * p
+	e := Add(r, MulF(r2, 0.5))
+	e = Add(e, DivF(Mul(r2, r), 6))
+	e = Add(e, DivF(r4, 24))
+	e = AddF(e, tail)
+	e = AddF(e, 1)
+	return Mul(e, expTable[j]), k
+}
+
+// Ldexp returns a * 2^k for a double-double (both parts scaled).
+func Ldexp(a DD, k int) DD {
+	return DD{math.Ldexp(a.Hi, k), math.Ldexp(a.Lo, k)}
 }
 
 // Expm1 returns exp(a)-1 for |a| small enough that the result is not
@@ -166,32 +202,40 @@ func Expm1(a DD) float64 {
 }
 
 // Log returns log(x) for finite x > 0 as a double-double accurate to about
-// 2^-68 relative: the reduced logarithm is the atanh series
-// log m = 2s(1 + s^2/3 + s^4/5 + ...), s = (m-1)/(m+1), whose first three
-// terms are carried in double-double and the remainder (< 3e-5 of the
-// total) in float64; k*ln2 is added exactly.
+// 2^-100 relative.
+//
+// Method (table-driven, after Tang, "Table-driven implementation of the
+// logarithm function in IEEE floating-point arithmetic", ACM TOMS 16(4),
+// 1990): x = 2^k m with m in [1/sqrt2, sqrt2); c = j/128 is the grid point
+// nearest m, and log m = log c + 2 atanh(s), s = (m-c)/(m+c). m-c is exact
+// (Sterbenz) and |s| < 1/360, so the atanh series 2s(1 + s²/3 + s⁴/5 + ...)
+// needs three terms in double-double and four more in float64. log c comes from a
+// 300-bit mpmath table (zz_logtable.go); k ln2 is added exactly.
+//
+// Log(0) = -Inf, Log(+Inf) = +Inf, NaN for x < 0 or NaN (as math.Log).
 func Log(x float64) DD {
+	if !(x > 0) || math.IsInf(x, 1) {
+		return DD{math.Log(x), 0}
+	}
 	m, k := math.Frexp(x) // x = m * 2^k, m in [0.5, 1)
 	if m < math.Sqrt2/2 {
 		m *= 2
 		k--
 	}
-	// s = (m-1)/(m+1); m-1 is exact (Sterbenz), m+1 is exact in DD.
-	num := DD{m - 1, 0}
-	h, l := TwoSum(m, 1)
-	s := Div(num, DD{h, l})
+	j := math.Floor(m*128 + 0.5)
+	c := j / 128
+	num := m - c // exact
+	h, l := TwoSum(m, c)
+	s := Div(DD{num, 0}, DD{h, l})
 	s2 := Mul(s, s)
-	// |s| <= 0.1716, s^2 <= 0.02944.
 	z := s2.Hi
-	tail := 0.0
-	for i := 31; i >= 7; i -= 2 {
-		tail = tail*z + 1/float64(i)
-	}
-	// series = 1 + s2/3 + s2^2/5 + s2^3*tail
-	s4 := Mul(s2, s2)
-	t := Add(DD{1, 0}, Add(Div(s2, DD{3, 0}), Div(s4, DD{5, 0})))
-	t = AddF(t, z*z*z*tail)
+	// series = 1 + s2/3 + s2^2/5 + s2^3 (1/7 + s2/9 + s2^2/11 + s2^3/13);
+	// s2 < 7.7e-6, so the omitted s2^7/15 is below 2^-125.
+	t := Add(Div(s2, DD{3, 0}), DivF(Mul(s2, s2), 5))
+	t = AddF(t, z*z*z*(1.0/7+z*(1.0/9+z*(1.0/11+z/13))))
+	t = AddF(t, 1)
 	lm := MulF(Mul(s, t), 2)
+	lm = Add(lm, logTable[int(j)-logTableLo])
 	kk := float64(k)
 	return Add(Add(MulFF(kk, Ln2Hi), MulFF(kk, Ln2Lo)), lm)
 }
