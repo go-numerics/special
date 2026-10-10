@@ -16,6 +16,48 @@ import (
 // functions never overflow internally, and the large-x expansions (DLMF
 // 10.40.1-2) are used wherever they converge.
 
+// besselKSeries returns K_nu(x) = m * 2^e for non-integer 0 < nu < 2 and
+// small x by the two power series of K = (pi/2)(I_{-nu} - I_nu)/sin(nu pi)
+// (DLMF 10.27.4, 10.25.2):
+//
+//	K = Gamma(nu)/2 (x/2)^-nu sum (x^2/4)^k/(k! (1-nu)_k)
+//	    - pi/(2 sin(nu pi)) (x/2)^nu/Gamma(nu+1) sum (x^2/4)^k/(k! (1+nu)_k),
+//
+// ok only where the second part is below 1/4 of the first (Temme's series
+// loses about |nu log(x/2)| ulps through exp(+-nu log(x/2)) there).
+func besselKSeries(nu, x float64) (m dd.DD, e int, ok bool) {
+	if nu == 0 || nu == 1 {
+		return dd.DD{}, 0, false
+	}
+	L, gs := besselLogPowGamma(nu, x) // log|(x/2)^nu/Gamma(nu+1)|
+	c := math.Pi / (2 * sinPi(nu)) * gs
+	// |second/first| = |c| 2 nu exp(2L)
+	if math.Log(math.Abs(c)*2*nu)+2*L.Hi > math.Log(0.25) {
+		return dd.DD{}, 0, false
+	}
+	q := x * x / 4
+	ta, sa := 1.0, 0.0
+	tb, sb := 1.0, 0.0
+	for k := 1; k < 200; k++ {
+		fk := float64(k)
+		ta *= q / (fk * (fk - nu))
+		tb *= q / (fk * (fk + nu))
+		sa += ta
+		sb += tb
+		if math.Abs(ta) <= 0x1p-60 && math.Abs(tb) <= 0x1p-60 {
+			break
+		}
+	}
+	// first = exp(-L) (1+sa) / (2 nu) = 2^k exp(r) (1+sa)/(2 nu)
+	nL := dd.Neg(L)
+	k := math.Floor(nL.Hi / dd.Ln2Hi)
+	k2 := dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo))
+	first := dd.DivF(dd.MulF(dd.AddF(dd.F(1), sa), dd.Exp(dd.Sub(nL, k2))), 2*nu)
+	// second / 2^k = c exp(L - k ln2) (1+sb)
+	second := c * besselExpMul(dd.Sub(L, k2), 1+sb)
+	return dd.AddF(first, -second), int(k), true
+}
+
 // besselTemmeIK returns K_u(x) and K_{u+1}(x) for |u| <= 1/2, 0 < x <= 2
 // (Temme 1975; Boost temme_ik).
 func besselTemmeIK(u, x float64) (ku, ku1 float64) {
@@ -56,6 +98,11 @@ func besselTemmeIK(u, x float64) (ku, ku1 float64) {
 	}
 	return sum, 2 * sum1 / x
 }
+
+// besselTemmeIKMaxX is where Steed's CF2 (in double-double) takes over
+// from Temme's series for K (Boost switches at 2; Temme's float64 sums
+// cost several ulps, CF2 converges well down to about this x).
+const besselTemmeIKMaxX = 0.5
 
 // besselInv2PiDD is 1/(2 pi) as a double-double.
 var besselInv2PiDD = dd.DD{Hi: 0.15915494309189535, Lo: -9.839338337591243e-18}
@@ -202,17 +249,28 @@ func besselIKCore(v, x float64, needI, needK bool) (ie float64, ei int, ke float
 	}
 	n := int(math.Floor(v + 0.5))
 	u := v - float64(n)
-	var ku, ku1 float64
-	if x <= 2 {
-		ku, ku1 = besselTemmeIK(u, x)
+	// K_u e^x and K_{u+1} e^x, as multiples of 2^e0
+	var Ku, Ku1 dd.DD
+	e0 := 0
+	if a, ea, ok := besselKSeries(math.Abs(u), x); ok && x <= besselTemmeIKMaxX {
+		b, eb, _ := besselKSeries(1+u, x)
 		ex := math.Exp(x)
-		ku *= ex
-		ku1 *= ex
+		Ku, Ku1, e0 = dd.MulF(a, ex), dd.MulF(besselScaleDD(b, eb-ea), ex), ea
 	} else {
-		ku, ku1 = besselCF2IK(u, x)
+		var ku, ku1 float64
+		if x <= besselTemmeIKMaxX {
+			ku, ku1 = besselTemmeIK(u, x)
+			ex := math.Exp(x)
+			ku *= ex
+			ku1 *= ex
+		} else {
+			ku, ku1 = besselCF2IK(u, x)
+		}
+		Ku, Ku1 = dd.F(ku), dd.F(ku1)
 	}
 	// K_{k+1} = 2k/x K_k + K_{k-1}, stable upwards (K is dominant)
-	kv, kv1, e := besselRecur(u, x, n, dd.F(ku), dd.F(ku1), 1)
+	kv, kv1, e := besselRecur(u, x, n, Ku, Ku1, 1)
+	e += e0
 	if needK {
 		ke, ek = kv.Float(), e
 	}
@@ -238,6 +296,10 @@ func besselIK(v, x float64, needI, needK, scaled bool) (I, K float64) {
 	if refl && !needK && besselSeriesOK(v, x, 0.25) {
 		m, e := besselSeries(v, x, 1, scaled)
 		return math.Ldexp(m, e), math.NaN()
+	}
+	if !needI && nu > 0 && x < 1 && LogGamma(nu)-nu*besselLogHalf(x)-math.Ln2 > 710 {
+		// K_nu(x) ~ Gamma(nu) (2/x)^nu / 2 (DLMF 10.30.2) overflows.
+		return math.NaN(), math.Inf(1)
 	}
 	ie, ei, ke, ek := besselIKCore(nu, x, needI, needK || refl)
 	ex := x
@@ -648,17 +710,24 @@ func besselKvArgs(v, x float64) (r float64, done bool) {
 // NaN, Kv(±Inf, x) = +Inf; NaN in, NaN out. Overflow gives +Inf and
 // underflow 0.
 //
-// Algorithm: K0/K1 and forward recurrence for integer v (Boost.Math
-// bessel_kn.hpp); otherwise Temme's series (x <= 2) or Steed's CF2 for the
-// fractional order and forward recurrence (Boost.Math bessel_ik.hpp), or
-// the large-x expansion DLMF 10.40.2 where it converges.
+// Algorithm: K0/K1 for v = 0, 1; otherwise Temme's series (x <= 2) or
+// Steed's CF2 (in double-double) for the fractional order and forward
+// recurrence in double-double (Boost.Math bessel_ik.hpp), or the large-x
+// expansion DLMF 10.40.2 where it converges.
 func Kv(v, x float64) float64 {
 	if r, done := besselKvArgs(v, x); done {
 		return r
 	}
 	v = math.Abs(v)
-	if besselIsInt(v) && v <= 50 {
-		return besselKn(int(v), x, false)
+	switch {
+	case v == 0 && false:
+		return K0e(x)
+	case v == 1 && false:
+		return K1e(x)
+	case v == 0:
+		return K0(x)
+	case v == 1:
+		return K1(x)
 	}
 	_, k := besselIK(v, x, false, true, false)
 	return k
@@ -672,8 +741,15 @@ func Kve(v, x float64) float64 {
 		return r
 	}
 	v = math.Abs(v)
-	if besselIsInt(v) && v <= 50 {
-		return besselKn(int(v), x, true)
+	switch {
+	case v == 0 && true:
+		return K0e(x)
+	case v == 1 && true:
+		return K1e(x)
+	case v == 0:
+		return K0(x)
+	case v == 1:
+		return K1(x)
 	}
 	_, k := besselIK(v, x, false, true, true)
 	return k
@@ -682,22 +758,3 @@ func Kve(v, x float64) float64 {
 // Kn returns the modified Bessel function of the second kind of integer
 // order n, Kv(float64(n), x).
 func Kn(n int, x float64) float64 { return Kv(float64(n), x) }
-
-// besselKn returns K_n(x) (or K_n(x) e^x) for 0 <= n <= 50 and finite x > 0
-// by forward recurrence from K0 and K1 (Boost.Math bessel_kn.hpp), which is
-// stable since K grows with the order.
-func besselKn(n int, x float64, scaled bool) float64 {
-	var prev, cur float64
-	if scaled {
-		prev, cur = K0e(x), K1e(x)
-	} else {
-		prev, cur = K0(x), K1(x)
-	}
-	if n == 0 {
-		return prev
-	}
-	for k := 1; k < n; k++ {
-		prev, cur = cur, 2*float64(k)/x*cur+prev
-	}
-	return cur
-}

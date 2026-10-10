@@ -354,7 +354,7 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 		}
 		return math.NaN(), math.NaN()
 	}
-	if needY && x < 1 && v >= 1 && LogGamma(v)+v*math.Log(2/x)-math.Log(math.Pi) > 710.5 {
+	if needY && x < 1 && v >= 1 && LogGamma(v)-v*besselLogHalf(x)-math.Log(math.Pi) > 710.5 {
 		// |Y_v(x)| ~ Gamma(v) (2/x)^v / pi overflows (DLMF 10.7.4).
 		J = math.NaN()
 		if needJ {

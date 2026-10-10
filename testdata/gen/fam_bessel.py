@@ -174,7 +174,17 @@ def kv_mp(v, x, scaled=False):
             av = abs(mpf(v))
             n = int(mp.nint(av))
             u = av - n
-            a, b = mp.besselk(u, X), mp.besselk(u + 1, X)
+            def k0(w):
+                # mpmath's besselk loses accuracy for large x (I_{-w} - I_w
+                # cancels like e^2x); the large-x expansion converges there
+                # for these small orders.
+                if x >= 40:
+                    r = ik_large_scaled(w, x, "K")
+                    if r is not None:
+                        return r * mp.exp(-X)
+                with mp.extraprec(int(3 * x) + 20):
+                    return mp.besselk(w, X)
+            a, b = k0(u), k0(u + 1)
             for k in range(1, n):
                 a, b = b, 2 * (u + k) / X * b + a
             r = b if n >= 1 else a
