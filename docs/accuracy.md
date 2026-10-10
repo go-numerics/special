@@ -102,7 +102,17 @@ License 1.0).
 A test suite that cannot fail proves nothing. `testdata/negative_control.sh`
 perturbs one coefficient, runs `TestAccuracy`, and restores the file.
 
-NEGATIVE_CONTROL_PLACEHOLDER
+Results (run on this branch, arm64):
+
+| perturbation | size | result |
+|---|---|---|
+| low part of the constant term of the Γ(1+t) core on [0, 1/4] (`c0lo`, zz_gamma1pPieces_coeffs.go) | 3.7e-16 absolute (~1.5 ulp of that coefficient) | **fails**: 12 regions over gamma, beta, binom, factorial, log_factorial (7.4 ulp), logbeta (32 ulp) |
+| Stirling coefficient B₆/(6·5) (`c3 = 1.0/1260`, gamma.go) | 8e-7 relative | **fails**: 7 regions, gamma [2,33) 48.9 ulp, beta 70 ulp, binom, factorial, log_factorial |
+| same coefficient | 8e-11 relative | passes: its effect (≈ 6e-19 on log Γ(10)) is below every result's last bit — a perturbation the output cannot see is not one a test can catch |
+| one coefficient of the erfcx interpolant on [0.5, 1] (zz_erfcxPieces_coeffs.go) | 1e-12 relative | **fails**: erf 14 ulp, erfc 25.6 ulp, erfcx 29.7 ulp, erfcinv 16.3 ulp |
+
+The budgets are tight enough that an error of a few ulps in one coefficient
+of one piece is caught, through every function built on it.
 
 ## Where SciPy's result is not a number it should be
 

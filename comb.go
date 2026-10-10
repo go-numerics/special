@@ -80,7 +80,7 @@ func Factorial2(n int) float64 {
 // correctly rounded; beyond, 1/((n+1) B(k+1, n-k+1)) with the beta function's
 // cancellation-free double-double logarithm (LogBeta), which avoids the
 // catastrophic cancellation of log n! - log k! - log (n-k)! for large n.
-func Comb(n, k int) float64 {
+func Comb(n, k int64) float64 {
 	if k < 0 || n < 0 || k > n {
 		return 0
 	}
@@ -90,7 +90,7 @@ func Comb(n, k int) float64 {
 	if k <= 64 {
 		p := dd.F(1)
 		nk := float64(n - k)
-		for i := 1; i <= k; i++ {
+		for i := int64(1); i <= k; i++ {
 			p = dd.DivF(p, float64(i))
 			if p.Hi > math.MaxFloat64/(nk+float64(i)) {
 				// The product overflows; the remaining factors
@@ -114,13 +114,13 @@ func Comb(n, k int) float64 {
 // correctly rounded above); beyond, exp(log Γ(n+1) - log Γ(n-k+1)) with
 // the difference formed without cancellation (logGammaDiff) when n-k+1 is
 // at least 10 and k <= n-k+1.
-func Perm(n, k int) float64 {
+func Perm(n, k int64) float64 {
 	if k < 0 || n < 0 || k > n {
 		return 0
 	}
 	if k <= 64 {
 		p := dd.F(1)
-		for i := 0; i < k; i++ {
+		for i := int64(0); i < k; i++ {
 			if p.Hi > math.MaxFloat64/float64(n-i) {
 				return math.Inf(1) // every remaining factor is >= 1
 			}

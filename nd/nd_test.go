@@ -87,13 +87,13 @@ func TestBinaryBroadcast(t *testing.T) {
 			if !isInt(n) || !isInt(k) {
 				return math.NaN()
 			}
-			return special.Comb(int(n), int(k))
+			return special.Comb(int64(n), int64(k))
 		}},
 		"Perm": {Perm, func(n, k float64) float64 {
 			if !isInt(n) || !isInt(k) {
 				return math.NaN()
 			}
-			return special.Perm(int(n), int(k))
+			return special.Perm(int64(n), int64(k))
 		}},
 	}
 	col := []float64{0.5, 1, 2.5, 3}

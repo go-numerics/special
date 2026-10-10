@@ -109,7 +109,7 @@ func Comb(n, k *ndarray.Array) (*ndarray.Array, error) {
 		if !isInt(n) || !isInt(k) {
 			return math.NaN()
 		}
-		return special.Comb(int(n), int(k))
+		return special.Comb(int64(n), int64(k))
 	}, n, k)
 }
 
@@ -120,7 +120,7 @@ func Perm(n, k *ndarray.Array) (*ndarray.Array, error) {
 		if !isInt(n) || !isInt(k) {
 			return math.NaN()
 		}
-		return special.Perm(int(n), int(k))
+		return special.Perm(int64(n), int64(k))
 	}, n, k)
 }
 
