@@ -127,7 +127,6 @@ func besselRational(p, q []float64, z float64) float64 {
 	return n / d
 }
 
-
 // besselPoly evaluates p[0] + p[1] z + ... (ascending order).
 func besselPoly(p []float64, z float64) float64 {
 	s := 0.0
@@ -192,7 +191,7 @@ func besselY0Series(x float64) float64 {
 
 // besselY1Series is Y1(x) for 0 < x <= 1.5 by DLMF 10.8.1 with n = 1:
 // Y1 = -2/(pi x) + (2/pi) log(x/2) J1(x)
-//      - (x/(2 pi)) sum (psi(k+1) + psi(k+2)) (-x^2/4)^k / (k! (k+1)!).
+//   - (x/(2 pi)) sum (psi(k+1) + psi(k+2)) (-x^2/4)^k / (k! (k+1)!).
 func besselY1Series(x float64) float64 {
 	m := -x * x / 4
 	g := besselEulerDD.Hi

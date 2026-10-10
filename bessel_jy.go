@@ -33,17 +33,23 @@ const besselSteedMaxX = 1e6
 // zeros, which Temme's sum does not).
 const besselTemmeMaxX = 0.25
 
-// besselLogPowGamma returns log((x/2)^v / Gamma(v+1)) as a double-double,
-// for v >= 0 and finite x > 0.
-func besselLogPowGamma(v, x float64) dd.DD {
+// besselLogPowGamma returns log|(x/2)^v / Gamma(v+1)| as a double-double
+// and the sign of Gamma(v+1), for finite x > 0 and v >= 0 or v < 0 not an
+// integer.
+func besselLogPowGamma(v, x float64) (dd.DD, float64) {
 	lx := dd.Sub(dd.Log(x), dd.DD{Hi: dd.Ln2Hi, Lo: dd.Ln2Lo})
 	var lg dd.DD
-	if v <= 1 {
+	sg := 1.0
+	switch {
+	case v < 0:
+		lg = logGammaAbsDD(v + 1)
+		sg = GammaSign(v + 1)
+	case v <= 1:
 		lg = log1pDD(gamma1pm1(v))
-	} else {
+	default:
 		lg = dd.Add(logGammaPos(v), dd.Log(v)) // log Gamma(v+1), v exact
 	}
-	return dd.Sub(dd.MulF(lx, v), lg)
+	return dd.Sub(dd.MulF(lx, v), lg), sg
 }
 
 // besselRGammaPair returns g1 = (1/Gamma(1-u) - 1/Gamma(1+u))/(2u) and
@@ -250,36 +256,70 @@ func besselCF2Tail(v, x float64, n int) (p, q dd.DD) {
 	return p, q
 }
 
-// besselJSeries returns J_v(x) for v >= 0 by its power series
-// (x/2)^v/Gamma(v+1) * sum (-x^2/4)^k / (k! (v+1)_k) (DLMF 10.2.2), the
-// prefix formed as exp of a double-double logarithm.
-func besselJSeries(v, x float64) float64 {
-	L := besselLogPowGamma(v, x)
-	if L.Hi < -746 {
-		return 0
+// besselSeries returns (x/2)^v / Gamma(v+1) * sum_k (sg x^2/4)^k / (k! (v+1)_k),
+// times e^-x when scaled, as m * 2^e (so that it neither overflows nor
+// underflows): with sg = -1 this is J_v(x) (DLMF 10.2.2), with sg = +1
+// I_v(x) (DLMF 10.25.2). v >= 0, or v < 0 not an integer; the prefix is
+// formed as the exponential of a double-double logarithm.
+func besselSeries(v, x, sg float64, scaled bool) (m float64, e int) {
+	L, gs := besselLogPowGamma(v, x)
+	if scaled {
+		L = dd.AddF(L, -x)
 	}
-	m := -x * x / 4
+	q := sg * x * x / 4
 	t, s := 1.0, 1.0
-	for k := 1; k < 1000; k++ {
+	for k := 1; k < 100000; k++ {
 		fk := float64(k)
-		t *= m / (fk * (fk + v))
+		t *= q / (fk * (fk + v))
 		s += t
-		if math.Abs(t) <= 0x1p-54*math.Abs(s) {
+		if math.Abs(t) <= 0x1p-56*math.Abs(s) {
 			break
 		}
 	}
-	return besselExpMul(L, s)
+	k := math.Floor(L.Hi / dd.Ln2Hi)
+	r := dd.Sub(L, dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
+	return gs * dd.Exp(r) * s, int(k)
+}
+
+// besselJSeries returns J_v(x) by its power series (see besselSeries).
+func besselJSeries(v, x float64) float64 {
+	m, e := besselSeries(v, x, -1, false)
+	return math.Ldexp(m, e)
+}
+
+// besselSeriesOK reports whether the power series of J_v or I_v at x
+// converges without cancellation worth speaking of: x^2/4 must be small
+// against every k (k + v), k >= 1, which for v < 0 includes the levels
+// where k + v passes near 0.
+func besselSeriesOK(v, x, ratio float64) bool {
+	m := v + 1
+	if v < 0 {
+		m = math.Inf(1)
+		for k := 1.0; k <= math.Ceil(-v)+1; k++ {
+			m = math.Min(m, math.Abs(k*(k+v)))
+		}
+	}
+	return x*x/4 <= ratio*m
 }
 
 // besselExpMul returns exp(L) * s, without spurious overflow or underflow
 // of exp(L) when the product is representable.
 func besselExpMul(L dd.DD, s float64) float64 {
-	if L.Hi > 700 || L.Hi < -700 {
-		k := math.Floor(L.Hi / dd.Ln2Hi)
-		L = dd.Sub(L, dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
-		return math.Ldexp(dd.Exp(L)*s, int(k))
+	k := math.Floor(L.Hi / dd.Ln2Hi)
+	r := dd.Sub(L, dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
+	return math.Ldexp(dd.Exp(r)*s, int(k))
+}
+
+// besselLdexpExp returns m * 2^e * e^t without intermediate overflow or
+// underflow, e^t reduced in double-double.
+func besselLdexpExp(m float64, e int, t float64) float64 {
+	if m == 0 || math.IsNaN(m) || math.IsInf(m, 0) {
+		return m
 	}
-	return dd.Exp(L) * s
+	k := math.Floor(t / dd.Ln2Hi)
+	r := dd.Sub(dd.F(t), dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
+	fm, fe := math.Frexp(m)
+	return math.Ldexp(fm*dd.Exp(r), fe+e+int(k))
 }
 
 // besselYSeries returns Y_v(x) for non-integer v > 0 and small x by the
@@ -287,7 +327,7 @@ func besselExpMul(L dd.DD, s float64) float64 {
 // bessel_y_small_z_series), usable where the second is negligible against
 // the first or both are accurate.
 func besselYSeries(v, x float64) float64 {
-	L := besselLogPowGamma(v, x)
+	L, _ := besselLogPowGamma(v, x)
 	m := -x * x / 4
 	ta, sa := 1.0, 1.0
 	tb, sb := 1.0, 1.0
@@ -324,7 +364,7 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 			return j, y
 		}
 	}
-	if !needY && x*x/4 <= besselJSeriesRatio*(v+1) {
+	if !needY && besselSeriesOK(v, x, besselJSeriesRatio) {
 		return besselJSeries(v, x), math.NaN()
 	}
 	if v > besselMaxOrder {
@@ -608,7 +648,7 @@ func Jn(n int, x float64) float64 {
 		return sign * 0
 	}
 	v := float64(n)
-	if x*x/4 <= besselJSeriesRatio*(v+1) {
+	if besselSeriesOK(v, x, besselJSeriesRatio) {
 		return sign * besselJSeries(v, x)
 	}
 	j, _ := besselJYPos(v, x, true, false)

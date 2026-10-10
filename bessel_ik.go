@@ -57,9 +57,12 @@ func besselTemmeIK(u, x float64) (ku, ku1 float64) {
 	return sum, 2 * sum1 / x
 }
 
+// besselInv2PiDD is 1/(2 pi) as a double-double.
+var besselInv2PiDD = dd.DD{Hi: 0.15915494309189535, Lo: -9.839338337591243e-18}
+
 // besselCF1IK evaluates I_{v+1}/I_v by its continued fraction (A&S 9.1.73
 // adapted) with the modified Lentz method.
-func besselCF1IK(v, x float64) float64 {
+func besselCF1IK(v, x float64) dd.DD {
 	const tiny = 0x1p-511
 	C, f := tiny, tiny
 	D := 0.0
@@ -74,10 +77,10 @@ func besselCF1IK(v, x float64) float64 {
 		delta := C * D
 		f *= delta
 		if math.Abs(delta-1) <= 0x1p-52 {
-			return besselCF1Tail(v, x, k+8, 1).Float()
+			return besselCF1Tail(v, x, 2*k+20, 1)
 		}
 	}
-	return f
+	return dd.F(f)
 }
 
 // besselCF2IK returns K_u(x) e^x and K_{u+1}(x) e^x for x > 1 by Steed's
@@ -128,6 +131,9 @@ func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
 	if which == 'I' {
 		sgn = -1
 	}
+	if math.Abs(mu-1) > 4*x { // first term above 1/2: the sum would cancel
+		return 0, false
+	}
 	t, s := 1.0, 1.0
 	prev := math.Inf(1)
 	for k := 1; k < 200; k++ {
@@ -136,10 +142,12 @@ func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
 		s += t
 		at := math.Abs(t)
 		if at < besselAsymTol*0x1p-6 {
-			if which == 'I' {
-				return s / math.Sqrt(2*math.Pi*x), true
+			// 1/sqrt(2 pi x) and sqrt(pi/(2x)) in double-double
+			c := besselInv2PiDD
+			if which == 'K' {
+				c = besselPiOver2DD
 			}
-			return s * math.Sqrt(math.Pi/(2*x)), true
+			return dd.MulF(dd.Sqrt(dd.DivF(c, x)), s).Float(), true
 		}
 		if at > prev {
 			break
@@ -149,53 +157,38 @@ func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
 	return 0, false
 }
 
-// besselISeries returns I_v(x) for v >= 0 by its power series (DLMF
-// 10.25.2), times e^-x when scaled.
-func besselISeries(v, x float64, scaled bool) float64 {
-	L := besselLogPowGamma(v, x)
-	if scaled {
-		L = dd.AddF(L, -x)
-	}
-	m := x * x / 4
-	t, s := 1.0, 1.0
-	for k := 1; k < 100000; k++ {
-		fk := float64(k)
-		t *= m / (fk * (fk + v))
-		s += t
-		if t <= 0x1p-54*s {
-			break
-		}
-	}
-	if L.Hi < -746 {
-		return 0
-	}
-	return besselExpMul(L, s)
-}
-
-// besselIKScaled returns I_v(x) e^-x and K_v(x) e^x for v >= 0 and finite
-// x > 0 (what is not needed may be NaN). Kv may be +Inf (overflow).
-func besselIKScaled(v, x float64, needI, needK bool) (Ie, Ke float64) {
-	Ie, Ke = math.NaN(), math.NaN()
+// besselIKCore returns I_v(x) e^-x = ie * 2^ei and K_v(x) e^x = ke * 2^ek
+// for v >= 0 and finite x > 0 (what is not needed may be NaN): the large-x
+// expansions where they converge; otherwise K by Temme's series (x <= 2) or
+// Steed's CF2 at the fractional order u and forward recurrence in
+// double-double, and I by its power series (small x against v) or by CF1
+// and the Wronskian I_v K_{v+1} + I_{v+1} K_v = 1/x (Boost bessel_ik).
+// The powers of two keep every intermediate in range.
+func besselIKCore(v, x float64, needI, needK bool) (ie float64, ei int, ke float64, ek int) {
+	ie, ke = math.NaN(), math.NaN()
 	if x > 20 {
 		okI, okK := !needI, !needK
 		if needI {
-			Ie, okI = besselAsymIK(v, x, 'I')
+			ie, okI = besselAsymIK(v, x, 'I')
 		}
 		if needK {
-			Ke, okK = besselAsymIK(v, x, 'K')
+			ke, okK = besselAsymIK(v, x, 'K')
 		}
 		if okI && okK {
-			return Ie, Ke
+			return ie, 0, ke, 0
 		}
+		ie, ke = math.NaN(), math.NaN()
 	}
-	if !needK && v > 0 && (x/v < 0.25 || x*x/4 <= v+1) {
-		return besselISeries(v, x, true), Ke
+	iSeries := v > 0 && (x/v < 0.25 || besselSeriesOK(v, x, 1))
+	if !needK && iSeries {
+		ie, ei = besselSeries(v, x, 1, true)
+		return ie, ei, ke, 0
 	}
 	if v > besselMaxOrder {
 		if needI {
-			Ie = besselISeries(v, x, true)
+			ie, ei = besselSeries(v, x, 1, true)
 		}
-		return Ie, math.Inf(1)
+		return ie, ei, math.Inf(1), 0
 	}
 	n := int(math.Floor(v + 0.5))
 	u := v - float64(n)
@@ -208,74 +201,46 @@ func besselIKScaled(v, x float64, needI, needK bool) (Ie, Ke float64) {
 	} else {
 		ku, ku1 = besselCF2IK(u, x)
 	}
-	// forward recurrence K_{k+1} = 2k/x K_k + K_{k-1} (scaled alike)
-	scale := 1.0 // K_v e^x = prev / scale
-	prev, cur := ku, ku1
-	for k := 1; k <= n; k++ {
-		fact := 2 * (u + float64(k)) / x
-		if (math.MaxFloat64-math.Abs(prev))/fact < math.Abs(cur) {
-			prev /= cur
-			scale /= cur
-			cur = 1
-		}
-		prev, cur = cur, fact*cur+prev
-	}
-	kv, kv1 := prev, cur
+	// K_{k+1} = 2k/x K_k + K_{k-1}, stable upwards (K is dominant)
+	kv, kv1, e := besselRecur(u, x, n, dd.F(ku), dd.F(ku1), 1)
 	if needK {
-		if math.MaxFloat64*scale < kv {
-			Ke = math.Inf(1)
-		} else {
-			Ke = kv / scale
-		}
+		ke, ek = kv.Float(), e
 	}
 	if needI {
-		if v > 0 && (x/v < 0.25 || x*x/4 <= v+1) {
-			Ie = besselISeries(v, x, true)
+		if iSeries {
+			ie, ei = besselSeries(v, x, 1, true)
 		} else {
 			fv := besselCF1IK(v, x)
-			Ie = scale / x / (kv*fv + kv1) // Wronskian I K' - I' K = -1/x
+			den := dd.Add(dd.Mul(kv, fv), kv1)
+			ie, ei = dd.Div(dd.F(1), dd.MulF(den, x)).Float(), -e
 		}
 	}
-	return Ie, Ke
+	return ie, ei, ke, ek
 }
 
 // besselIK returns I_v(x) and K_v(x), unscaled or scaled, for real v of
-// either sign and finite x > 0.
+// either sign and finite x > 0. For v < 0 (non-integer), I_{-nu} =
+// I_nu + (2/pi) sin(nu pi) K_nu (DLMF 10.27.2), or the power series of
+// I_{-nu} directly where it converges without cancellation.
 func besselIK(v, x float64, needI, needK, scaled bool) (I, K float64) {
 	nu := math.Abs(v)
 	refl := v < 0 && needI && v != math.Trunc(v)
-	ie, ke := besselIKScaled(nu, x, needI, needK || refl)
-	if refl {
-		// I_{-nu} = I_nu + (2/pi) sin(nu pi) K_nu (DLMF 10.27.2)
-		t := 2 / math.Pi * sinPi(nu) * ke
-		if scaled {
-			// K e^x * e^-2x
-			ie += besselExpScale(t, -2*x)
-		} else {
-			I = besselExpScale(ie, x) + besselExpScale(t, -x)
-			ie = math.NaN()
-		}
+	if refl && !needK && besselSeriesOK(v, x, 0.25) {
+		m, e := besselSeries(v, x, 1, scaled)
+		return math.Ldexp(m, e), math.NaN()
 	}
+	ie, ei, ke, ek := besselIKCore(nu, x, needI, needK || refl)
+	ex := x
 	if scaled {
-		return ie, ke
+		ex = 0
 	}
-	if !refl {
-		I = besselExpScale(ie, x)
+	K = besselLdexpExp(ke, ek, -ex)
+	I = besselLdexpExp(ie, ei, ex)
+	if refl {
+		t := 2 / math.Pi * sinPi(nu) * ke
+		I += besselLdexpExp(t, ek, -2*x+ex)
 	}
-	K = besselExpScale(ke, -x)
 	return I, K
-}
-
-// besselExpScale returns r * e^t without intermediate overflow.
-func besselExpScale(r, t float64) float64 {
-	if math.IsNaN(r) || r == 0 || math.IsInf(r, 0) {
-		return r
-	}
-	if t > 700 || t < -700 {
-		h := math.Exp(t / 2)
-		return r * h * h
-	}
-	return r * math.Exp(t)
 }
 
 // I0 returns the modified Bessel function of the first kind of order zero,
@@ -287,15 +252,24 @@ func besselExpScale(r, t float64) float64 {
 func I0(x float64) float64 {
 	x = math.Abs(x)
 	switch {
-	case math.IsNaN(x):
+	case math.IsNaN(x) || math.IsInf(x, 1):
 		return x
 	case x < 7.75:
 		return besselI0Small(x)
-	case x < 500:
-		return math.Exp(x) * besselPoly(besselI0Pm[:], 1/x) / math.Sqrt(x)
 	}
-	ex := math.Exp(x / 2)
-	return ex * besselPoly(besselI0Pl[:], 1/x) / math.Sqrt(x) * ex
+	return besselLdexpExp(besselI0eLarge(x), 0, x)
+}
+
+// besselI0eLarge is I0(x) e^-x for x >= 7.75: Boost's minimax polynomial in
+// 1/x up to 30, the asymptotic series DLMF 10.40.1 (summed to below 2^-64,
+// prefactor in double-double) beyond.
+func besselI0eLarge(x float64) float64 {
+	if x >= 30 {
+		if r, ok := besselAsymIK(0, x, 'I'); ok {
+			return r
+		}
+	}
+	return besselPoly(besselI0Pm[:], 1/x) / math.Sqrt(x)
 }
 
 // I0e returns I0(x) e^-|x|, defined for all real x; I0e(±Inf) = 0.
@@ -308,17 +282,14 @@ func I0e(x float64) float64 {
 		return 0
 	case x < 7.75:
 		return besselI0Small(x) * math.Exp(-x)
-	case x < 500:
-		return besselPoly(besselI0Pm[:], 1/x) / math.Sqrt(x)
 	}
-	return besselPoly(besselI0Pl[:], 1/x) / math.Sqrt(x)
+	return besselI0eLarge(x)
 }
 
 // Boost.Math bessel_i0.hpp (53-bit branch) coefficients.
 var (
 	besselI0Ps = [...]float64{1.00000000000000000e+00, 2.49999999999999909e-01, 2.77777777777782257e-02, 1.73611111111023792e-03, 6.94444444453352521e-05, 1.92901234513219920e-06, 3.93675991102510739e-08, 6.15118672704439289e-10, 7.59407002058973446e-12, 7.59389793369836367e-14, 6.27767773636292611e-16, 4.34709704153272287e-18, 2.63417742690109154e-20, 1.13943037744822825e-22, 9.07926920085624812e-25}
 	besselI0Pm = [...]float64{3.98942280401425088e-01, 4.98677850604961985e-02, 2.80506233928312623e-02, 2.92211225166047873e-02, 4.44207299493659561e-02, 1.30970574605856719e-01, -3.35052280231727022e+00, 2.33025711583514727e+02, -1.13366350697172355e+04, 4.24057674317867331e+05, -1.23157028595698731e+07, 2.80231938155267516e+08, -5.01883999713777929e+09, 7.08029243015109113e+10, -7.84261082124811106e+11, 6.76825737854096565e+12, -4.49034849696138065e+13, 2.24155239966958995e+14, -8.13426467865659318e+14, 2.02391097391687777e+15, -3.08675715295370878e+15, 2.17587543863819074e+15}
-	besselI0Pl = [...]float64{3.98942280401432905e-01, 4.98677850491434560e-02, 2.80506308916506102e-02, 2.92179096853915176e-02, 4.53371208762579442e-02}
 )
 
 func besselI0Small(x float64) float64 {
@@ -338,15 +309,22 @@ func I1(x float64) float64 {
 		x, sign = -x, -1
 	}
 	switch {
-	case math.IsNaN(x):
-		return x
+	case math.IsNaN(x) || math.IsInf(x, 1):
+		return sign * x
 	case x < 7.75:
 		return sign * besselI1Small(x)
-	case x < 500:
-		return sign * math.Exp(x) * besselPoly(besselI1Pm[:], 1/x) / math.Sqrt(x)
 	}
-	ex := math.Exp(x / 2)
-	return sign * ex * besselPoly(besselI1Pl[:], 1/x) / math.Sqrt(x) * ex
+	return sign * besselLdexpExp(besselI1eLarge(x), 0, x)
+}
+
+// besselI1eLarge is I1(x) e^-x for x >= 7.75 (as besselI0eLarge).
+func besselI1eLarge(x float64) float64 {
+	if x >= 30 {
+		if r, ok := besselAsymIK(1, x, 'I'); ok {
+			return r
+		}
+	}
+	return besselPoly(besselI1Pm[:], 1/x) / math.Sqrt(x)
 }
 
 // I1e returns I1(x) e^-|x| (odd in x); I1e(±Inf) = ±0.
@@ -362,17 +340,14 @@ func I1e(x float64) float64 {
 		return sign * 0
 	case x < 7.75:
 		return sign * besselI1Small(x) * math.Exp(-x)
-	case x < 500:
-		return sign * besselPoly(besselI1Pm[:], 1/x) / math.Sqrt(x)
 	}
-	return sign * besselPoly(besselI1Pl[:], 1/x) / math.Sqrt(x)
+	return sign * besselI1eLarge(x)
 }
 
 // Boost.Math bessel_i1.hpp (53-bit branch) coefficients.
 var (
 	besselI1Ps = [...]float64{8.333333333333333803e-02, 6.944444444444341983e-03, 3.472222222225921045e-04, 1.157407407354987232e-05, 2.755731926254790268e-07, 4.920949692800671435e-09, 6.834657311305621830e-11, 7.593969849687574339e-13, 6.904822652741917551e-15, 5.220157095351373194e-17, 3.410720494727771276e-19, 1.625212890947171108e-21, 1.332898928162290861e-23}
 	besselI1Pm = [...]float64{3.989422804014406054e-01, -1.496033551613111533e-01, -4.675104253598537322e-02, -4.090895951581637791e-02, -5.719036414430205390e-02, -1.528189554374492735e-01, 3.458284470977172076e+00, -2.426181371595021021e+02, 1.178785865993440669e+04, -4.404655582443487334e+05, 1.277677779341446497e+07, -2.903390398236656519e+08, 5.192386898222206474e+09, -7.313784438967834057e+10, 8.087824484994859552e+11, -6.967602516005787001e+12, 4.614040809616582764e+13, -2.298849639457172489e+14, 8.325554073334618015e+14, -2.067285045778906105e+15, 3.146401654361325073e+15, -2.213318202179221945e+15}
-	besselI1Pl = [...]float64{3.989422804014314820e-01, -1.496033551467584157e-01, -4.675105322571775911e-02, -4.090421597376992892e-02, -5.843630344778927582e-02}
 )
 
 func besselI1Small(x float64) float64 {
@@ -418,11 +393,8 @@ func K0(x float64) float64 {
 		return math.Inf(1)
 	case x <= 1:
 		return besselK0Small(x)
-	case x < 700:
-		return besselK0Large(x) * math.Exp(-x) / math.Sqrt(x)
 	}
-	ex := math.Exp(-x / 2)
-	return besselK0Large(x) * ex / math.Sqrt(x) * ex
+	return besselLdexpExp(besselK0Large(x)/math.Sqrt(x), 0, -x)
 }
 
 // K0e returns K0(x) e^x for x > 0 (NaN for x < 0, +Inf at 0, 0 at +Inf).
@@ -475,11 +447,8 @@ func K1(x float64) float64 {
 		return math.Inf(1)
 	case x <= 1:
 		return besselK1Small(x)
-	case x < 700:
-		return besselK1Large(x) * math.Exp(-x) / math.Sqrt(x)
 	}
-	ex := math.Exp(-x / 2)
-	return besselK1Large(x) * ex / math.Sqrt(x) * ex
+	return besselLdexpExp(besselK1Large(x)/math.Sqrt(x), 0, -x)
 }
 
 // K1e returns K1(x) e^x for x > 0 (NaN for x < 0, +Inf at 0, 0 at +Inf).

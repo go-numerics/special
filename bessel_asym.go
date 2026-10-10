@@ -157,7 +157,7 @@ func besselAsymJY(v, x float64, needJ, needY bool) (j, y float64, ok bool) {
 	d[0] = 1
 	ix2 := 1 / (x * x)
 	S := 0.0
-	phase := 0.0   // sum of e_k for k >= 3
+	phase := 0.0    // sum of e_k for k >= 3
 	phaseAbs := 0.0 // sum of |e_k| for k >= 3 (rounding error bound)
 	last := math.Inf(1)
 	for k := 1; k < len(t); k++ {
