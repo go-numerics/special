@@ -166,32 +166,35 @@ func Expm1(a DD) float64 {
 }
 
 // Log returns log(x) for finite x > 0 as a double-double accurate to about
-// 2^-68 relative: the reduced logarithm is the atanh series
-// log m = 2s(1 + s^2/3 + s^4/5 + ...), s = (m-1)/(m+1), whose first three
-// terms are carried in double-double and the remainder (< 3e-5 of the
-// total) in float64; k*ln2 is added exactly.
+// 2^-100 relative.
+//
+// Method (table-driven, after Tang, "Table-driven implementation of the
+// logarithm function in IEEE floating-point arithmetic", ACM TOMS 16(4),
+// 1990): x = 2^k m with m in [1/sqrt2, sqrt2); c = j/128 is the grid point
+// nearest m, and log m = log c + 2 atanh(s), s = (m-c)/(m+c). m-c is exact
+// (Sterbenz) and |s| < 1/360, so the atanh series 2s(1 + s²/3 + s⁴/5 + ...)
+// needs three terms in double-double and four more in float64. log c comes from a
+// 300-bit mpmath table (zz_logtable.go); k ln2 is added exactly.
 func Log(x float64) DD {
 	m, k := math.Frexp(x) // x = m * 2^k, m in [0.5, 1)
 	if m < math.Sqrt2/2 {
 		m *= 2
 		k--
 	}
-	// s = (m-1)/(m+1); m-1 is exact (Sterbenz), m+1 is exact in DD.
-	num := DD{m - 1, 0}
-	h, l := TwoSum(m, 1)
-	s := Div(num, DD{h, l})
+	j := math.Floor(m*128 + 0.5)
+	c := j / 128
+	num := m - c // exact
+	h, l := TwoSum(m, c)
+	s := Div(DD{num, 0}, DD{h, l})
 	s2 := Mul(s, s)
-	// |s| <= 0.1716, s^2 <= 0.02944.
 	z := s2.Hi
-	tail := 0.0
-	for i := 31; i >= 7; i -= 2 {
-		tail = tail*z + 1/float64(i)
-	}
-	// series = 1 + s2/3 + s2^2/5 + s2^3*tail
-	s4 := Mul(s2, s2)
-	t := Add(DD{1, 0}, Add(Div(s2, DD{3, 0}), Div(s4, DD{5, 0})))
-	t = AddF(t, z*z*z*tail)
+	// series = 1 + s2/3 + s2^2/5 + s2^3 (1/7 + s2/9 + s2^2/11 + s2^3/13);
+	// s2 < 7.7e-6, so the omitted s2^7/15 is below 2^-125.
+	t := Add(Div(s2, DD{3, 0}), DivF(Mul(s2, s2), 5))
+	t = AddF(t, z*z*z*(1.0/7+z*(1.0/9+z*(1.0/11+z/13))))
+	t = AddF(t, 1)
 	lm := MulF(Mul(s, t), 2)
+	lm = Add(lm, logTable[int(j)-logTableLo])
 	kk := float64(k)
 	return Add(Add(MulFF(kk, Ln2Hi), MulFF(kk, Ln2Lo)), lm)
 }
