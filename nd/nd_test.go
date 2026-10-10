@@ -46,6 +46,7 @@ func TestUnaryBitIdentical(t *testing.T) {
 		"Log1pExp": {Log1pExp, special.Log1pExp}, "Logit": {Logit, special.Logit},
 		"Zeta": {Zeta, special.Zeta}, "EllipK": {EllipK, special.EllipK},
 		"EllipKm1": {EllipKm1, special.EllipKm1}, "EllipE": {EllipE, special.EllipE},
+		"J0": {J0, special.J0}, "J1": {J1, special.J1}, "Y0": {Y0, special.Y0}, "Y1": {Y1, special.Y1}, "I0": {I0, special.I0}, "I1": {I1, special.I1}, "I0e": {I0e, special.I0e}, "I1e": {I1e, special.I1e}, "K0": {K0, special.K0}, "K1": {K1, special.K1}, "K0e": {K0e, special.K0e}, "K1e": {K1e, special.K1e},
 		"Factorial2": {Factorial2, func(x float64) float64 {
 			if x != math.Trunc(x) || math.IsInf(x, 0) {
 				return math.NaN()
@@ -77,7 +78,29 @@ func TestBinaryBroadcast(t *testing.T) {
 	}{
 		"Beta": {Beta, special.Beta}, "LogBeta": {LogBeta, special.LogBeta}, "Binom": {Binom, special.Binom},
 		"Xlogy": {Xlogy, special.Xlogy}, "GammaP": {GammaP, special.GammaP}, "GammaQ": {GammaQ, special.GammaQ},
-		"GammaPInv": {GammaPInv, special.GammaPInv}, "GammaQInv": {GammaQInv, special.GammaQInv}, "Xlog1py": {Xlog1py, special.Xlog1py}, "HurwitzZeta": {HurwitzZeta, special.HurwitzZeta},
+		"GammaPInv": {GammaPInv, special.GammaPInv},
+		"Jv":        {Jv, special.Jv}, "Yv": {Yv, special.Yv}, "Iv": {Iv, special.Iv}, "Ive": {Ive, special.Ive}, "Kv": {Kv, special.Kv}, "Kve": {Kve, special.Kve},
+		"Jn": {Jn, func(n, x float64) float64 {
+			if !isInt(n) {
+				return math.NaN()
+			}
+			return special.Jn(int(n), x)
+		}}, "Yn": {Yn, func(n, x float64) float64 {
+			if !isInt(n) {
+				return math.NaN()
+			}
+			return special.Yn(int(n), x)
+		}}, "In": {In, func(n, x float64) float64 {
+			if !isInt(n) {
+				return math.NaN()
+			}
+			return special.In(int(n), x)
+		}}, "Kn": {Kn, func(n, x float64) float64 {
+			if !isInt(n) {
+				return math.NaN()
+			}
+			return special.Kn(int(n), x)
+		}}, "GammaQInv": {GammaQInv, special.GammaQInv}, "Xlog1py": {Xlog1py, special.Xlog1py}, "HurwitzZeta": {HurwitzZeta, special.HurwitzZeta},
 		"Polygamma": {Polygamma, func(n, x float64) float64 {
 			if !isInt(n) {
 				return math.NaN()
