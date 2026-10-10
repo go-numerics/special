@@ -135,7 +135,9 @@ const besselAsymTol = 0x1p-58
 // 10.18.17 for M^2, and theta from DLMF 10.18.8, theta' = 2/(pi x M^2),
 // integrated term by term; its first terms are DLMF 10.18.18). ok is false
 // when the expansions do not reach besselAsymTol before their terms start
-// to grow; v may be of either sign.
+// to grow, or when a needed function is so close to a zero that the error
+// of the phase would show in its relative error (j and y are still the
+// best values this method gives); v may be of either sign.
 //
 // Accuracy near the zeros of J and Y is what this form is for: the phase
 // x - (v/2 + 1/4)pi + (mu-1)/(8x) + (mu-1)(mu-25)/(384x^3) + ... is formed
@@ -144,18 +146,20 @@ const besselAsymTol = 0x1p-58
 // multiple of pi/2, so cos(theta) keeps its relative accuracy where it is
 // small. (Hankel's P cos(chi) - Q sin(chi) form, as in Cephes and Boost,
 // loses it there.)
-func besselAsymJY(v, x float64) (j, y float64, ok bool) {
+func besselAsymJY(v, x float64, needJ, needY bool) (j, y float64, ok bool) {
 	mu := 4 * v * v
 	// S = sum_{k>=1} T_k, T_k = c_k/x^(2k): M^2 = 2/(pi x) (1 + S).
 	// D_k: 1/(1+S) = sum D_k (D_0 = 1); phase terms e_k = x D_k/(1-2k).
-	var t [64]float64
-	var d [64]float64
+	// Both series are asymptotic: they are summed while their terms
+	// decrease (optimal truncation), down to 2^-110.
+	var t [80]float64
+	var d [80]float64
 	d[0] = 1
 	ix2 := 1 / (x * x)
 	S := 0.0
-	phase := 0.0 // sum of e_k for k >= 3
-	K := 0
-	prev := math.Inf(1)
+	phase := 0.0   // sum of e_k for k >= 3
+	phaseAbs := 0.0 // sum of |e_k| for k >= 3 (rounding error bound)
+	last := math.Inf(1)
 	for k := 1; k < len(t); k++ {
 		o := float64(2*k - 1)
 		if k == 1 {
@@ -169,22 +173,22 @@ func besselAsymJY(v, x float64) (j, y float64, ok bool) {
 		}
 		d[k] = s
 		ek := x * d[k] / (1 - float64(2*k))
+		size := math.Max(math.Abs(t[k]), math.Abs(ek))
+		if size > last {
+			break
+		}
 		S += t[k]
 		if k >= 3 {
 			phase += ek
+			phaseAbs += math.Abs(ek)
 		}
-		size := math.Max(math.Abs(t[k]), math.Abs(ek))
-		if size < besselAsymTol*0x1p-6 || (t[k] == 0 && ek == 0) {
-			K = k
+		last = size
+		if size < 0x1p-110 {
 			break
 		}
-		if size > prev {
-			return 0, 0, false
-		}
-		prev = size
 	}
-	if K == 0 {
-		return 0, 0, false
+	if !(last < besselAsymTol) {
+		return math.NaN(), math.NaN(), false
 	}
 	// e_1 + e_2 in double-double.
 	mu1 := dd.AddF(dd.MulFF(2*v, 2*v), -1)
@@ -211,6 +215,16 @@ func besselAsymJY(v, x float64) (j, y float64, ok bool) {
 		ni += 4
 	}
 	sn, cs := besselSinCosQuarter(ni, s)
+	// The phase is known to about errPh (radians): truncation, plus the
+	// rounding of the terms summed in float64. J = M cos(theta) is then
+	// relatively accurate only where |cos(theta)| >> errPh; next to a zero
+	// the caller is told to use another method.
+	errPh := last + phaseAbs*0x1p-52 + 0x1p-100
+	if (needJ && errPh > 0x1p-56*math.Abs(cs)) || (needY && errPh > 0x1p-56*math.Abs(sn)) {
+		ok = false
+	} else {
+		ok = true
+	}
 	// M = sqrt(2/(pi x) (1+S)), scaled to stay normal for huge x.
 	scale := 1.0
 	xs := x
@@ -222,5 +236,5 @@ func besselAsymJY(v, x float64) (j, y float64, ok bool) {
 	M := dd.Sqrt(m2)
 	j = (M.Hi*cs + M.Lo*cs) * scale
 	y = (M.Hi*sn + M.Lo*sn) * scale
-	return j, y, true
+	return j, y, ok
 }

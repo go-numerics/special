@@ -23,7 +23,7 @@ func besselTemmeIK(u, x float64) (ku, ku1 float64) {
 	rgp := g2 - u*g1 // 1/Gamma(1+u)
 	rgm := g2 + u*g1 // 1/Gamma(1-u)
 	a := math.Log(x / 2)
-	b := math.Exp(u * a)
+	b := besselPowHalf(x, u)
 	sigma := -a * u
 	c := 1.0
 	if math.Abs(u) >= 0x1p-52 {

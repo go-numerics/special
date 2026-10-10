@@ -10,8 +10,8 @@ import "math"
 // Algorithm: an initial estimate from McMahon's expansion (DLMF 10.21.19)
 // for n = 0, and from Olver's uniform expansion (A&S 9.5.22, with the Airy
 // zeros of A&S 10.4.94) for n >= 1, as in Boost.Math bessel_jy_zero.hpp;
-// then Halley's iteration on Jn, with J'_n = J_{n-1} - (n/x) J_n and J''_n
-// from Bessel's equation, run to convergence in double precision.
+// then Halley's iteration on Jn, with dJ_n/dx = J_{n-1} - (n/x) J_n and the
+// second derivative from Bessel's equation, run to convergence.
 func JnZeros(n int, nt int) []float64 {
 	if n < 0 {
 		n = -n
