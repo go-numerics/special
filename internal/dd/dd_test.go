@@ -161,3 +161,27 @@ func TestExpMant(t *testing.T) {
 		}
 	}
 }
+
+func TestSpecials(t *testing.T) {
+	if s := Sqrt(DD{0, 0}); s.Hi != 0 {
+		t.Errorf("Sqrt(0) = %v", s)
+	}
+	if s := Sqrt(DD{-1, 0}); s.Hi == s.Hi {
+		t.Errorf("Sqrt(-1) = %v", s)
+	}
+	if s := Sqrt(DD{2, 0}); math.Abs(s.Hi*s.Hi-2) > 1e-15 {
+		t.Errorf("Sqrt(2) = %v", s)
+	}
+	if l := Log(0); !math.IsInf(l.Hi, -1) {
+		t.Errorf("Log(0) = %v", l)
+	}
+	if l := Log(math.Inf(1)); !math.IsInf(l.Hi, 1) {
+		t.Errorf("Log(Inf) = %v", l)
+	}
+	if l := Log(-1); l.Hi == l.Hi {
+		t.Errorf("Log(-1) = %v", l)
+	}
+	if q := DivF(DD{1, 0}, 3); math.Abs(q.Hi-1.0/3) > 1e-16 {
+		t.Errorf("DivF = %v", q)
+	}
+}

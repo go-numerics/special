@@ -143,13 +143,6 @@ type polyPiece struct {
 	coef      []float64
 }
 
-// evalPieces evaluates a piecewise polynomial whose pieces have equal width
-// and are contiguous; t outside [p[0].lo, p[n-1].hi] uses the nearest piece.
-func evalPieces(p []polyPiece, t float64) float64 {
-	q := &p[pieceIndex(p, t)]
-	return polevl(t-q.c, q.coef)
-}
-
 // evalPiecesDD evaluates the piecewise polynomial as a double-double:
 // c0 + s*q(s) with c0 = coef[n] + c0lo exact and only s*q(s) (a small
 // fraction of the result near the piece centre) rounded, which removes the
@@ -164,14 +157,10 @@ func evalPiecesDD(p []polyPiece, t float64) dd.DD {
 }
 
 func pieceIndex(p []polyPiece, t float64) int {
+	// Callers pass t in [p[0].lo, p[n-1].hi]; the top end maps to the last
+	// piece.
 	w := p[0].hi - p[0].lo
-	i := int((t - p[0].lo) / w)
-	if i < 0 {
-		i = 0
-	} else if i >= len(p) {
-		i = len(p) - 1
-	}
-	return i
+	return min(int((t-p[0].lo)/w), len(p)-1)
 }
 
 // logf is math.Log made correct for subnormal arguments on every

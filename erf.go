@@ -63,9 +63,6 @@ func erfcxCorrected(z dd.DD) dd.DD {
 // exp(-x*x) incurs grows like 2x² ulp).
 func erfcMant(z dd.DD) (dd.DD, int) {
 	em, k := dd.ExpMant(dd.Neg(dd.Mul(z, z)))
-	if em.Hi == 0 {
-		return em, 0
-	}
 	return dd.Mul(em, erfcxCorrected(z)), k
 }
 

@@ -194,13 +194,6 @@ func Ldexp(a DD, k int) DD {
 	return DD{math.Ldexp(a.Hi, k), math.Ldexp(a.Lo, k)}
 }
 
-// Expm1 returns exp(a)-1 for |a| small enough that the result is not
-// dominated by the -1 (callers use it for |a| < 1).
-func Expm1(a DD) float64 {
-	em := math.Expm1(a.Hi)
-	return em + a.Lo*(1+em)
-}
-
 // Log returns log(x) for finite x > 0 as a double-double accurate to about
 // 2^-100 relative.
 //

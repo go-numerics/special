@@ -25,7 +25,7 @@ func Factorial(n float64) float64 {
 		return math.Inf(1)
 	case n < 1:
 		return gamma1p(n).Float()
-	case n > gammaMax:
+	case n > gammaMax-1:
 		return math.Inf(1)
 	}
 	// Γ(n+1) = exp(log n + log Γ(n))
