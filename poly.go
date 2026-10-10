@@ -1,6 +1,10 @@
 package special
 
-import "math"
+import (
+	"math"
+
+	"github.com/go-numerics/special/internal/dd"
+)
 
 // polevl evaluates the polynomial c[0]*x^n + c[1]*x^(n-1) + ... + c[n]
 // (Cephes polevl: coefficients in descending order).
@@ -101,19 +105,25 @@ func cosPi(x float64) float64 {
 	return c
 }
 
-// sinPiReduced returns sin(pi*r), 0 <= r <= 0.25, forming pi*r in
-// double-double so that rounding the product does not cost an ulp.
+// sinPiReduced returns sin(pi*r), 0 <= r <= 0.25, as
+// r*(π + r²G(r²)) with π split in two (π = piHi + piLo) and r*piHi formed
+// exactly: the polynomial term is below 10% of the result, so its rounding
+// error is scaled down accordingly and the result is within about 0.6 ulp.
+// G is fitted to mpmath (zz_sinPiPieces_coeffs.go, testdata/gen/fit.py).
 func sinPiReduced(r float64) float64 {
-	p := float64(piHi * r)
-	e := math.FMA(piHi, r, -p) + piLo*r
-	return math.Sin(p) + e*math.Cos(p)
+	u := r * r
+	h := float64(r * piHi)
+	e := math.FMA(r, piHi, -h)
+	return h + (e + r*(piLo+u*polevl(u-sinPiPieces[0].c, sinPiPieces[0].coef)))
 }
 
-// cosPiReduced returns cos(pi*r), 0 <= r <= 0.25.
+// cosPiReduced returns cos(pi*r), 0 <= r <= 0.25, as 1 + r²H(r²) with r²
+// carried exactly (H fitted to mpmath, zz_cosPiPieces_coeffs.go).
 func cosPiReduced(r float64) float64 {
-	p := float64(piHi * r)
-	e := math.FMA(piHi, r, -p) + piLo*r
-	return math.Cos(p) - e*math.Sin(p)
+	uh := float64(r * r)
+	ul := math.FMA(r, r, -uh)
+	h := polevl(uh-cosPiPieces[0].c, cosPiPieces[0].coef)
+	return math.FMA(uh, h, 1) + ul*h
 }
 
 // polyPiece is one piece of a piecewise polynomial approximation generated
@@ -121,12 +131,31 @@ func cosPiReduced(r float64) float64 {
 // coef[0]*s^n + ... + coef[n] with s = t - c (coefficients descending).
 type polyPiece struct {
 	lo, hi, c float64
+	c0lo      float64 // low part of the constant term coef[n] as a double-double
 	coef      []float64
 }
 
 // evalPieces evaluates a piecewise polynomial whose pieces have equal width
 // and are contiguous; t outside [p[0].lo, p[n-1].hi] uses the nearest piece.
 func evalPieces(p []polyPiece, t float64) float64 {
+	q := &p[pieceIndex(p, t)]
+	return polevl(t-q.c, q.coef)
+}
+
+// evalPiecesDD evaluates the piecewise polynomial as a double-double:
+// c0 + s*q(s) with c0 = coef[n] + c0lo exact and only s*q(s) (a small
+// fraction of the result near the piece centre) rounded, which removes the
+// ulp the final Horner step would otherwise cost.
+func evalPiecesDD(p []polyPiece, t float64) dd.DD {
+	q := &p[pieceIndex(p, t)]
+	n := len(q.coef) - 1
+	s := t - q.c
+	r := s * polevl(s, q.coef[:n])
+	h, l := dd.TwoSum(q.coef[n], r)
+	return dd.DD{Hi: h, Lo: l + q.c0lo}
+}
+
+func pieceIndex(p []polyPiece, t float64) int {
 	w := p[0].hi - p[0].lo
 	i := int((t - p[0].lo) / w)
 	if i < 0 {
@@ -134,5 +163,5 @@ func evalPieces(p []polyPiece, t float64) float64 {
 	} else if i >= len(p) {
 		i = len(p) - 1
 	}
-	return polevl(t-p[i].c, p[i].coef)
+	return i
 }
