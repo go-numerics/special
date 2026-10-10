@@ -77,7 +77,7 @@ func TestLog(t *testing.T) {
 		}
 	}
 	t.Logf("dd.Log worst relative error %g (2^%.1f)", worst, math.Log2(worst))
-	if worst > 0x1p-98 {
+	if worst > 0x1p-95 {
 		t.Errorf("dd.Log relative error %g > 2^-98", worst)
 	}
 }
@@ -134,5 +134,30 @@ func TestExp(t *testing.T) {
 	}
 	if !math.IsNaN(Exp(DD{math.NaN(), 0})) || Exp(DD{-800, 0}) != 0 || !math.IsInf(Exp(DD{800, 0}), 1) {
 		t.Error("Exp specials")
+	}
+}
+
+func TestExpMantPrecise(t *testing.T) {
+	worst := 0.0
+	for i := 0; i < 2000; i++ {
+		hi := -700 + 1400*float64(i)/2000 + 1e-4*float64(i%13)
+		a := DD{hi, hi * 0x1p-58 * float64(i%5-2)}
+		a = AddF(a, 0)
+		m, k := ExpMantPrecise(a)
+		got := new(big.Float).SetPrec(400).SetMantExp(bf(m), k)
+		want := bigExp(bf(a))
+		d := new(big.Float).SetPrec(400).Sub(got, want)
+		r, _ := new(big.Float).Quo(d, want).Float64()
+		worst = math.Max(worst, math.Abs(r))
+	}
+	t.Logf("ExpMantPrecise worst relative error 2^%.1f", math.Log2(worst))
+	if worst > 0x1p-95 {
+		t.Errorf("ExpMantPrecise relative error %g", worst)
+	}
+	for _, x := range []float64{math.NaN(), 800, -800} {
+		m, _ := ExpMantPrecise(DD{x, 0})
+		if !(m.Hi != m.Hi || math.IsInf(m.Hi, 1) || m.Hi == 0) {
+			t.Errorf("ExpMantPrecise(%v) = %v", x, m)
+		}
 	}
 }

@@ -135,7 +135,35 @@ def digamma1p_D(t):
         return mp.digamma(1 + t) / (t - r)
 
 
+def erf_E(u):
+    # erf(sqrt u)/sqrt u
+    if u == 0:
+        return 2 / mp.sqrt(mp.pi)
+    r = mp.sqrt(u)
+    return mp.erf(r) / r
+
+
+def erfcx_x(x):
+    with mp.workprec(mp.prec + 60):
+        return mp.exp(x * x) * mp.erfc(x)
+
+
+def erfcx_G(u):
+    # x erfcx(x) with u = 1/x^2
+    if u == 0:
+        return 1 / mp.sqrt(mp.pi)
+    x = 1 / mp.sqrt(u)
+    with mp.workprec(mp.prec + 200):
+        return x * mp.exp(x * x) * mp.erfc(x)
+
+
 JOBS = {
+    "erfSmallPieces": ("erfSmallPieces: E(u) = erf(√u)/√u on [0, 1/4]; erf(x) = x E(x²) for |x| <= 1/2.",
+                       erf_E, [0.0, 0.25]),
+    "erfcxPieces": ("erfcxPieces: erfcx(x) = exp(x²) erfc(x) on [0.5, 8].",
+                    erfcx_x, [0.5 + 0.5 * k for k in range(16)]),
+    "erfcxTailPieces": ("erfcxTailPieces: G(u) = x erfcx(x), u = 1/x², on [0, 1/64] (x >= 8).",
+                        erfcx_G, [0.0, 1.0 / 128, 1.0 / 64]),
     "digamma1pPieces": ("digamma1pPieces: D(t) = ψ(1+t)/(t - r) on [0, 1], r = x0 - 1, ψ(x0) = 0.",
                         digamma1p_D, [0.0, 0.25, 0.5, 0.75, 1.0]),
     "sinPiPieces": ("sinPiPieces: G(u) = (sin(π√u)/√u - π)/u on [0, 1/16]; sin(πr) = r(π + r²G(r²)).",

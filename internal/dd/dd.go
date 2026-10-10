@@ -133,29 +133,62 @@ const (
 )
 
 // Exp returns exp(a.Hi + a.Lo) rounded to float64 with an error below one
-// ulp (about 0.8 ulp): the argument is reduced by k*ln2 in double-double, the
-// reduced exponential is formed as 1 + expm1(r) so that math.Expm1's error
-// is scaled by |expm1(r)|/(1+expm1(r)) <= 0.3, and the low part of the
-// argument enters through the first-order term.
+// ulp (measured: 0.70 ulp): the argument is reduced by k*ln2 in
+// double-double, the reduced exponential is formed as 1 + expm1(r) so that
+// math.Expm1's error is scaled by |expm1(r)|/(1+expm1(r)) <= 0.3, and the
+// low part of the argument enters through the first-order term.
 func Exp(a DD) float64 {
+	m, k := ExpMant(a)
+	return math.Ldexp(m.Hi+m.Lo, k)
+}
+
+// ExpMant returns m, k with exp(a) = m * 2^k, m in about [0.7, 1.42] as a
+// double-double (relative error about 2^-54.7, from math.Expm1), so that a
+// caller can multiply further factors in before the single final rounding.
+// For a.Hi > 710 it returns m = +Inf (or NaN for NaN); for a.Hi < -745.2,
+// m = 0.
+func ExpMant(a DD) (m DD, k int) {
 	x := a.Hi
-	if x != x {
-		return x
+	switch {
+	case x != x:
+		return DD{x, 0}, 0
+	case x > 710:
+		return DD{math.Inf(1), 0}, 0
+	case x < -745.2:
+		return DD{}, 0
 	}
-	if x > 709.8 {
-		return math.Exp(x + a.Lo) // overflow region; math.Exp decides
-	}
-	if x < -745.2 {
-		return 0
-	}
-	k := math.Floor(x/Ln2Hi + 0.5)
-	// r = a - k*ln2 in double-double. k*Ln2Hi is exact through TwoProd.
-	r := Sub(a, Add(MulFF(k, Ln2Hi), MulFF(k, Ln2Lo)))
+	kf := math.Floor(x/Ln2Hi + 0.5)
+	// r = a - k*ln2 in double-double; k*Ln2Hi is exact through TwoProd.
+	r := Sub(a, Add(MulFF(kf, Ln2Hi), MulFF(kf, Ln2Lo)))
 	em := math.Expm1(r.Hi)
 	// exp(r.Hi + r.Lo) = (1+em)(1+r.Lo) ~= 1 + em + r.Lo*(1+em)
 	s, e := TwoSum(1, em)
 	e += r.Lo * (1 + em)
-	return math.Ldexp(s+e, int(k))
+	s, e = FastTwoSum(s, e)
+	return DD{s, e}, int(kf)
+}
+
+// ExpMantPrecise is ExpMant with the mantissa refined to about 2^-100
+// relative by one Newton step on the logarithm: with y0 = exp(r) from
+// math.Expm1, y = y0 (1 + (r - log y0)), log y0 from Log. It costs one Log
+// more and is meant for residuals (inverse functions), not forward
+// evaluation.
+func ExpMantPrecise(a DD) (m DD, k int) {
+	m, k = ExpMant(a)
+	if m.Hi == 0 || math.IsInf(m.Hi, 0) || m.Hi != m.Hi {
+		return m, k
+	}
+	// r = a - k ln2, recomputed exactly as in ExpMant.
+	kf := float64(k)
+	r := Sub(a, Add(MulFF(kf, Ln2Hi), MulFF(kf, Ln2Lo)))
+	l := AddF(Log(m.Hi), m.Lo/m.Hi)
+	d := Sub(r, l)
+	return Add(m, MulF(m, d.Hi)), k
+}
+
+// Ldexp returns a * 2^k for a double-double (both parts scaled).
+func Ldexp(a DD, k int) DD {
+	return DD{math.Ldexp(a.Hi, k), math.Ldexp(a.Lo, k)}
 }
 
 // Expm1 returns exp(a)-1 for |a| small enough that the result is not
@@ -175,7 +208,12 @@ func Expm1(a DD) float64 {
 // (Sterbenz) and |s| < 1/360, so the atanh series 2s(1 + s²/3 + s⁴/5 + ...)
 // needs three terms in double-double and four more in float64. log c comes from a
 // 300-bit mpmath table (zz_logtable.go); k ln2 is added exactly.
+//
+// Log(0) = -Inf, Log(+Inf) = +Inf, NaN for x < 0 or NaN (as math.Log).
 func Log(x float64) DD {
+	if !(x > 0) || math.IsInf(x, 1) {
+		return DD{math.Log(x), 0}
+	}
 	m, k := math.Frexp(x) // x = m * 2^k, m in [0.5, 1)
 	if m < math.Sqrt2/2 {
 		m *= 2

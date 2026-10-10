@@ -63,7 +63,10 @@ def split(v):
         return (math.inf if v > 0 else -math.inf), 0.0
     if v == 0:
         return 0.0, 0.0
-    hi = float(v)  # mpmath rounds to nearest, handles subnormals
+    try:
+        hi = float(v)  # mpmath rounds to nearest, handles subnormals
+    except OverflowError:
+        hi = math.inf if v > 0 else -math.inf
     if math.isinf(hi):
         return hi, 0.0
     lo = float(v - mpf(hi))
