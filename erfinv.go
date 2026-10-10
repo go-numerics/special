@@ -86,9 +86,12 @@ func erfcInvLarge(q float64) float64 {
 	var r float64
 	var ex float64
 	if x >= 0.5 {
-		m, k := erfcMant(dd.F(x))
-		r = dd.AddF(dd.Div(m, dd.F(math.Ldexp(q, -k))), -1).Float()
-		ex = erfcxDD(x).Hi
+		m, k, e := erfcMantX(dd.F(x))
+		// r = m/q' - 1 = ((m.Hi - q') + m.Lo)/q', the difference exact
+		// (Sterbenz: m and q' agree to the guess's accuracy).
+		qq := math.Ldexp(q, -k)
+		r = ((m.Hi - qq) + m.Lo) / qq
+		ex = e.Hi
 	} else {
 		r = dd.AddF(dd.DivF(erfcDD(dd.F(x)), q), -1).Float()
 		ex = Erfcx(x)
@@ -175,9 +178,10 @@ func Ndtri(p float64) float64 {
 	z := ndtrZ(x)
 	var r, ratio float64
 	if z.Hi >= 0.5 {
-		m, k := erfcMant(z)
-		r = dd.AddF(dd.Div(m, dd.F(math.Ldexp(p, 1-k))), -1).Float()
-		ratio = erfcxCorrected(z).Hi * sqrtPiOver2.Hi // Φ(x)/φ(x)
+		m, k, e := erfcMantX(z)
+		pp := math.Ldexp(p, 1-k)
+		r = ((m.Hi - pp) + m.Lo) / pp // exact difference, as in erfcInvLarge
+		ratio = e.Hi * sqrtPiOver2.Hi // Φ(x)/φ(x)
 	} else {
 		phi := dd.MulF(erfcDD(z), 0.5)
 		r = dd.AddF(dd.DivF(phi, p), -1).Float()

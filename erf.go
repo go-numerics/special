@@ -62,8 +62,16 @@ func erfcxCorrected(z dd.DD) dd.DD {
 // Gaussian factor does not amplify the rounding of z² (the error a naive
 // exp(-x*x) incurs grows like 2x² ulp).
 func erfcMant(z dd.DD) (dd.DD, int) {
+	m, k, _ := erfcMantX(z)
+	return m, k
+}
+
+// erfcMantX is erfcMant also returning erfcx(z) (the inverse functions need
+// it for their Newton step).
+func erfcMantX(z dd.DD) (dd.DD, int, dd.DD) {
 	em, k := dd.ExpMant(dd.Neg(dd.Mul(z, z)))
-	return dd.Mul(em, erfcxCorrected(z)), k
+	ex := erfcxCorrected(z)
+	return dd.Mul(em, ex), k, ex
 }
 
 // erfcDD returns erfc(z) as a double-double for finite z.
