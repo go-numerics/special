@@ -240,7 +240,7 @@ func TestTernaryBetaInc(t *testing.T) {
 	for name, f := range map[string]struct {
 		nd func(a, b, x *ndarray.Array) (*ndarray.Array, error)
 		sc func(a, b, x float64) float64
-	}{"BetaInc": {BetaInc, special.BetaInc}, "BetaIncC": {BetaIncC, special.BetaIncC}} {
+	}{"BetaInc": {BetaInc, special.BetaInc}, "BetaIncC": {BetaIncC, special.BetaIncC}, "BetaIncInv": {BetaIncInv, special.BetaIncInv}, "BetaIncCInv": {BetaIncCInv, special.BetaIncCInv}} {
 		r, err := f.nd(a, b, x)
 		if err != nil {
 			t.Fatal(err)

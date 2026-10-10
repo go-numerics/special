@@ -250,3 +250,13 @@ func Kn(n, x *ndarray.Array) (*ndarray.Array, error) {
 		return special.Kn(int(n), x)
 	}, n, x)
 }
+
+// BetaIncInv applies special.BetaIncInv element-wise to the broadcast arguments.
+func BetaIncInv(a, b, p *ndarray.Array) (*ndarray.Array, error) {
+	return Map3(special.BetaIncInv, a, b, p)
+}
+
+// BetaIncCInv applies special.BetaIncCInv element-wise to the broadcast arguments.
+func BetaIncCInv(a, b, q *ndarray.Array) (*ndarray.Array, error) {
+	return Map3(special.BetaIncCInv, a, b, q)
+}
