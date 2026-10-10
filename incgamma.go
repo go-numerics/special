@@ -281,20 +281,21 @@ func igamSmallQ(a, x float64) float64 {
 func igamSmallQDD(a, x float64) dd.DD {
 	gm1 := gamma1pm1(a)
 	pm1 := igamExpm1DD(dd.MulF(dd.Log(x), a)) // x^a - 1
-	// Σ_{n>=1} (-x)^n / (n! (a+n))
-	s := 0.0
-	t := 1.0
+	// Σ_{n>=1} (-x)^n / (n! (a+n)) in double-double: it partly cancels
+	// against the leading difference (by a factor of about 4 near x = 1).
+	s := dd.F(0)
+	t := dd.F(1)
 	for n := 1.0; n < 200; n++ {
-		t *= -x / n
-		term := t / (a + n)
-		s += term
-		if math.Abs(term) <= 0x1p-60*math.Abs(s) {
+		t = dd.DivF(dd.MulF(t, -x), n)
+		term := dd.Div(t, sumDD(a, n))
+		s = dd.Add(s, term)
+		if math.Abs(term.Hi) <= 0x1p-106*math.Abs(s.Hi) {
 			break
 		}
 	}
 	xa := dd.AddF(pm1, 1)
 	num := dd.Sub(gm1, pm1)
-	num = dd.Sub(num, dd.MulF(dd.MulF(xa, a), s))
+	num = dd.Sub(num, dd.MulF(dd.Mul(xa, s), a))
 	return dd.Div(num, dd.AddF(gm1, 1))
 }
 
