@@ -54,7 +54,8 @@ exception, K1 at small x, is a tie at 1.05 ulp). Typical maxima:
 
 | | this package | SciPy 1.18.1 |
 |---|--:|--:|
-| Gamma, LogGamma, Digamma, Beta (all regions) | 0.5–1 ulp | 3–3e15 ulp |
+| Gamma, LogGamma, Beta (all regions) | 0.5–1 ulp | 3–3e15 ulp |
+| Digamma near its negative zeros | 31 ulp | 2.5e17 ulp |
 | Erfc to the subnormal range | 0.5 ulp | 2e13 ulp |
 | Ndtr lower tail, x in [-38.5, -10) | 0.5 ulp | 1.8e12 ulp |
 | Ndtri, ErfInv, ErfcInv | 0.5–0.6 ulp | 1.4–4.4 ulp (wrong at subnormals) |
