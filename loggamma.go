@@ -9,11 +9,19 @@ import (
 // logGammaMax: log Γ(x) overflows float64 for x above this value.
 const logGammaMax = 2.556348e305
 
-// log1pDD returns log(1 + u) for a double-double u > -1 as a double-double:
+// log1pDD returns log(1 + u) for a double-double u > -1 as a double-double
+// accurate to about 2^-90 relative. For |u| < 2^-20 it is the series
+// u - u²/2 + u³/3 - ... (first two terms in double-double); otherwise
 // w = 1 + u is formed exactly and dd.Log keeps its relative accuracy as w
-// approaches 1 (its reduced argument m - 1 is exact), so the result is
-// accurate to about 2^-68 relative even where log(1+u) is near 0.
+// approaches 1 (its reduced argument m - 1 is exact). Forming 1 + u for a
+// tiny u would leave a low part comparable to the result, whose first-order
+// correction is then not enough.
 func log1pDD(u dd.DD) dd.DD {
+	if math.Abs(u.Hi) < 0x1p-20 {
+		x := u.Hi
+		tail := x * x * x * (1.0/3 - x*(1.0/4-x*(1.0/5-x/6)))
+		return dd.AddF(dd.Sub(u, dd.MulF(dd.Mul(u, u), 0.5)), tail)
+	}
 	h, l := dd.TwoSum(1, u.Hi)
 	w := dd.AddF(dd.DD{Hi: h, Lo: l}, u.Lo)
 	return logDD(w)

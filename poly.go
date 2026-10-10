@@ -45,13 +45,22 @@ const (
 	piLo = 1.2246467991473532e-16
 )
 
+// pi as a double-double.
+var piDD = dd.DD{Hi: piHi, Lo: piLo}
+
 // sinPi returns sin(pi*x) with the argument reduced exactly (math.Mod and
 // the reflections used below are exact in binary floating point), so the
 // result keeps full relative accuracy near the zeros at the integers, where
-// math.Sin(math.Pi*x) loses it.
-func sinPi(x float64) float64 {
+// math.Sin(math.Pi*x) loses it. sinPi(±Inf) and sinPi(NaN) are NaN.
+func sinPi(x float64) float64 { return sinPiDD(x).Float() }
+
+// cosPi returns cos(pi*x) with exact argument reduction.
+func cosPi(x float64) float64 { return cosPiDD(x).Float() }
+
+// sinPiDD returns sin(pi*x) as a double-double (relative error about 2^-60).
+func sinPiDD(x float64) dd.DD {
 	if math.IsInf(x, 0) || math.IsNaN(x) {
-		return math.NaN()
+		return dd.F(math.NaN())
 	}
 	neg := x < 0
 	r := math.Mod(math.Abs(x), 2) // exact, in [0, 2)
@@ -63,25 +72,26 @@ func sinPi(x float64) float64 {
 	if r > 0.5 {
 		r = 1 - r // exact
 	}
-	var s float64
+	var s dd.DD
 	switch {
 	case r == 0:
-		s = 0
+		s = dd.DD{}
 	case r <= 0.25:
 		s = sinPiReduced(r)
 	default:
 		s = cosPiReduced(0.5 - r) // exact for r in (0.25, 0.5]
 	}
 	if neg {
-		s = -s
+		s = dd.Neg(s)
 	}
 	return s
 }
 
-// cosPi returns cos(pi*x) with exact argument reduction.
-func cosPi(x float64) float64 {
+// cosPiDD returns cos(pi*x) as a double-double with exact argument
+// reduction.
+func cosPiDD(x float64) dd.DD {
 	if math.IsInf(x, 0) || math.IsNaN(x) {
-		return math.NaN()
+		return dd.F(math.NaN())
 	}
 	r := math.Mod(math.Abs(x), 2) // exact, in [0, 2)
 	if r > 1 {
@@ -93,37 +103,35 @@ func cosPi(x float64) float64 {
 		r = 1 - r
 		neg = true
 	}
-	var c float64
+	var c dd.DD
 	if r <= 0.25 {
 		c = cosPiReduced(r)
 	} else {
 		c = sinPiReduced(0.5 - r) // exact for r in (0.25, 0.5]
 	}
 	if neg {
-		c = -c
+		c = dd.Neg(c)
 	}
 	return c
 }
 
-// sinPiReduced returns sin(pi*r), 0 <= r <= 0.25, as
-// r*(π + r²G(r²)) with π split in two (π = piHi + piLo) and r*piHi formed
-// exactly: the polynomial term is below 10% of the result, so its rounding
-// error is scaled down accordingly and the result is within about 0.6 ulp.
-// G is fitted to mpmath (zz_sinPiPieces_coeffs.go, testdata/gen/fit.py).
-func sinPiReduced(r float64) float64 {
-	u := r * r
-	h := float64(r * piHi)
-	e := math.FMA(r, piHi, -h)
-	return h + (e + r*(piLo+u*polevl(u-sinPiPieces[0].c, sinPiPieces[0].coef)))
+// sinPiReduced returns sin(pi*r), 0 <= r <= 0.25, as r(π + r²G(r²)) in
+// double-double: π r exactly, G (fitted to mpmath,
+// zz_sinPiPieces_coeffs.go) with its constant term in double-double; the
+// remaining float64 rounding is scaled down by |r²G|/π < 0.1, about 2^-60
+// relative in all.
+func sinPiReduced(r float64) dd.DD {
+	u := dd.MulFF(r, r)
+	g := evalPiecesDD(sinPiPieces[:], u.Hi)
+	return dd.MulF(dd.Add(piDD, dd.Mul(u, g)), r)
 }
 
-// cosPiReduced returns cos(pi*r), 0 <= r <= 0.25, as 1 + r²H(r²) with r²
-// carried exactly (H fitted to mpmath, zz_cosPiPieces_coeffs.go).
-func cosPiReduced(r float64) float64 {
-	uh := float64(r * r)
-	ul := math.FMA(r, r, -uh)
-	h := polevl(uh-cosPiPieces[0].c, cosPiPieces[0].coef)
-	return math.FMA(uh, h, 1) + ul*h
+// cosPiReduced returns cos(pi*r), 0 <= r <= 0.25, as 1 + r²H(r²) in
+// double-double (H fitted to mpmath, zz_cosPiPieces_coeffs.go).
+func cosPiReduced(r float64) dd.DD {
+	u := dd.MulFF(r, r)
+	h := evalPiecesDD(cosPiPieces[:], u.Hi)
+	return dd.AddF(dd.Mul(u, h), 1)
 }
 
 // polyPiece is one piece of a piecewise polynomial approximation generated
