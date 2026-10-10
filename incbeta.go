@@ -113,10 +113,10 @@ type ibetaXY struct {
 func ibetaNewXY(x float64) ibetaXY {
 	y := 1 - x
 	if x <= 0.5 {
-		return ibetaXY{x: x, y: y, xd: dd.F(x), yd: sumDD(1, -x), lx: dd.Log(x), ly: log1pDD(dd.F(-x)), xExact: true}
+		return ibetaXY{x: x, y: y, xd: dd.F(x), yd: sumDD(1, -x), lx: dd.LogAccurate(x), ly: igamLog1pDD(dd.F(-x)), xExact: true}
 	}
 	// y = 1 - x is exact for x >= 1/2 (Sterbenz)
-	return ibetaXY{x: x, y: y, xd: dd.F(x), yd: dd.F(y), lx: log1pDD(dd.F(-y)), ly: dd.Log(y), xExact: false}
+	return ibetaXY{x: x, y: y, xd: dd.F(x), yd: dd.F(y), lx: igamLog1pDD(dd.F(-y)), ly: dd.LogAccurate(y), xExact: false}
 }
 
 func (v ibetaXY) swap() ibetaXY {
@@ -138,9 +138,9 @@ func ibetaLogBeta(a, b float64) dd.DD {
 // next term, a²ψ'(b)/2, is below 2^-60 of it).
 func ibetaLogABeta(a, b float64) dd.DD {
 	if a < 0x1p-60 && a < 0x1p-60*b {
-		return dd.Sub(log1pDD(gamma1pm1(a)), dd.MulF(digammaPos(b), a))
+		return dd.Sub(igamLog1pDD(gamma1pm1(a)), dd.MulF(digammaPos(b), a))
 	}
-	return dd.Add(dd.Log(a), ibetaLogBeta(a, b))
+	return dd.Add(dd.LogAccurate(a), ibetaLogBeta(a, b))
 }
 
 // ibetaPowMant returns m, k with x^a y^b / B(a, b) = m·2^k (TOMS 708's
@@ -318,16 +318,11 @@ func ibetaBup(a, b float64, v ibetaXY, n int, eps float64) float64 {
 	// k0: index of the largest term; the terms before it are all added
 	k0 := 0
 	if b > 1 {
-		if y > 1e-4 {
-			r := (b-1)*x/y - a
-			if r >= 1 {
-				k0 = nm1
-				if r < float64(nm1) {
-					k0 = int(r)
-				}
-			}
-		} else {
-			k0 = nm1
+		// (y > 1e-4 here: BUP is only called with b > 1 on the side where
+		// x <= 0.7 or with b < 1)
+		r := (b-1)*x/y - a
+		if r >= 1 {
+			k0 = int(math.Min(r, float64(nm1)))
 		}
 	}
 	for i := 0; i < k0; i++ {
@@ -407,7 +402,7 @@ func ibetaBgrat(a, b float64, v ibetaXY, w, eps float64) float64 {
 	if b*z.Hi == 0 {
 		return w
 	}
-	lu := dd.Sub(dd.MulF(logDD(dd.Neg(lnx)), b), z)
+	lu := dd.Sub(dd.MulF(igamLogDD(dd.Neg(lnx)), b), z)
 	lu = dd.Sub(lu, logGammaPos(b))
 	lu = dd.Sub(lu, logGammaDiff(b, a))
 	um, uk := dd.ExpMant(lu)
@@ -445,9 +440,6 @@ func ibetaBgrat(a, b float64, v ibetaXY, w, eps float64) float64 {
 		d[n-1] = bm*cn + s/float64(n)
 		dj := d[n-1] * j
 		sum += dj
-		if sum <= 0 {
-			return w
-		}
 		if !(math.Abs(dj) > eps*(sum+l)) {
 			break
 		}
@@ -489,8 +481,8 @@ func ibetaBasym(a, b float64, lambda dd.DD, eps float64) float64 {
 		w0 = 1 / math.Sqrt(b*(1+h))
 	}
 	// f = a·rlog1(-λ/a) + b·rlog1(λ/b), rlog1(t) = t - log(1+t) = -log1pmx(t)
-	f := dd.Neg(dd.Add(dd.MulF(log1pmxDD(dd.Neg(dd.DivF(lambda, a))), a),
-		dd.MulF(log1pmxDD(dd.DivF(lambda, b)), b)))
+	f := dd.Neg(dd.Add(dd.MulF(igamLog1pmxDD(dd.Neg(dd.DivF(lambda, a))), a),
+		dd.MulF(igamLog1pmxDD(dd.DivF(lambda, b)), b)))
 	tm, tk := dd.ExpMant(dd.Neg(f))
 	if tm.Hi == 0 {
 		return 0
@@ -572,9 +564,9 @@ func ibetaApser(a, b, x, eps float64) float64 {
 	t := dd.Sub(dd.F(x), bx)
 	var c dd.DD
 	if b*eps > 0.02 {
-		c = dd.Add(logDD(bx), g)
+		c = dd.Add(igamLogDD(bx), g)
 	} else {
-		c = dd.Add(dd.Add(dd.Log(x), digammaPos(b)), g)
+		c = dd.Add(dd.Add(dd.LogAccurate(x), digammaPos(b)), g)
 	}
 	c = dd.Add(c, t)
 	tol := 5 * eps * math.Abs(c.Hi) * 0x1p-8

@@ -25,6 +25,12 @@ import (
 // lower tail) the logarithm of the tail is taken in double-double from the
 // power series (TOMS 708's BPSER), since the root then depends on log T to
 // within a factor 1/a.
+//
+// Limitation: when a parameter is far below 1e-3 (a or b ~ 1e-20 down to
+// 1e-300), I_x(a, b) is flat to within 2^-100 over most of (0, 1) — it is
+// b/(a+b) up to factors x^a and (1-x)^b — and the float64 root can depend
+// on digits beyond double-double: the result may then be far from the
+// exact root (SciPy's is too, usually returning 0.5 or the smallest normal).
 
 // BetaIncInv returns the inverse of the regularised incomplete beta
 // function: the x in [0, 1] with I_x(a, b) = p.
@@ -104,7 +110,7 @@ func ibetaInvEval(a, b, p, q float64) func(u float64) (g, r float64) {
 	if upper {
 		t = q
 	}
-	lt := dd.Log(t)
+	lt := dd.LogAccurate(t)
 	lb := ibetaLogBeta(a, b)
 	return func(u float64) (g, r float64) {
 		var l dd.DD
@@ -154,27 +160,10 @@ func ibetaInvSide(a, b, p, q float64) float64 {
 			} else {
 				nu = float64(math.Sqrt(lo) * math.Sqrt(hi))
 			}
-			if nu <= lo || nu >= hi {
-				return ibetaInvClosest(eval, lo, hi)
-			}
 		}
 		u = nu
 	}
 	return u
-}
-
-// ibetaInvClosest picks, between two adjacent floats lo < hi bracketing
-// the root, the one whose residual is smaller.
-func ibetaInvClosest(eval func(u float64) (float64, float64), lo, hi float64) float64 {
-	if lo == 0 {
-		return hi
-	}
-	gl, _ := eval(lo)
-	gh, _ := eval(hi)
-	if -gl <= gh {
-		return lo
-	}
-	return hi
 }
 
 // ibetaInvTail returns log T(u) as a double-double, T = 1 - I_u(a, b) if
@@ -197,7 +186,7 @@ func ibetaInvTail(a, b, u float64, upper bool, lb dd.DD) (lt dd.DD, r float64) {
 		if t <= 0 {
 			return dd.F(math.Inf(-1)), math.Inf(1)
 		}
-		lt = logDD(dd.F(t))
+		lt = igamLogDD(dd.F(t))
 	}
 	return lt, math.Exp(dd.Sub(ld, lt).Hi)
 }
@@ -213,7 +202,7 @@ func ibetaUpperFromLog(li dd.DD, lt *dd.DD) bool {
 	if !(q.Hi > 0x1p-45) {
 		return false
 	}
-	*lt = logDD(q)
+	*lt = igamLogDD(q)
 	return true
 }
 
@@ -233,7 +222,7 @@ func ibetaLogBpser(a, b float64, v ibetaXY) dd.DD {
 			break
 		}
 	}
-	return dd.Add(l, log1pDD(dd.MulF(sum, a)))
+	return dd.Add(l, igamLog1pDD(dd.MulF(sum, a)))
 }
 
 // ibetaInvGuess returns a starting value for the u <= ~1/2 with

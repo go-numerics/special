@@ -126,7 +126,7 @@ func igamPQ(a, x float64) (p, q float64) {
 // igamLog returns log(x) for x > 0, subnormal x included (math.Log is
 // wrong for subnormal arguments on some platforms; dd.Log normalises).
 func igamLog(x float64) float64 {
-	return dd.Log(x).Hi
+	return dd.LogAccurate(x).Hi
 }
 
 // igamLogPrefix returns log(x^a e^(-x) / Γ(a)) as a double-double, for
@@ -142,12 +142,12 @@ func igamLog(x float64) float64 {
 func igamLogPrefix(a, x float64) dd.DD {
 	if a >= 10 && x > 0x1p-20*a {
 		d := dd.DivF(sumDD(x, -a), a) // x-a exact, then one DD division
-		l := dd.MulF(log1pmxDD(d), a)
-		l = dd.Add(l, dd.MulF(dd.Log(a), 0.5))
+		l := dd.MulF(igamLog1pmxDD(d), a)
+		l = dd.Add(l, dd.MulF(dd.LogAccurate(a), 0.5))
 		l = dd.Sub(l, lnSqrt2Pi)
 		return dd.AddF(l, -stirlingSeries(a))
 	}
-	l := dd.MulF(dd.Log(x), a)
+	l := dd.MulF(dd.LogAccurate(x), a)
 	l = dd.AddF(l, -x)
 	return dd.Sub(l, logGammaPos(a))
 }
@@ -280,7 +280,7 @@ func igamSmallQ(a, x float64) float64 {
 // small: the leading difference is exact).
 func igamSmallQDD(a, x float64) dd.DD {
 	gm1 := gamma1pm1(a)
-	pm1 := igamExpm1DD(dd.MulF(dd.Log(x), a)) // x^a - 1
+	pm1 := igamExpm1DD(dd.MulF(dd.LogAccurate(x), a)) // x^a - 1
 	// Σ_{n>=1} (-x)^n / (n! (a+n)) in double-double: it partly cancels
 	// against the leading difference (by a factor of about 4 near x = 1).
 	s := dd.F(0)
@@ -311,7 +311,7 @@ func igamExpm1DD(u dd.DD) dd.DD {
 		return u
 	}
 	// Newton on f(e) = log1p(e) - u: e' = e - (log1p(e) - u)(1 + e).
-	r := dd.Sub(log1pDD(dd.F(e)), u)
+	r := dd.Sub(igamLog1pDD(dd.F(e)), u)
 	ed := dd.Sub(dd.F(e), dd.Mul(r, dd.AddF(dd.F(e), 1)))
 	return ed
 }
@@ -330,7 +330,7 @@ func igamExpm1DD(u dd.DD) dd.DD {
 // Gaussian factor is applied once from the exact exponent.
 func igamTemme(a, x float64) (p, q float64) {
 	d := dd.DivF(sumDD(x, -a), a)
-	lpm := log1pmxDD(d) // <= 0
+	lpm := igamLog1pmxDD(d) // <= 0
 	z2 := dd.Neg(dd.MulF(lpm, a))
 	eta := math.Sqrt(-2 * lpm.Hi)
 	upper := x > a // compute Q directly; else P
@@ -386,4 +386,39 @@ func igamTemme(a, x float64) (p, q float64) {
 		return 1 - v, v
 	}
 	return v, 1 - v
+}
+
+// igamLog1pDD returns log(1 + u) for a double-double u > -1, as log1pDD
+// does, but with dd.LogAccurate (about 2^-104) for the logarithm: the
+// incomplete functions multiply it by a or b, up to 1e15 and beyond.
+func igamLog1pDD(u dd.DD) dd.DD {
+	if math.Abs(u.Hi) < 0x1p-20 {
+		x := u.Hi
+		tail := x * x * x * (1.0/3 - x*(1.0/4-x*(1.0/5-x/6)))
+		return dd.AddF(dd.Sub(u, dd.MulF(dd.Mul(u, u), 0.5)), tail)
+	}
+	h, l := dd.TwoSum(1, u.Hi)
+	return igamLogDD(dd.AddF(dd.DD{Hi: h, Lo: l}, u.Lo))
+}
+
+// igamLogDD returns log(g) for a double-double g > 0 (dd.LogAccurate).
+func igamLogDD(g dd.DD) dd.DD {
+	return dd.AddF(dd.LogAccurate(g.Hi), g.Lo/g.Hi)
+}
+
+// igamLog1pmxDD returns log(1+x) - x for a double-double x > -1: the
+// series -x²/2 + x³/3 - ... for |x| < 2^-10 (first two terms in
+// double-double), else igamLog1pDD(x) - x.
+func igamLog1pmxDD(x dd.DD) dd.DD {
+	if math.Abs(x.Hi) >= 0x1p-10 {
+		return dd.Sub(igamLog1pDD(x), x)
+	}
+	x2 := dd.Mul(x, x)
+	r := dd.Add(dd.MulF(x2, -0.5), dd.DivF(dd.Mul(x2, x), 3))
+	xh := x.Hi
+	t := 0.0
+	for k := 11.0; k >= 4; k-- {
+		t = 1/k - xh*t
+	}
+	return dd.AddF(r, -xh*xh*xh*xh*t)
 }

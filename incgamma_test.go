@@ -1,7 +1,8 @@
 package special
 
 // Budgets: the measured maximum per region (arm64 and amd64) times 1.3,
-// rounded up to a clean value.
+// rounded up to a clean value. math.Inf(1): regions where the root is not
+// determined by double-double evaluation of the function (see incbeta_inv.go).
 func init() {
 	register("gammainc", func(a []float64) float64 { return GammaP(a[0], a[1]) }, map[string]float64{
 		"special":                   1,
@@ -34,7 +35,7 @@ func init() {
 		"a in [1,100)":    2,
 		"a in [100,1e4)":  1,
 		"a in [1e4,1e15]": 1,
-		"p tiny":          1.5,
+		"p tiny":          1,
 		"p near 1":        1,
 	})
 	register("gammainccinv", func(a []float64) float64 { return GammaQInv(a[0], a[1]) }, map[string]float64{

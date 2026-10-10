@@ -94,11 +94,11 @@ func igamLogTail(a, x float64, upper bool) (lt dd.DD, r float64) {
 		qd := igamSmallQDD(a, x)
 		switch {
 		case upper:
-			lt = logDD(qd)
+			lt = igamLogDD(qd)
 		case qd.Hi > 0.99:
-			lt = igamLogPSeries(a, x, dd.Log(x))
+			lt = igamLogPSeries(a, x, dd.LogAccurate(x))
 		default:
-			lt = log1pDD(dd.Neg(qd))
+			lt = igamLog1pDD(dd.Neg(qd))
 		}
 	default:
 		p, q := igamPQ(a, x)
@@ -109,7 +109,7 @@ func igamLogTail(a, x float64, upper bool) (lt dd.DD, r float64) {
 		if v == 0 {
 			return dd.F(math.Inf(-1)), math.Inf(1)
 		}
-		lt = logDD(dd.F(v))
+		lt = igamLogDD(dd.F(v))
 	}
 	return lt, math.Exp(dd.Sub(lpre, lt).Hi)
 }
@@ -126,14 +126,14 @@ func igamLogTail(a, x float64, upper bool) (lt dd.DD, r float64) {
 func igamLogPSeries(a, x float64, lx dd.DD) dd.DD {
 	l := dd.MulF(lx, a)
 	l = dd.AddF(l, -x)
-	l = dd.Sub(l, log1pDD(gamma1pm1(a)))
-	return dd.Add(l, log1pDD(igamLowerSeriesRest(a, x)))
+	l = dd.Sub(l, igamLog1pDD(gamma1pm1(a)))
+	return dd.Add(l, igamLog1pDD(igamLowerSeriesRest(a, x)))
 }
 
 // igamInvSolve returns the x with T(a, x) = t (T = Q if upper, else P),
 // for 0 < t <= 1/2, from the starting value x0.
 func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
-	lt := dd.Log(t)
+	lt := dd.LogAccurate(t)
 	// g(x) = ±(log T(x) - log t) increases with x; dg/dlog x = r > 0.
 	eval := func(x float64) (g, r float64) {
 		var l dd.DD
@@ -154,10 +154,8 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 		if g, _ := eval(0x1p-1074); g >= 0 {
 			return igamInvBelowSubnormal(a, t, upper, lt)
 		}
-		if !(x0 > 0x1p-1074) || math.IsNaN(x0) {
-			x0 = 0x1p-1074
-		} else if math.IsInf(x0, 1) {
-			x0 = math.MaxFloat64
+		if !(x0 > 0) || math.IsInf(x0, 1) {
+			x0 = 1 // no usable guess: start in the middle of the range
 		}
 	}
 	lo, hi := 0.0, math.Inf(1)
@@ -189,33 +187,12 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 			default:
 				nx = float64(math.Sqrt(lo) * math.Sqrt(hi))
 			}
-			if nx <= lo || nx >= hi {
-				// the bracket is down to adjacent floats
-				return igamInvClosest(eval, lo, hi)
-			}
 			x = nx
 			continue
 		}
 		x = nx
 	}
 	return x
-}
-
-// igamInvClosest picks, between two adjacent floats lo < hi bracketing
-// the root (or 0 / +Inf), the one whose residual is smaller.
-func igamInvClosest(eval func(x float64) (float64, float64), lo, hi float64) float64 {
-	if lo == 0 || math.IsInf(hi, 1) {
-		if lo == 0 {
-			return hi
-		}
-		return lo
-	}
-	gl, _ := eval(lo)
-	gh, _ := eval(hi)
-	if -gl <= gh {
-		return lo
-	}
-	return hi
 }
 
 // igamInvBelowSubnormal decides between 0 and the smallest subnormal for a
@@ -230,7 +207,7 @@ func igamInvBelowSubnormal(a, t float64, upper bool, lt dd.DD) float64 {
 	lp := igamLogPSeries(a, 0, dd.MulF(ln2DD, -1075))
 	var g float64
 	if upper {
-		g = -dd.Sub(logDD(dd.Neg(igamExpm1DD(lp))), lt).Hi
+		g = -dd.Sub(igamLogDD(dd.Neg(igamExpm1DD(lp))), lt).Hi
 	} else {
 		g = dd.Sub(lp, lt).Hi
 	}
