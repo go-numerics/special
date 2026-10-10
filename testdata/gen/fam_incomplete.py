@@ -40,6 +40,14 @@ NQ = 300  # regions whose oracle integrates numerically (about 1 s/point)
 nan, inf = math.nan, math.inf
 
 
+def _tiny_guard(*vals):
+    """Extra bits when a parameter is tiny: the tail then moves like
+    x^a, its logarithm by a*log x, and locating the root to 2^-prec needs
+    log I to about a*2^-prec absolutely."""
+    m = min(float(v) for v in vals)
+    return max(0, -int(math.log2(m))) if m < 1 else 0
+
+
 def _guard(*vals):
     """Extra bits needed for log-gamma / exponent cancellation."""
     m = max([abs(float(v)) for v in vals] + [2.0])
@@ -195,7 +203,8 @@ def _solve(F, t0, increasing, step0=1):
     working precision and needs only a couple of iterations."""
     prec = mp.prec
     t = mpf(t0)
-    for wp, tolbits in ((96, 60), (prec, prec - 12)):
+    p1 = max(96, prec - 150)
+    for wp, tolbits in ((p1, p1 - 36), (prec, prec - 12)):
         with mp.workprec(wp):
             t = _solve1(F, +t, increasing, step0, tolbits)
     return t
@@ -264,7 +273,7 @@ def _gam_inv(a, target, lower, guess):
     else:
         t0 = mp.log(a) if a > 1 else (mp.log(target) + mp.loggamma(a + 1)) / a if lower else mpf(0)
     step0 = 1 / mp.sqrt(a) if a > 1 else 1
-    with mp.extraprec(_guard(a)):
+    with mp.extraprec(_guard(a) + _tiny_guard(a)):
         t = _solve(F, t0, lower, step0)
     if t < -800:
         return 0.0  # x underflows float64 whatever its last digits
@@ -281,6 +290,11 @@ def gammaincinv_mp(a, p, guess=None, upper=False):
         return hi_end
     if a == 0 or math.isinf(a):
         return nan
+    if a > 2.0 ** 200 and 1e-300 <= p <= 1 - 1e-16:
+        # x = a + s sqrt(a) + O(s^2) with |s| < 40 here (the normal
+        # approximation's quantile, DLMF 8.12.18): |x/a - 1| < 2^-90, so the
+        # float64 nearest x is a itself
+        return mpf(a)
     pm = mpf(p)
     if pm <= 0.5:
         return _gam_inv(a, pm, not upper, guess)
@@ -436,7 +450,7 @@ def _ib_side(pa, pb, P, Q, lb, guess):
         t0 = min((mp.log(P) + lb + mp.log(pa)) / pa, mp.log(0.25))
     sd = mp.sqrt(pa * pb / (pa + pb) ** 3)
     step0 = min(1, sd / mp.exp(t0)) if t0 > -700 else 1
-    with mp.extraprec(_guard(pa, pb)):
+    with mp.extraprec(_guard(pa, pb) + _tiny_guard(pa, pb)):
         t = _solve(F, t0, True, step0)
     return mp.exp(t)
 
