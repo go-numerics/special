@@ -1,10 +1,18 @@
+<p align="center"><img src="https://raw.githubusercontent.com/go-numerics/brand/main/social/go-numerics.png" alt="go-numerics/special" width="720"></p>
+
 # special
+
+[![Docs](https://img.shields.io/badge/docs-hugo%20%2B%20hextra-7445AD)](https://go-numerics.github.io/docs/latest/special/)
+[![pkg.go.dev](https://img.shields.io/badge/pkg.go.dev-special-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/go-numerics/special)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-7445AD)](LICENSE)
 
 Special mathematical functions in pure Go (no cgo, no assembly): the gamma
 family, error functions, incomplete gamma and beta functions and their
 inverses, Bessel functions, zeta functions, combinatorics, logistic helpers
 and complete elliptic integrals — with an element-wise layer over
 [go-ndarray](https://github.com/go-ndarray/ndarray).
+
+🌐 **[Website](https://go-numerics.github.io)** · 📚 **[Documentation](https://go-numerics.github.io/docs/latest/special/)**
 
 It is the numerical foundation of the go-numerics statistics library: every
 distribution's cdf and quantile function is computed with these functions,
