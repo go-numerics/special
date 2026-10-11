@@ -166,7 +166,9 @@ listed so the table is not misread:
   log-gammas carry ~2^-56 relative errors that the cancellation exposes
   (SciPy: 45 000).
 - **Bessel**: Jn/Yn within 5.4 ulp at the zeros of orders >= 2; Jv at
-  negative non-integer order and x < |v| 7.2 ulp, Ive at negative order
+  negative non-integer order and x < |v| 7.2 ulp (13.2 ulp on loong64,
+  ppc64le and s390x, where Go fuses multiply-adds differently: results are
+  not bit-identical across architectures), Ive at negative order
   12 ulp (both from the reflection formula's cancellation); K1/K1e at small
   x tie with SciPy (1.05/1.49 ulp, Boost's rational unchanged); orders above
   1e7 only where the series or the large-x expansion applies (NaN

@@ -110,9 +110,13 @@ func init() {
 		"large x":     2.5,
 		"huge x":      3,
 		"near zeros":  3,
-		"large order": 2,
+		// large order and negative v: loong64, ppc64le and s390x measure 2.01
+		// and 13.2 ulp, where amd64 and arm64 measure 1.35 and 7.22: Go fuses
+		// a*b+c differently per architecture, and the reflection formula for
+		// negative v cancels. SciPy is at 6.8e13 and 1572 ulp on these points.
+		"large order": 3,
 		"v ~ x":       1,
-		"negative v":  10,
+		"negative v":  20,
 		"integer v":   2,
 	})
 	register("yv", besselTwo(Yv), map[string]float64{
