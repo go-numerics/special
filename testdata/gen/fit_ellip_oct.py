@@ -56,7 +56,7 @@ def emit(name, f, doc):
     ps, worst = pieces(f)
     print("// %s: %s" % (name, doc))
     print("// Max interpolation error over all pieces: %s relative." % mpmath.nstr(worst, 3))
-    print("var %s = [...]ellipOctPiece{" % name)
+    print("var %s = [...]octPiece{" % name)
     for e, j, c, co in ps:
         c0lo = float(co[0] - mpf(float(co[0])))
         print("\t// p in 2^%d * [%d/8, %d/8]" % (e, 8 + j, 9 + j))
