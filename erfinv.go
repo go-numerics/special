@@ -11,39 +11,87 @@ import (
 // p is near 1). These are the rational approximations of Boost.Math
 // erf_inv_imp for 64-bit precision (boost/math/special_functions/detail/
 // erf_inv.hpp, John Maddock, Boost Software License 1.0), accurate to about
-// 1e-19 relative before float64 rounding; the callers then take one Halley
-// step against a double-double residual.
+// 1e-19 relative before float64 rounding; the callers then take one Newton
+// or Halley step against a residual carried beyond float64. The rationals
+// are evaluated by Estrin's scheme (erfInvRat), the logarithm by the log
+// kernel.
 func erfInvGuess(p, q float64) float64 {
 	if p <= 0.5 {
 		const y = 0.0891314744949340820313
 		g := p * (p + 10)
-		r := polevl(p, erfInvP1[:]) / polevl(p, erfInvQ1[:])
+		r := erfInvR1.eval(p)
 		return g*y + g*r
 	}
 	if q >= 0.25 {
 		const y = 2.249481201171875
-		g := math.Sqrt(-2 * logf(q))
-		xs := q - 0.25
-		r := polevl(xs, erfInvP2[:]) / polevl(xs, erfInvQ2[:])
+		lh, ll := logHL(q)
+		g := math.Sqrt(-2 * (lh + ll))
+		r := erfInvR2.eval(q - 0.25)
 		return g / (y + r)
 	}
-	x := math.Sqrt(-logf(q)) // logf: q may be subnormal
+	lh, ll := logHL(q) // q may be subnormal
+	x := math.Sqrt(-(lh + ll))
 	var y, xs float64
-	var p0, q0 []float64
+	var rr *erfInvRat
 	switch {
 	case x < 3:
-		y, xs, p0, q0 = 0.807220458984375, x-1.125, erfInvP3[:], erfInvQ3[:]
+		y, xs, rr = 0.807220458984375, x-1.125, &erfInvR3
 	case x < 6:
-		y, xs, p0, q0 = 0.93995571136474609375, x-3, erfInvP4[:], erfInvQ4[:]
+		y, xs, rr = 0.93995571136474609375, x-3, &erfInvR4
 	case x < 18:
-		y, xs, p0, q0 = 0.98362827301025390625, x-6, erfInvP5[:], erfInvQ5[:]
+		y, xs, rr = 0.98362827301025390625, x-6, &erfInvR5
 	default:
 		// x < 27.3 for every positive float64 q.
-		y, xs, p0, q0 = 0.99714565277099609375, x-18, erfInvP6[:], erfInvQ6[:]
+		y, xs, rr = 0.99714565277099609375, x-18, &erfInvR6
 	}
-	r := polevl(xs, p0) / polevl(xs, q0)
+	r := rr.eval(xs)
 	return y*x + r*x
 }
+
+// erfInvRat is a ratio of polynomials of degree <= 11 with coefficients in
+// ascending order, zero-padded.
+type erfInvRat struct{ p, q [12]float64 }
+
+func newErfInvRat(p, q []float64) erfInvRat {
+	var r erfInvRat
+	for i := range p {
+		r.p[i] = p[len(p)-1-i]
+	}
+	for i := range q {
+		r.q[i] = q[len(q)-1-i]
+	}
+	return r
+}
+
+// eval returns P(x)/Q(x) (Estrin's scheme for both).
+func (r *erfInvRat) eval(x float64) float64 {
+	return est12(&r.p, x) / est12(&r.q, x)
+}
+
+// est12 returns c[0] + c[1]x + ... + c[11]x^11 (Estrin).
+func est12(c *[12]float64, x float64) float64 {
+	x2 := x * x
+	x4 := x2 * x2
+	a0 := math.FMA(c[1], x, c[0])
+	a1 := math.FMA(c[3], x, c[2])
+	a2 := math.FMA(c[5], x, c[4])
+	a3 := math.FMA(c[7], x, c[6])
+	a4 := math.FMA(c[9], x, c[8])
+	a5 := math.FMA(c[11], x, c[10])
+	b0 := math.FMA(a1, x2, a0)
+	b1 := math.FMA(a3, x2, a2)
+	b2 := math.FMA(a5, x2, a4)
+	return math.FMA(b2, x4*x4, math.FMA(b1, x4, b0))
+}
+
+var (
+	erfInvR1 = newErfInvRat(erfInvP1[:], erfInvQ1[:])
+	erfInvR2 = newErfInvRat(erfInvP2[:], erfInvQ2[:])
+	erfInvR3 = newErfInvRat(erfInvP3[:], erfInvQ3[:])
+	erfInvR4 = newErfInvRat(erfInvP4[:], erfInvQ4[:])
+	erfInvR5 = newErfInvRat(erfInvP5[:], erfInvQ5[:])
+	erfInvR6 = newErfInvRat(erfInvP6[:], erfInvQ6[:])
+)
 
 // Coefficients in descending order (Boost lists them ascending).
 var (
@@ -61,43 +109,60 @@ var (
 	erfInvQ6 = [...]float64{0.509761276599778486139e-9, 0.144437756628144157666e-6, 0.145007359818232637924e-4, 0.000690538265622684595676, 0.0169410838120975906478, 0.207123112214422517181, 1.0}
 )
 
-// erfInvSmall returns erfinv(p) for 0 < p <= 1/2: the Boost guess refined
-// by one Halley step on f(x) = erf(x) - p, f”/f' = -2x, with the residual
-// erf(x) - p in double-double.
-func erfInvSmall(p float64) float64 {
+// expNegSmall returns exp(-u) for 0 <= u <= 1/4 to about 2^-17 relative
+// (Taylor to u⁴/24), enough for the derivative in a Newton step whose
+// correction is below 2^-50 of the result.
+func expNegSmall(u float64) float64 {
+	return 1 - u*(1-u*(0.5-u*(1.0/6-u*(1.0/24))))
+}
+
+// erfInvSmall returns erfinv(p) for 0 < p <= 0.52 (result below 1/2): the
+// Boost guess refined by one Newton step on f(x) = erf(x) - p, the
+// residual formed from erf(x) as hi + lo (erfSmallHL; eh - p is exact by
+// Sterbenz's lemma). The guess is within 2^-60 or so, so the step is below
+// 2^-50 of x and the quadratic term of Newton's error vanishes.
+func erfInvSmall(p, q float64) float64 {
 	// float64(...) forces the rounding the residual below is computed
 	// for: without it Go may keep the guess unrounded inside a fused
 	// multiply-add of the final update, and the step corrects a value that
 	// was never returned.
-	x := float64(erfInvGuess(p, 1-p))
-	f := dd.AddF(erfSmallDD(x), -p).Float()
-	d := f / (twoOverSqrtPi.Hi * math.Exp(-x*x)) // f/f'
-	return x - d/(1+x*d)
+	x := float64(erfInvGuess(p, q))
+	eh, el := erfSmallHL(x)
+	f := (eh - p) + el
+	return x - f/(twoOverSqrtPi.Hi*expNegSmall(x*x))
 }
 
 // erfcInvLarge returns erfcinv(q) for 0 < q < 1/2 (x > 0.4769): the Boost
 // guess refined by one Halley step on f(x) = erfc(x) - q. The relative
 // residual r = erfc(x)/q - 1 is formed from erfc's scaled mantissa so it
-// neither underflows nor loses accuracy for q down to the smallest
-// subnormal, and f/f' = -r q / (2/sqrt(pi) exp(-x²)) =
-// -r/(1+r) erfcx(x) sqrt(pi)/2.
+// neither underflows nor loses accuracy, and f/f' = -r q / (2/sqrt(pi)
+// exp(-x²)) = -r/(1+r) erfcx(x) sqrt(pi)/2. Where the guess is below 1/2
+// the erf residual of erfInvSmall applies (1 - q exact there); where it is
+// above 26.5 (q subnormal) the double-double path.
 func erfcInvLarge(q float64) float64 {
 	x := float64(erfInvGuess(1-q, q)) // rounding forced, see erfInvSmall
-	var r float64
-	var ex float64
-	if x >= 0.5 {
-		m, k, e := erfcMantX(dd.F(x))
-		// r = m/q' - 1 = ((m.Hi - q') + m.Lo)/q', the difference exact
-		// (Sterbenz: m and q' agree to the guess's accuracy).
-		qq := math.Ldexp(q, -k)
-		r = ((m.Hi - qq) + m.Lo) / qq
-		ex = e.Hi
-	} else {
-		r = dd.AddF(dd.DivF(erfcDD(dd.F(x)), q), -1).Float()
-		ex = Erfcx(x)
+	switch {
+	case x < 0.5:
+		// q in (0.479, 0.5): 1 - q is exact
+		return erfInvSmall(1-q, q)
+	case x > 26.5:
+		return erfcInvTail(x, q)
 	}
+	h, l, k, ex := erfcHL(x, 0)
+	qq := q * pow2(-k) // exact: k >= -1015 here
+	r := ((h - qq) + l) / qq
 	d := -r / (1 + r) * ex * sqrtPiHalf.Hi // f/f'
 	// Halley: f''/f' = -2x
+	return x - d/(1+x*d)
+}
+
+// erfcInvTail refines the guess x > 26.5 for a subnormal q with the
+// double-double erfc.
+func erfcInvTail(x, q float64) float64 {
+	m, k, e := erfcMantX(dd.F(x))
+	qq := math.Ldexp(q, -k)
+	r := ((m.Hi - qq) + m.Lo) / qq
+	d := -r / (1 + r) * e.Hi * sqrtPiHalf.Hi
 	return x - d/(1+x*d)
 }
 
@@ -120,7 +185,7 @@ func ErfInv(y float64) float64 {
 	case y == 0:
 		return y
 	case p <= 0.5:
-		return math.Copysign(erfInvSmall(p), y)
+		return math.Copysign(erfInvSmall(p, 1-p), y)
 	}
 	return math.Copysign(erfcInvLarge(1-p), y) // 1-p exact for p >= 1/2
 }
@@ -144,7 +209,7 @@ func ErfcInv(q float64) float64 {
 	case q > 1:
 		return -ErfcInv(2 - q) // exact
 	case q >= 0.5:
-		return erfInvSmall(1 - q) // exact
+		return erfInvSmall(1-q, q) // 1 - q exact
 	}
 	return erfcInvLarge(q)
 }
@@ -175,19 +240,34 @@ func Ndtri(p float64) float64 {
 	}
 	q := 2 * p                                      // exact (or exactly representable subnormal doubling)
 	x := float64(-math.Sqrt2 * erfInvGuess(1-q, q)) // rounding forced, see erfInvSmall
-	z := ndtrZ(x)
-	var r, ratio float64
-	if z.Hi >= 0.5 {
-		m, k, e := erfcMantX(z)
-		pp := math.Ldexp(p, 1-k)
-		r = ((m.Hi - pp) + m.Lo) / pp // exact difference, as in erfcInvLarge
-		ratio = e.Hi * sqrtPiOver2.Hi // Φ(x)/φ(x)
-	} else {
-		phi := dd.MulF(erfcDD(z), 0.5)
-		r = dd.AddF(dd.DivF(phi, p), -1).Float()
-		ratio = phi.Hi / (invSqrt2Pi.Hi * math.Exp(-0.5*x*x))
+	zh, zl := ndtrZHL(x)
+	switch {
+	case zh < 0.5:
+		// p in (0.24, 0.5): f = Φ(x) - p with Φ = (1 - erf(z))/2 carried as
+		// hi + lo; f' = φ(x) = exp(-z²)/sqrt(2π).
+		eh, el := erfSmallHL(zh)
+		el += zl * erfDeriv(zh)
+		ph := 1 - eh
+		pl := ((1 - ph) - eh) - el
+		f := (0.5*ph - p) + 0.5*pl // the difference exact (Sterbenz)
+		return x - f/(invSqrt2Pi.Hi*expNegSmall(zh*zh))
+	case zh > 26.5:
+		return ndtriTail(x, p)
 	}
-	d := r / (1 + r) * ratio // f/f'
+	h, l, k, ex := erfcHL(zh, zl)
+	pp := p * pow2(1-k) // exact
+	r := ((h - pp) + l) / pp
+	d := r / (1 + r) * ex * sqrtPiOver2.Hi // f/f', Φ/φ = erfcx(z) sqrt(π/2)
 	// Halley: f''/f' = -x
+	return x - d/(1+0.5*x*d)
+}
+
+// ndtriTail refines the guess x for p near the subnormal range with the
+// double-double erfc.
+func ndtriTail(x, p float64) float64 {
+	m, k, e := erfcMantX(ndtrZ(x))
+	pp := math.Ldexp(p, 1-k)
+	r := ((m.Hi - pp) + m.Lo) / pp
+	d := r / (1 + r) * e.Hi * sqrtPiOver2.Hi
 	return x - d/(1+0.5*x*d)
 }
