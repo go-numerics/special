@@ -503,36 +503,7 @@ def tables():
         w("\t%r," % float(cs[k]))
     w("}")
     w("")
-    with mp.workprec(300):
-        for kind, n in (("J", 0), ("J", 1), ("Y", 0), ("Y", 1)):
-            f = (lambda x, d=0: mp.besselj(n, x, derivative=d)) if kind == "J" else \
-                (lambda x, d=0: mp.bessely(n, x, derivative=d))
-            zf = mp.besseljzero if kind == "J" else mp.besselyzero
-            pts = []
-            for der in (0, 1):
-                k = 1
-                while True:
-                    z = zf(n, k, derivative=der)
-                    if z > 104:
-                        break
-                    if z > 0:
-                        pts.append(z)
-                    k += 1
-            pts.sort()
-            w("// bessel%s%dPoints: the zeros of %s_%d and of its derivative in (0, 104]," % (kind, n, kind, n))
-            w("// with the function and its derivative there, all as double-doubles:")
-            w("// {z.hi, z.lo, f.hi, f.lo, f'.hi, f'.lo} (one of f, f' is zero).")
-            w("var bessel%s%dPoints = [...][6]float64{" % (kind, n))
-            for z in pts:
-                zh, zl = dd(z)
-                z2 = mpf(zh) + mpf(zl)
-                v0 = f(z2)
-                v1 = f(z2, 1)
-                a, b = dd(v0)
-                c, d = dd(v1)
-                w("\t{%r, %r, %r, %r, %r, %r}," % (zh, zl, a, b, c, d))
-            w("}")
-            w("")
+    # J0, J1, Y0, Y1 below x = 100: testdata/gen/fit_bessel_cells.py.
     sys.stdout.write("\n".join(out))
 
 

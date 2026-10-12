@@ -82,12 +82,10 @@ func ellipKE(p dd.DD) (k, e dd.DD) {
 	return k, e
 }
 
-// ellipAt returns K(m) and E(m) for m < 1 given p = 1 - m exactly.
+// ellipAt returns K(m) and E(m) for m < 1 outside the octave tables (m
+// near 1 or m < -2047) given p = 1 - m exactly.
 func ellipAt(m float64, p dd.DD) (k, e dd.DD) {
-	switch {
-	case m <= 0.5 && m >= -1:
-		return evalPiecesDD(ellipKPieces[:], m), evalPiecesDD(ellipEPieces[:], m)
-	case m > 0.5:
+	if m > 0.5 {
 		return ellipKE(p)
 	}
 	// m < -1: m/(m-1) = 1 - 1/(1-m), so the transformed p is 1/(1-m).
