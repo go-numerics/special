@@ -12,7 +12,9 @@ a dense grid against mpmath, is below 2^-64 relative. The rounding of the
 coefficients to float64 then dominates, which is the point: the polynomial
 is not the error source, the final rounding is. The constant term is also
 emitted as a double-double (its low part c0lo) so that callers can evaluate
-c0 + s*q(s) with the leading term exact (evalPiecesDD).
+c0 + s*q(s) with the leading term exact (evalPiecesDD); so is the linear
+coefficient (c1lo), for callers that evaluate c0 + s*c1 + s^2*q2(s) with the
+first two terms exact (estPiece.evalLow).
 """
 
 import sys
@@ -83,7 +85,8 @@ def emit_pieces(name, doc, f, edges):
         print("\t// [%s, %s]: degree %d, max interpolation error %s" % (a, b, n, mpmath.nstr(worst, 3)))
         c0 = co[0]
         c0lo = float(c0 - mpf(float(c0)))
-        print("\t{lo: %r, hi: %r, c: %r, c0lo: %r, coef: []float64{" % (float(a), float(b), float(c), c0lo))
+        c1lo = float(co[1] - mpf(float(co[1])))
+        print("\t{lo: %r, hi: %r, c: %r, c0lo: %r, c1lo: %r, coef: []float64{" % (float(a), float(b), float(c), c0lo, c1lo))
         for v in reversed(co):  # descending, for Horner
             print("\t\t%s," % repr(float(v)))
         print("\t}},")
@@ -203,7 +206,30 @@ def ellip_D(p):
         return (mp.ellipk(p) - mp.ellipe(p)) / p
 
 
+def erfinv_R(t):
+    # erfinv(sqrt t)/sqrt t on [0, 1/4]; erfinv(p) = p R(p^2) for |p| <= 1/2
+    if t == 0:
+        return mp.sqrt(mp.pi) / 2
+    r = mp.sqrt(t)
+    with mp.workprec(mp.prec + 40):
+        return mp.erfinv(r) / r
+
+
+def erfcinv_X(w):
+    # the x with erfc(x) = exp(-w^2): erfcinv(q) = X(sqrt(-log q))
+    with mp.workprec(mp.prec + 40):
+        x0 = w if w > 2 else mp.erfinv(1 - mp.exp(-w * w))
+        return mp.findroot(lambda x: mp.log(mp.erfc(x)) + w * w, x0,
+                           tol=mpf(2) ** -(mp.prec + 20))
+
+
 JOBS = {
+    "erfInvSmallPieces": ("erfInvSmallPieces: R(t) = erfinv(√t)/√t on [0, 1/4]; erfinv(p) = p R(p²) for |p| <= 1/2.",
+                          erfinv_R, [0.0, 0.125, 0.25]),
+    "erfcInvPieces": ("erfcInvPieces: X(w) = erfcinv(exp(-w²)) on [0.8125, 31.0625] (q = exp(-w²) < 1/2; widths 1/4, 1, 2, 4).",
+                      erfcinv_X, [0.8125 + 0.25 * k for k in range(10)] + [4.0625, 5.0625, 6.0625, 7.0625, 9.0625,
+                                                                             11.0625, 15.0625, 19.0625, 23.0625,
+                                                                             27.0625, 31.0625]),
     "ellipDPieces": ("ellipDPieces: D(p) = (K(p) - E(p))/p on [0, 0.5] (no cancellation as p -> 0).",
                      ellip_D, [0.0, 0.125, 0.25, 0.375, 0.5]),
     "zetaTailPieces": ("zetaTailPieces: g(s) = (ζ(s) - 1) 2^s on [6, 64].",
