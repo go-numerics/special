@@ -24,6 +24,52 @@ import (
 // 1/π as a double-double (mpmath).
 var invPi = dd.DD{Hi: 0.3183098861837907, Lo: -1.9678676675182486e-17}
 
+// ellipOctPiece is one piece of zz_ellipOct_coeffs.go: on it the function
+// is coef[0] s^11 + ... + coef[11] with s = m - c, the constant term
+// carrying c0lo as its low part.
+type ellipOctPiece struct {
+	c, c0lo float64
+	coef    [12]float64
+}
+
+// ellipOctIndex returns the piece of the octave tables holding m, from the
+// exponent and the top three mantissa bits of p = 1 - m, or -1 when p is
+// outside [2^-10, 2^11) (m near 1 or m < -2047), where the double-double
+// path below takes over. p is rounded for m < -1; a piece is fitted
+// slightly beyond its edges, so a rounding into the neighbouring piece is
+// harmless.
+func ellipOctIndex(m float64) int { return ellipOctIndexP(1 - m) }
+
+// ellipOctIndexP is ellipOctIndex given p = 1 - m.
+func ellipOctIndexP(p float64) int {
+	b := math.Float64bits(p)
+	e := int(b>>52) - 1023 // p > 0 here: m < 1
+	if e < -10 || e > 10 {
+		return -1
+	}
+	return (e+10)<<3 | int(b>>49&7)
+}
+
+// ellipOctEval evaluates one piece at s = m - c: c0 + (s q(s) + c0lo)
+// rounds once, since |s q(s)| is below 2% of c0 on every piece. s is exact
+// (Sterbenz) wherever the octave of p is below 1/2 or above 2, and its
+// relative rounding elsewhere is scaled down by the same 2%.
+func ellipOctEval(q *ellipOctPiece, s float64) float64 {
+	c := &q.coef
+	r := c[0]
+	r = r*s + c[1]
+	r = r*s + c[2]
+	r = r*s + c[3]
+	r = r*s + c[4]
+	r = r*s + c[5]
+	r = r*s + c[6]
+	r = r*s + c[7]
+	r = r*s + c[8]
+	r = r*s + c[9]
+	r = r*s + c[10]
+	return c[11] + (r*s + q.c0lo)
+}
+
 // ellipKE returns K and E at m = 1 - p for a double-double p in (0, 1/2]
 // (that is m in [1/2, 1)).
 func ellipKE(p dd.DD) (k, e dd.DD) {
@@ -65,6 +111,9 @@ func EllipK(m float64) float64 {
 	case math.IsInf(m, -1):
 		return 0
 	}
+	if i := ellipOctIndex(m); i >= 0 {
+		return ellipOctEval(&ellipKOct[i], m-ellipKOct[i].c)
+	}
 	k, _ := ellipAt(m, sumDD(1, -m))
 	return k.Float()
 }
@@ -79,6 +128,12 @@ func EllipKm1(p float64) float64 {
 		return math.Inf(1)
 	case math.IsInf(p, 1):
 		return 0
+	}
+	if i := ellipOctIndexP(p); i >= 0 {
+		// s = m - c = (1 - c) - p: 1 - c is the piece centre in p (exact)
+		// and the difference is exact within the octave (Sterbenz).
+		q := &ellipKOct[i]
+		return ellipOctEval(q, (1-q.c)-p)
 	}
 	k, _ := ellipAt(1-p, dd.F(p))
 	return k.Float()
@@ -96,6 +151,9 @@ func EllipE(m float64) float64 {
 		return 1
 	case math.IsInf(m, -1):
 		return math.Inf(1)
+	}
+	if i := ellipOctIndex(m); i >= 0 {
+		return ellipOctEval(&ellipEOct[i], m-ellipEOct[i].c)
 	}
 	_, e := ellipAt(m, sumDD(1, -m))
 	return e.Float()
