@@ -14,12 +14,36 @@ func expDD(x float64) dd.DD {
 
 // Expit returns the logistic sigmoid 1/(1 + exp(-x)).
 //
-// The exponential of the smaller magnitude side is formed as a
-// double-double and the quotient taken in double-double, so the result is
-// within about half an ulp everywhere, including the lower tail where it
-// is exp(x) to full relative accuracy. Expit(-Inf) = 0, Expit(+Inf) = 1,
-// NaN for NaN.
+// e = exp(-|x|) comes from the float64 kernel as hi + lo (about 2^-61
+// relative); 1 + e is formed exactly (Fast2Sum) and the quotient 1/(1+e)
+// or e/(1+e) is corrected by its FMA residual, so the result is within
+// about half an ulp everywhere, including the lower tail where it is
+// exp(x) to full relative accuracy. Below -660, where the low part of e
+// would be subnormal, the double-double path is used. Expit(-Inf) = 0,
+// Expit(+Inf) = 1, NaN for NaN.
 func Expit(x float64) float64 {
+	if !(x >= -660 && x <= 40) {
+		return expitTail(x)
+	}
+	h, l, k := expHL(-math.Abs(x), 0)
+	s := pow2(k) // k >= -1022
+	h *= s
+	l *= s
+	// d = 1 + e exactly (e <= 1).
+	dh := 1 + h
+	dl := (1 - dh) + h + l
+	nh, nl := 1.0, 0.0
+	if x < 0 {
+		nh, nl = h, l
+	}
+	inv := 1 / dh
+	y := nh * inv
+	r := math.FMA(-y, dh, nh) + (nl - y*dl) // n - y·d
+	return math.FMA(r, inv, y)
+}
+
+// expitTail is Expit outside [-660, 40] (and NaN).
+func expitTail(x float64) float64 {
 	switch {
 	case math.IsNaN(x):
 		return x
@@ -27,10 +51,6 @@ func Expit(x float64) float64 {
 		return 1 // 1 - e^-40 rounds to 1
 	case x < -746:
 		return 0
-	}
-	if x >= 0 {
-		t := expDD(-x)
-		return dd.Div(dd.F(1), dd.AddF(t, 1)).Float()
 	}
 	t := expDD(x)
 	return dd.Div(t, dd.AddF(t, 1)).Float()
@@ -44,10 +64,45 @@ func LogExpit(x float64) float64 {
 }
 
 // Log1pExp returns log(1 + exp(x)), the softplus function, accurate in both
-// tails: x + log1p(exp(-x)) for x > 0 (no overflow) and log1p(exp(x)) with
-// exp(x) in double-double for x <= 0 (full relative accuracy as it tends to
-// exp(x)). Log1pExp(-Inf) = 0, Log1pExp(+Inf) = +Inf, NaN for NaN.
+// tails: x + log1p(exp(-x)) for x > 0 (no overflow) and log1p(exp(x)) for
+// x <= 0 (full relative accuracy as it tends to exp(x)). e = exp(-|x|)
+// comes from the float64 kernel as hi + lo, w = 1 + e is formed exactly
+// and log w = log(w.hi) + w.lo/w.hi from the log kernel (2^-68 absolute);
+// x is added with TwoSum before the single final rounding.
+// Log1pExp(-Inf) = 0, Log1pExp(+Inf) = +Inf, NaN for NaN.
 func Log1pExp(x float64) float64 {
+	if !(x >= -660 && x <= 40) {
+		return log1pExpTail(x)
+	}
+	h, l, k := expHL(-math.Abs(x), 0)
+	s := pow2(k)
+	h *= s
+	l *= s
+	if h < 0x1p-27 {
+		// log1p(e) = e - e²/2 + e³/3 - ..., e⁴/4 below 2^-80 e. (Through
+		// w = 1 + e the second-order term of log(w.hi + w.lo) would be
+		// lost, and it is not negligible when e is this small.)
+		t := h + (l + h*h*math.FMA(h, 1.0/3, -0.5))
+		if x > 0 {
+			return x + t
+		}
+		return t
+	}
+	wh := 1 + h
+	wl := (1 - wh) + h + l
+	lh, ll := logHL(wh)
+	ll += wl / wh
+	if x <= 0 {
+		return lh + ll
+	}
+	sh := x + lh
+	bb := sh - x
+	se := (x - (sh - bb)) + (lh - bb)
+	return sh + (se + ll)
+}
+
+// log1pExpTail is Log1pExp outside [-660, 40] (and NaN).
+func log1pExpTail(x float64) float64 {
 	switch {
 	case math.IsNaN(x):
 		return x
@@ -56,44 +111,76 @@ func Log1pExp(x float64) float64 {
 	case x < -746:
 		return 0
 	}
-	if x > 0 {
-		return dd.AddF(log1pDD(expDD(-x)), x).Float()
-	}
 	return log1pDD(expDD(x)).Float()
 }
 
 // Logit returns the log-odds log(p/(1-p)), the inverse of Expit, for
-// 0 <= p <= 1: -Inf at 0, +Inf at 1, NaN outside or for NaN. 1-p and the
-// quotient are carried in double-double and the logarithm keeps its
-// relative accuracy as p/(1-p) approaches 1, so the result is accurate
-// around p = 1/2 where it crosses zero.
+// 0 <= p <= 1: -Inf at 0, +Inf at 1, NaN outside or for NaN. 1-p is formed
+// exactly (TwoSum), the quotient p/(1-p) is carried as hi + lo through its
+// FMA residual, and log(hi) comes from the log kernel, whose error is
+// relative to hi - 1 near 1: the result is accurate around p = 1/2 where it
+// crosses zero.
 func Logit(p float64) float64 {
-	switch {
-	case math.IsNaN(p) || p < 0 || p > 1:
+	if !(p > 0 && p < 1) {
+		switch {
+		case p == 0:
+			return math.Inf(-1)
+		case p == 1:
+			return math.Inf(1)
+		}
 		return math.NaN()
-	case p == 0:
-		return math.Inf(-1)
-	case p == 1:
-		return math.Inf(1)
 	}
-	q := sumDD(1, -p)
-	return logDD(dd.Div(dd.F(p), q)).Float()
+	qh := 1 - p
+	bb := qh - 1
+	ql := (1 - (qh - bb)) + (-p - bb) // 1 - p = qh + ql exactly
+	if p < 0.25 || p > 0.75 {
+		// |logit| > log 3: first-order corrections suffice.
+		y := p / qh
+		r := (math.FMA(-y, qh, p) - y*ql) / qh // p/(qh+ql) - y
+		lh, ll := logHL(y)
+		return lh + (ll + r/y)
+	}
+	// log1p(t), t = (2p - 1)/(1 - p); 2p - 1 is exact here. Carrying t
+	// itself keeps the relative accuracy as the result crosses zero.
+	num := 2*p - 1
+	th := num / qh
+	tl := (math.FMA(-th, qh, num) - th*ql) / qh
+	return log1pHL(th, tl)
+}
+
+// log1pHL returns log1p(th + tl) rounded to float64 for th > -1 with
+// |tl| <= ulp(th): the series for |th| < 2^-20 (terms to th⁴/4, the next
+// below 2^-80 relative); otherwise w = 1 + t formed exactly and
+// log(w.hi) + w.lo/w.hi, the dropped second-order term below 2^-86 of the
+// result.
+func log1pHL(th, tl float64) float64 {
+	if math.Abs(th) < 0x1p-20 {
+		s := th * th * math.FMA(th, math.FMA(th, -0.25, 1.0/3), -0.5)
+		return th + (math.FMA(tl, -th, tl) + s)
+	}
+	wh := 1 + th
+	bb := wh - 1
+	wl := (1 - (wh - bb)) + (th - bb) + tl
+	lh, ll := logHL(wh)
+	return lh + (ll + wl/wh)
 }
 
 // Xlogy returns x*log(y), defined as 0 when x = 0 and y is not NaN (so that
-// 0*log(0) terms of entropies vanish), as SciPy's xlogy. The product is
-// formed with log(y) in double-double: one rounding.
+// 0*log(0) terms of entropies vanish), as SciPy's xlogy. log(y) comes from
+// the log kernel as hi + lo (2^-68 absolute) and the product is rounded
+// once by an FMA.
 func Xlogy(x, y float64) float64 {
 	if x == 0 && !math.IsNaN(y) {
 		return 0
 	}
-	if math.IsNaN(x) || math.IsNaN(y) || y < 0 {
-		return math.NaN()
-	}
-	if y == 0 || math.IsInf(y, 1) || math.IsInf(x, 0) {
+	if !(y > 0 && y <= math.MaxFloat64) || math.IsInf(x, 0) || math.IsNaN(x) {
+		if math.IsNaN(x) || math.IsNaN(y) || y < 0 {
+			return math.NaN()
+		}
 		return x * math.Log(y)
 	}
-	return dd.MulF(dd.Log(y), x).Float()
+	lh, ll := logHL(y)
+	return math.FMA(x, lh, x*ll)
 }
 
 // Xlog1py returns x*log1p(y), defined as 0 when x = 0 and y is not NaN, as
