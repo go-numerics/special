@@ -104,12 +104,12 @@ func init() {
 		"huge x":   1,
 	})
 	register("jv", besselTwo(Jv), map[string]float64{
-		"special":     2.5,
-		"small x":     1,
-		"moderate":    2,
-		"large x":     2.5,
-		"huge x":      3,
-		"near zeros":  3,
+		"special":    2.5,
+		"small x":    1,
+		"moderate":   2,
+		"large x":    2.5,
+		"huge x":     3,
+		"near zeros": 3,
 		// large order and negative v: loong64, ppc64le and s390x measure 2.01
 		// and 13.2 ulp, where amd64 and arm64 measure 1.35 and 7.22: Go fuses
 		// a*b+c differently per architecture, and the reflection formula for
