@@ -84,6 +84,10 @@ func LogBeta(a, b float64) float64 {
 		a, b = b, a
 	}
 	if a > 0 {
+		if b >= 10 && b <= 1e300 {
+			h, l := logBetaHL(a, b)
+			return h + l
+		}
 		if math.IsInf(b, 1) {
 			return math.Inf(-1)
 		}
@@ -139,6 +143,17 @@ func Beta(a, b float64) float64 {
 		a, b = b, a
 	}
 	if a > 0 {
+		if b < 10 && a > 0x1p-56 {
+			return betaSmall(a, b)
+		}
+		if b >= 10 && b <= 1e300 {
+			h, l := logBetaHL(a, b)
+			hn := h + l
+			eh, el, k := expHL(hn, l-(hn-h))
+			if k >= -1021 && k <= 1022 {
+				return (eh + el) * pow2(k)
+			}
+		}
 		if math.IsInf(b, 1) {
 			return 0
 		}
@@ -161,3 +176,153 @@ func Beta(a, b float64) float64 {
 	sign := GammaSign(a) * GammaSign(b) * GammaSign(s.Hi)
 	return sign * dd.Exp(logBetaNegDD(a, b, s))
 }
+
+// Float64 fast paths (kernels.go): the same decompositions as logBetaPos
+// and Beta's double-double path, with the logarithms and exponentials from
+// the float64 kernels, products formed exactly up to their low-order terms
+// and the sums of leading parts by TwoSum.
+
+// gammaHL returns Γ(x) as hi + lo for 0 < x <= 171 (x not tiny: x >= 2^-56).
+func gammaHL(x float64) (hi, lo float64) {
+	switch {
+	case x >= 10:
+		h, l := logGammaLargeHL(x)
+		hn := h + l
+		eh, el, k := expHL(hn, l-(hn-h))
+		s := pow2(k) // k <= 1022 for x <= 171
+		return eh * s, el * s
+	case x >= 1:
+		return gammaMid(x)
+	}
+	// Γ(1+x)/x
+	gh, gl := gamma1pHL(x)
+	q := gh / x
+	return q, (math.FMA(-q, x, gh) + gl) / x
+}
+
+// betaSmall returns B(a, b) for 2^-56 <= a <= b < 10: Γ(a)Γ(b)/Γ(a+b)
+// with the three values as hi + lo, the rounding of a+b = s + sl corrected
+// to first order (Γ(s+sl) = Γ(s)(1 + ψ(s) sl)), one rounding.
+func betaSmall(a, b float64) float64 {
+	s := a + b
+	bb := s - a
+	sl := (a - (s - bb)) + (b - bb)
+	ah, al := gammaHL(a)
+	bh, bl := gammaHL(b)
+	ch, cl := gammaHL(s)
+	if sl != 0 {
+		cl += ch * Digamma(s) * sl
+	}
+	nh := float64(ah * bh)
+	nl := math.FMA(ah, bh, -nh) + math.FMA(ah, bl, al*bh)
+	q := nh / ch
+	r := math.FMA(-q, ch, nh) + (nl - q*cl)
+	return q + r/ch
+}
+
+// logBetaHL returns log B(a, b) as hi + lo for 0 < a <= b, 10 <= b and
+// a + b finite. For a >= 10 and b <= 64a the three log-gammas are combined
+// directly (each about 2^-68 x absolute; the cancellation is at most a
+// factor b/a); otherwise log Γ(a) + [log Γ(b) - log Γ(a+b)] with the
+// bracket from logGammaDiffHL, which does not cancel.
+func logBetaHL(a, b float64) (hi, lo float64) {
+	s := a + b
+	bb := s - a
+	sl := (a - (s - bb)) + (b - bb)
+	if a >= 10 && b <= 64*a {
+		ah, al := logGammaLargeHL(a)
+		bh, bl := logGammaLargeHL(b)
+		ch, cl := logGammaLargeHL2(s, sl)
+		u := bh + ah // Fast2Sum: log Γ is increasing here and b >= a
+		ue := ah - (u - bh)
+		v := u - ch // Fast2Sum: log B < 0 here, so log Γ(a+b) > u
+		ve := u - (v + ch)
+		return v, (ve + ue) + (al + bl - cl)
+	}
+	var gh, gl float64
+	if a >= 10 {
+		gh, gl = logGammaLargeHL(a)
+	} else {
+		g := logGammaPos(a)
+		gh, gl = g.Hi, g.Lo
+	}
+	dh, dl := logGammaDiffHL(a, b, s)
+	v := gh + dh // TwoSum
+	bb = v - gh
+	ve := (gh - (v - bb)) + (dh - bb)
+	return v, ve + (gl + dl)
+}
+
+// logGammaDiffHL returns log Γ(b) - log Γ(a+b) as hi + lo for 0 < a <= b,
+// b >= 10, s = RN(a+b), by logGammaDiff's cancellation-free expression
+//
+//	-a log b - b (L - x) - (a - 1/2) L + S(b) - S(a+b),  x = a/b, L = log1p(x)
+//
+// with L - x from its series below x = 1/64 and S(b) - S(a+b) as
+// d Σ c_k T_{2k-1}, d = 1/b - 1/(a+b) = a/(b(a+b)) and
+// T_n = (b^-n - (a+b)^-n)/d = Σ_i b^-i (a+b)^-(n-1-i) (the differences of
+// powers factored, so that a small a costs no cancellation).
+func logGammaDiffHL(a, b, s float64) (hi, lo float64) {
+	xh := a / b
+	xl := math.FMA(-xh, b, a) / b
+	var lh, ll, mh, ml float64 // L = log1p(x), M = L - x
+	if xh < 1.0/64 {
+		// M = -x²/2 + x³(1/3 - x/4 + ...), to x^12/12 (next below 2^-62 M)
+		x2 := float64(xh * xh)
+		x2l := math.FMA(xh, xh, -x2) + 2*xh*xl
+		x4 := x2 * x2
+		p := math.FMA(math.FMA(-1.0/6, xh, 1.0/5), x2, math.FMA(-1.0/4, xh, 1.0/3))
+		q := math.FMA(math.FMA(-1.0/10, xh, 1.0/9), x2, math.FMA(-1.0/8, xh, 1.0/7))
+		r := math.FMA(math.FMA(-1.0/12, xh, 1.0/11), x4, q)
+		t := math.FMA(r, x4, p) * xh // x/3 - x²/4 + ... - x^10/12
+		mh = -0.5 * x2
+		ml = math.FMA(x2, t, -0.5*x2l)
+		lh = xh + mh // Fast2Sum: |M| < x/100
+		ll = ((xh - lh) + mh) + (xl + ml)
+	} else {
+		wh := 1 + xh // Fast2Sum: x <= 1
+		wl := ((1 - wh) + xh) + xl
+		var l2 float64
+		lh, l2 = logHL(wh)
+		ll = l2 + wl/wh
+		mh = lh - xh // exact: x/2 <= L <= x
+		ml = ll - xl
+	}
+	bh, bl := logHL(b)
+	t1h := float64(a * bh) // a log b
+	t1l := math.FMA(a, bh, -t1h) + a*bl
+	t2h := float64(b * mh) // b M
+	t2l := math.FMA(b, mh, -t2h) + b*ml
+	ah := a - 0.5 // (a - 1/2) L
+	bb := ah - a
+	al := (a - (ah - bb)) + (-0.5 - bb)
+	t3h := float64(ah * lh)
+	t3l := math.FMA(ah, lh, -t3h) + math.FMA(ah, ll, al*lh)
+	// S(b) - S(a+b)
+	ib := 1 / b
+	is := 1 / s
+	d := a * ib * is
+	ib2 := ib * ib
+	sg := ib + is
+	is2 := is * is
+	tn, pw := 1.0, is
+	sum := 0.0
+	for _, c := range stirlingCoef {
+		sum = math.FMA(c, tn, sum)
+		tn = math.FMA(ib2, tn, pw*sg)
+		pw *= is2
+	}
+	ds := d * sum
+	// -t1 - t3 - t2 + ds
+	u := -t1h - t3h // TwoSum
+	bb = u + t1h
+	ue := (-t1h - (u - bb)) + (-t3h - bb)
+	v := u - t2h // TwoSum
+	bb = v - u
+	ve := (u - (v - bb)) + (-t2h - bb)
+	return v, (ue + ve) + (ds - t1l - t2l - t3l)
+}
+
+// stirlingCoef[k-1] = B_2k/(2k(2k-1)), k = 1..9 (stirlingSeries).
+var stirlingCoef = [...]float64{1.0 / 12, -1.0 / 360, 1.0 / 1260, -1.0 / 1680, 1.0 / 1188,
+	-691.0 / 360360, 1.0 / 156, -3617.0 / 122400, 43867.0 / 244188}
