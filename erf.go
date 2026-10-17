@@ -176,10 +176,30 @@ func erfcHL(zh, zl float64) (hi, lo float64, k int, erfcx float64) {
 		ch = e.c0 + r1
 		cl = (r1 - (ch - e.c0)) + ((math.FMA(s, q[0], -r1) + s*e.c1lo) + math.FMA(s2, p, e.c0lo))
 	} else {
-		ch, cl = erfcxHL(zh)
+		// erfcxHL's tail written out: G(u)/z, u = 1/z²
+		inv := 1 / zh
+		u := inv * inv
+		e := &erfcxTailEst[min(int(u*128), 1)]
+		s := u - e.c
+		q := &e.q
+		s2 := s * s
+		a0 := math.FMA(q[4], s, q[3])
+		a1 := math.FMA(q[6], s, q[5])
+		a2 := math.FMA(q[8], s, q[7])
+		b0 := math.FMA(a1, s2, a0)
+		b1 := math.FMA(q[9], s2, a2)
+		p := math.FMA(b1, s2*s2, b0)
+		p = math.FMA(math.FMA(math.FMA(p, s, q[2]), s, q[1]), s, q[0])
+		rr := float64(s * p) // |s p| < 2^-9 G: its rounding is negligible
+		gh := e.c0 + rr
+		gl := (rr - (gh - e.c0)) + e.c0lo
+		ch = gh * inv
+		cl = (math.FMA(-ch, zh, gh) + gl) * inv
 	}
 	ex := ch + cl // erfcx(zh); ch alone is not normalised
-	cl += zl * math.FMA(2*zh, ex, -twoOverSqrtPi.Hi)
+	if zl != 0 {
+		cl += zl * math.FMA(2*zh, ex, -twoOverSqrtPi.Hi)
+	}
 	ph := float64(eh * ch)
 	pl := math.FMA(eh, ch, -ph) + math.FMA(eh, cl, el*ch)
 	hi = ph + pl // normalised: callers add 1 or take log1p
