@@ -87,21 +87,12 @@ func (e *estPiece) evalShort(t float64) (hi, lo float64) {
 	return hi, lo
 }
 
-// maxDegree returns the largest degree among the pieces (for the init-time
-// checks of the callers of evalShort).
+// maxDegree returns the largest degree among the pieces (the tests check
+// that every table evaluated by evalShort has degree <= 10).
 func maxDegree(p []polyPiece) int {
 	d := 0
 	for i := range p {
 		d = max(d, len(p[i].coef)-1)
 	}
 	return d
-}
-
-func init() {
-	// evalShort reads q[0..9] only.
-	for _, p := range [][]polyPiece{erfSmallPieces[:], erfcxTailPieces[:], logErfcxTailPieces[:], zetaPieces[:]} {
-		if maxDegree(p) > 10 {
-			panic("special: evalShort table of degree above 10")
-		}
-	}
 }

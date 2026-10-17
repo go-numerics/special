@@ -367,8 +367,8 @@ func hurwitzFast(s, q float64) (float64, bool) {
 	// w >= 7.3 + s/2 (computed with mpmath for 1 < s <= 64: the bound
 	// needed is 6.1 at s = 1, 7.4 at 1.5, 8.5 at 3, 12.0 at 10, 16.5 at
 	// 20, 34.8 at 64), a much shorter direct sum than hurwitzPos's
-	// 0.7(s+30) with 15 terms, which allows for s > 64; a series that has
-	// not converged falls back to hurwitzPos.
+	// 0.7(s+30) with 15 terms, which allows for s > 64 (the bound is
+	// checked by TestHurwitzShiftBound).
 	w0 := 7.3 + 0.5*s
 	n := 0.0
 	if q < w0 {
@@ -422,20 +422,15 @@ func hurwitzFast(s, q float64) (float64, bool) {
 	poch := s * (s + 1) * (s + 2)                                                // (s)_{2j-1}
 	pw := iw * iw2                                                               // w^(1-2j)
 	rest := 0.0
-	conv := false
 	for j := 2; j <= len(bernoulliOverFactorial25); j++ {
 		t := bernoulliOverFactorial25[j-1] * poch * pw
 		rest += t
 		if math.Abs(t) < 0x1p-64*bh {
-			conv = true
-			break
+			break // converged (TestHurwitzShiftBound: always by j = 25)
 		}
 		kk := float64(2*j - 1)
 		poch *= (s + kk) * (s + kk + 1)
 		pw *= iw2
-	}
-	if !conv {
-		return 0, false
 	}
 	c1 := bh + 0.5 // Fast2Sum: w/(s-1) > 1
 	e1 := (bh - c1) + 0.5

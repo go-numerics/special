@@ -148,37 +148,6 @@ func Gamma(x float64) float64 {
 // gamma1pEst holds the pieces of gamma1pPieces on [0, 1] (degrees <= 15).
 var gamma1pEst = estPieces(gamma1pPieces[2:])
 
-// stirlingHL returns Stirling's correction S(x) = log Γ(x) - [(x - 1/2)
-// log x - x + log sqrt(2π)] for x >= 10 as hi + lo (DLMF 5.11.1, the
-// coefficients and truncation of stirlingSeries): the leading term 1/(12x)
-// with 1/x carried as hi + lo, the rest (below 1/(360x³)) by Estrin's
-// scheme in z = 1/x², so that the result is accurate to about 2^-70
-// absolute instead of the half ulp of S a float64 sum leaves. ix is 1/x
-// rounded (the caller has it).
-func stirlingHL(x, ix float64) (hi, lo float64) {
-	const (
-		c1   = 1.0 / 12
-		c2   = -1.0 / 360
-		c3   = 1.0 / 1260
-		c4   = -1.0 / 1680
-		c5   = 1.0 / 1188
-		c6   = -691.0 / 360360
-		c7   = 1.0 / 156
-		c8   = -3617.0 / 122400
-		c9   = 43867.0 / 244188
-		c1lo = 4.625929269271485e-18 // 1/12 - c1
-	)
-	ixl := math.FMA(-ix, x, 1) * ix // 1/x = ix + ixl, ix = RN(1/x)
-	z := ix * ix
-	z2 := z * z
-	z4 := z2 * z2
-	a := math.FMA(math.FMA(c5, z, c4), z2, math.FMA(c3, z, c2))
-	b := math.FMA(math.FMA(c9, z, c8), z2, math.FMA(c7, z, c6))
-	tail := math.FMA(b, z4, a) * z * ix // Σ_{k>=2}
-	hi = float64(ix * c1)
-	return hi, math.FMA(ix, c1, -hi) + math.FMA(ixl, c1, math.FMA(ix, c1lo, tail))
-}
-
 // logGammaLargeHL returns log Γ(x) = (x - 1/2) log x - x + log sqrt(2π) +
 // S(x) (DLMF 5.11.1) as hi + lo for x >= 10 (lo not normalised, below
 // 2^-45 hi), from the log kernel (2^-68 absolute) with x - 1/2 = mh + ml

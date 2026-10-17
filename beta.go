@@ -169,12 +169,6 @@ func Beta(a, b float64) float64 {
 		if math.IsInf(b, 1) {
 			return 0
 		}
-		if b < 10 && a > 0x1p-56 {
-			s := sumDD(a, b)
-			g := gammaPos(s.Hi)
-			gs := dd.Add(g, dd.MulF(g, Digamma(s.Hi)*s.Lo))
-			return dd.Div(dd.Mul(gammaPos(a), gammaPos(b)), gs).Float()
-		}
 		return dd.Exp(logBetaPos(a, b))
 	}
 	l := logBetaGeneral(a, b)
