@@ -13,9 +13,7 @@ import (
 // (boost/math/special_functions/detail/igamma_inverse.hpp, BSL-1.0, ported
 // below). Boost then runs Halley's method on P(x) - p; here the iteration
 // is Halley's method on log T(x) - log t in the variable log x (the second
-// derivative is the first times a - x ∓ r, r = d log T/d log x), stopped
-// once the step times that curvature is below 2^-30, where the cubic
-// convergence leaves nothing to correct, and T is
+// derivative is the first times a - x ∓ r, r = d log T/d log x), and T is
 // whichever of P and Q is the smaller at the root and t its exact target
 // (p, or 1 - p, which is exact when p >= 1/2). In that variable both log P
 // and log Q are concave (the log-gamma density is log-concave), so the
@@ -217,16 +215,12 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 		if !math.IsInf(step, 0) && !math.IsNaN(step) && step < 700 {
 			nx = float64(x + x*math.Expm1(step))
 		}
-		// Converged: the step is below the resolution of x, or small enough
-		// against the curvature that Halley's cubic convergence leaves less
-		// than that (the error after the step is about (step·curv)² step).
-		if nx == x || math.Abs(step)*(1+math.Abs(curv)) < 0x1p-30 {
-			if nx > lo && nx < hi {
-				return nx
-			}
-			if nx == x || math.Abs(step) < 0x1p-52 {
-				return nx
-			}
+		// Converged: the step is below the resolution of x. (Stopping
+		// earlier on the cubic convergence lands up to the forward
+		// function's error away from its computed root, which varies from
+		// one x to the next: about an ulp more at the worst points.)
+		if nx == x || math.Abs(step) < 0x1p-52 {
+			return nx
 		}
 		if !(nx > lo && nx < hi) {
 			switch {

@@ -112,14 +112,9 @@ func ibetaInvEval(a, b, p, q float64) func(u float64) (g, r float64) {
 	}
 	lt := dd.LogAccurate(t)
 	lb := ibetaLogBeta(a, b)
+	lbf := lb.Hi + lb.Lo
 	return func(u float64) (g, r float64) {
-		var l dd.DD
-		l, r = ibetaInvTail(a, b, u, upper, lb)
-		if math.IsInf(l.Hi, -1) {
-			g = math.Inf(-1)
-		} else {
-			g = dd.Sub(l, lt).Float()
-		}
+		g, r = ibetaInvTail(a, b, u, t, upper, lt, lb, lbf)
 		if upper {
 			g = -g
 		}
@@ -129,12 +124,30 @@ func ibetaInvEval(a, b, p, q float64) func(u float64) (g, r float64) {
 
 // ibetaInvSide returns the u (at most about 1/2) with I_u(a, b) = p and
 // 1 - I_u(a, b) = q, matching the smaller of the two.
+//
+// Halley's method in log u: with r = d log T/d log u, the second
+// derivative of g is r (a - (b-1) u/(1-u) ∓ r) (- for the lower tail),
+// falling back to Newton's step far from the root. The iteration runs to
+// the computed root (a step below the resolution of u): the forward
+// function carries errors of a few ulps here, which vary from one u to
+// the next, so a step extrapolated from a nearby u lands up to that much
+// further from the true root.
 func ibetaInvSide(a, b, p, q float64) float64 {
 	eval := ibetaInvEval(a, b, p, q)
-	if g, _ := eval(0x1p-1074); g >= 0 {
-		return 0 // the root is below the float64 range
+	lb := ibetaLogBeta(a, b)
+	u := ibetaInvGuess(a, b, p, lb)
+	// A root below the float64 range altogether: the power-law guess says
+	// so (it is then near or below the normal range), except for tiny
+	// parameters, where I is too flat for the guess to be trusted.
+	if u < 0x1p-1000 || a < 1e-3 || b < 1e-3 {
+		if g, _ := eval(0x1p-1074); g >= 0 {
+			return 0
+		}
 	}
-	u := ibetaInvGuess(a, b, p, ibetaLogBeta(a, b))
+	sg := -1.0
+	if q < p {
+		sg = 1
+	}
 	lo, hi := 0.0, 0.75
 	for i := 0; i < 400; i++ {
 		g, r := eval(u)
@@ -147,6 +160,10 @@ func ibetaInvSide(a, b, p, q float64) float64 {
 			hi = u
 		}
 		step := -g / r
+		curv := a - (b-1)*u/(1-u) + sg*r
+		if h := step * curv / 2; math.Abs(h) < 0.5 {
+			step /= 1 + h
+		}
 		nu := math.NaN()
 		if !math.IsInf(step, 0) && !math.IsNaN(step) && step < 700 {
 			nu = float64(u + u*math.Expm1(step))
@@ -166,29 +183,49 @@ func ibetaInvSide(a, b, p, q float64) float64 {
 	return u
 }
 
-// ibetaInvTail returns log T(u) as a double-double, T = 1 - I_u(a, b) if
-// upper else I_u(a, b), and r = |d log T / d log u| = u^a (1-u)^(b-1) /
-// (B(a, b) T); lb = log B(a, b).
-func ibetaInvTail(a, b, u float64, upper bool, lb dd.DD) (lt dd.DD, r float64) {
-	v := ibetaNewXY(u, math.Inf(1))
-	ld := dd.Sub(dd.Add(dd.MulF(v.lx, a), dd.MulF(v.ly, b-1)), lb)
+// ibetaInvTail returns g = log T(u) - log t, T = 1 - I_u(a, b) if upper
+// else I_u(a, b), and r = |d log T / d log u| = u^a (1-u)^(b-1) /
+// (B(a, b) T); lt = log t, lb = log B(a, b) (lbf in float64).
+//
+// Where TOMS 708's BPSER applies with a < 1, log T is a double-double from
+// that series (the root depends on log T to within a factor 1/a there).
+// Elsewhere T is the float64 value of ibetaRatio, which is what the root
+// can be located to, and g = log1p((T - t)/t) once T is within a factor 2
+// of t (T - t is then exact); r only steers the step and is formed in
+// float64.
+func ibetaInvTail(a, b, u, t float64, upper bool, lt, lb dd.DD, lbf float64) (g, r float64) {
 	bpser := a < 1 && (b <= 1 || b*u <= 0.7)
-	switch {
-	case bpser && !upper:
-		lt = ibetaLogBpser(a, b, v)
-	case bpser && ibetaUpperFromLog(ibetaLogBpser(a, b, v), &lt):
-	default:
-		w, w1 := ibetaRatio(a, b, v)
-		t := w
-		if upper {
-			t = w1
+	if bpser {
+		v := ibetaNewXY(u, math.Inf(1))
+		ld := dd.Sub(dd.Add(dd.MulF(v.lx, a), dd.MulF(v.ly, b-1)), lb)
+		var l dd.DD
+		switch {
+		case !upper:
+			l = ibetaLogBpser(a, b, v)
+		case ibetaUpperFromLog(ibetaLogBpser(a, b, v), &l):
+		default:
+			bpser = false
 		}
-		if t <= 0 {
-			return dd.F(math.Inf(-1)), math.Inf(1)
+		if bpser {
+			return dd.Sub(l, lt).Float(), math.Exp(dd.Sub(ld, l).Hi)
 		}
-		lt = igamLogDD(dd.F(t))
 	}
-	return lt, math.Exp(dd.Sub(ld, lt).Hi)
+	w, w1 := ibetaRatio(a, b, ibetaNewXY(u, a+b))
+	v := w
+	if upper {
+		v = w1
+	}
+	if v <= 0 {
+		return math.Inf(-1), math.Inf(1)
+	}
+	lv := logf(v)
+	if v > 0.5*t && v < 2*t {
+		g = math.Log1p((v - t) / t)
+	} else {
+		g = lv - lt.Hi
+	}
+	ld := a*logf(u) + (b-1)*math.Log1p(-u) - lbf
+	return g, math.Exp(ld - lv)
 }
 
 // ibetaUpperFromLog sets *lt = log(1 - I) from log I in double-double and
@@ -215,7 +252,7 @@ func ibetaLogBpser(a, b float64, v ibetaXY) dd.DD {
 	c := dd.F(1)
 	for n := 1.0; n < 100000; n++ {
 		c = dd.Mul(c, v.xd)
-		c = dd.Sub(c, dd.DivF(dd.MulF(c, b), n))
+		c = dd.Sub(c, igamDivF(dd.MulF(c, b), n))
 		w := dd.Div(c, sumDD(a, n))
 		sum = dd.Add(sum, w)
 		if !(math.Abs(w.Hi) > 0x1p-110*math.Max(math.Abs(sum.Hi), 1/a)) {

@@ -291,7 +291,7 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 		return res(swapped, dd.F(w), true)
 	}
 	if (a0 > b0 && (b0 <= 100 || lambda.Hi > 0.03*b0)) || (a0 <= b0 && (a0 <= 100 || lambda.Hi > 0.03*a0)) {
-		return res(swapped, dd.F(ibetaBfrac(a0, b0, v0, lambda.Hi, 15*eps)), true)
+		return res(swapped, dd.F(ibetaBfrac(a0, b0, v0, lambda, 15*eps)), true)
 	}
 	return res(swapped, dd.F(ibetaBasym(a0, b0, lambda, 100*eps)), true)
 }
@@ -316,7 +316,7 @@ func ibetaLambda(a, b float64, v ibetaXY) dd.DD {
 // against the leading 1. It is BUP run to convergence (ibetaPosSum).
 func ibetaBpserDD(a, b float64, v ibetaXY, eps float64) dd.DD {
 	m, k := ibetaPowMant(a, b, v)
-	m = dd.DivF(m, a)
+	m = igamDivF(m, a)
 	if !(m.Hi == 0 || a <= 0.1*eps) {
 		m = dd.Mul(m, ibetaPosSum(a, b, v.xd, 0, 1<<30, eps))
 	}
@@ -335,7 +335,7 @@ func ibetaBup(a, b float64, v ibetaXY, n int, eps float64) float64 {
 // ibetaBupDD is ibetaBup as a double-double.
 func ibetaBupDD(a, b float64, v ibetaXY, n int, eps float64) dd.DD {
 	m, k := ibetaPowMant(a, b, v)
-	m = dd.DivF(m, a)
+	m = igamDivF(m, a)
 	if n == 1 || m.Hi == 0 {
 		return dd.Ldexp(m, k)
 	}
@@ -411,13 +411,26 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 
 // ibetaBfrac returns I_x(a, b) by the continued fraction of TOMS 708's
 // BFRAC (a, b > 1, λ = (a+b)y - b >= 0).
-func ibetaBfrac(a, b float64, v ibetaXY, lambda, eps float64) float64 {
+//
+// BFRAC's fraction is r = 1/(c/c1 + α_1/(β_1 + α_2/(β_2 + ...))), c = 1 + λ,
+// c1 = 1 + 1/a. The original runs its convergents forward, renormalised at
+// every step, and its rounding errors accumulate to several ulps (it was
+// the largest error of I for a, b in [1, 100)). The forward pass is kept
+// only to find the depth; the terms are stored and the fraction is then
+// summed backwards, t_n = α_n/(β_n + t_(n+1)), which is stable, with the
+// leading term c/c1 = a(1+λ)/(a+1) and the top level (α_1 and β_1 from
+// their closed forms) in double-double: t_1 reaches the result undamped,
+// and BFRAC's float64 α_1 carries several roundings.
+// The terms are stored on the stack up to depth ibetaBfracMax (deeper
+// fractions, not met for a, b up to 1e15 near the mean, grow the store on
+// the heap).
+func ibetaBfrac(a, b float64, v ibetaXY, lambda dd.DD, eps float64) float64 {
 	m, k := ibetaPowMant(a, b, v)
 	if m.Hi == 0 {
 		return 0
 	}
 	x, y := v.x, v.y
-	c := 1 + lambda
+	c := 1 + lambda.Hi
 	c0 := b / a
 	c1 := 1 + 1/a
 	yp1 := y + 1
@@ -429,6 +442,8 @@ func ibetaBfrac(a, b float64, v ibetaXY, lambda, eps float64) float64 {
 	anp1 := 1.0
 	bnp1 := c / c1
 	r := c1 / c
+	var abuf, bbuf [ibetaBfracMax]float64
+	al, be := abuf[:0], bbuf[:0]
 	for i := 0; i < 100000; i++ {
 		n++
 		t := n / a
@@ -437,6 +452,7 @@ func ibetaBfrac(a, b float64, v ibetaXY, lambda, eps float64) float64 {
 		alpha := (p * (p + c0) * e * e) * (w * x)
 		e = (1 + t) / (c1 + t + t)
 		beta := n + w/s + e*(c+n*yp1)
+		al, be = append(al, alpha), append(be, beta)
 		p = 1 + t
 		s += 2
 		t = alpha*an + beta*anp1
@@ -455,8 +471,42 @@ func ibetaBfrac(a, b float64, v ibetaXY, lambda, eps float64) float64 {
 		anp1 = r
 		bnp1 = 1
 	}
-	return ibetaScale(m, k, r)
+	t := 0.0
+	for i := len(al) - 1; i >= ibetaBfracDD; i-- {
+		t = al[i] / (be[i] + t)
+	}
+	// The top levels, which the result feels nearly undamped, from the
+	// closed forms α_n = (a+n-1)(a+b+n-1) n(b-n) x²/(a+2n-1)² and β_n = n +
+	// n(b-n)x/(a+2n-1) + (a+n)(1 + λ + n(1+y))/(a+2n+1) in double-double.
+	td := dd.F(t)
+	for i := min(ibetaBfracDD, len(al)) - 1; i >= 0; i-- {
+		n := float64(i + 1)
+		s := sumDD(a, 2*n-1)
+		bn := sumDD(b, -n)
+		w := dd.Mul(dd.MulF(bn, n), v.xd) // n(b-n)x
+		al := dd.Div(dd.Mul(dd.Mul(sumDD(a, n-1), dd.AddF(sumDD(a, b), n-1)), dd.Mul(w, v.xd)), dd.Mul(s, s))
+		e := dd.Div(sumDD(a, n), sumDD(a, 2*n+1))
+		be := dd.Add(dd.AddF(dd.Div(w, s), n), dd.Mul(e, dd.Add(dd.AddF(lambda, 1), dd.MulF(dd.AddF(v.yd, 1), n))))
+		td = dd.Div(al, dd.Add(be, td))
+	}
+	// c/c1 = a(1+λ)/(a+1) in double-double, then 1/(c/c1 + t)
+	num := dd.MulF(dd.AddF(lambda, 1), a)
+	b0 := dd.Div(num, sumDD(a, 1))
+	wd := dd.Add(b0, td)
+	rh := 1 / wd.Hi
+	rl := (math.FMA(-rh, wd.Hi, 1) - rh*wd.Lo) * rh
+	rr := dd.Mul(m, dd.DD{Hi: rh, Lo: rl})
+	return math.Ldexp(rr.Hi+rr.Lo, k)
 }
+
+// ibetaBfracDD is the number of top levels of BFRAC's fraction summed in
+// double-double: the first suffices (dense check: a, b in [1, 100) 2.84 ->
+// 1.05 ulp; more levels change nothing measurable).
+const ibetaBfracDD = 1
+
+// ibetaBfracMax is the depth of BFRAC's fraction that ibetaBfrac keeps on
+// the stack.
+const ibetaBfracMax = 256
 
 // ibetaBgrat returns w + I_x(a, b) by the asymptotic expansion of TOMS
 // 708's BGRAT for a >= 15, b <= 1 (in powers of 1/ν, ν = a + (b-1)/2,
@@ -552,8 +602,8 @@ func ibetaBasym(a, b float64, lambda dd.DD, eps float64) float64 {
 		w0 = 1 / math.Sqrt(b*(1+h))
 	}
 	// f = a·rlog1(-λ/a) + b·rlog1(λ/b), rlog1(t) = t - log(1+t) = -log1pmx(t)
-	f := dd.Neg(dd.Add(dd.MulF(igamLog1pmxDD(dd.Neg(dd.DivF(lambda, a))), a),
-		dd.MulF(igamLog1pmxDD(dd.DivF(lambda, b)), b)))
+	f := dd.Neg(dd.Add(dd.MulF(igamLog1pmxDD(dd.Neg(igamDivF(lambda, a))), a),
+		dd.MulF(igamLog1pmxDD(igamDivF(lambda, b)), b)))
 	tm, tk := dd.ExpMant(dd.Neg(f))
 	if tm.Hi == 0 {
 		return 0
@@ -643,8 +693,8 @@ func ibetaApser(a, b, x, eps float64) float64 {
 	tol := 5 * eps * math.Abs(c.Hi) * 0x1p-8
 	s := dd.F(0)
 	for j := 2.0; j < 100000; j++ {
-		t = dd.Mul(t, dd.Sub(dd.F(x), dd.DivF(bx, j)))
-		aj := dd.DivF(t, j)
+		t = dd.Mul(t, dd.Sub(dd.F(x), igamDivF(bx, j)))
+		aj := igamDivF(t, j)
 		s = dd.Add(s, aj)
 		if math.Abs(aj.Hi) <= tol {
 			break

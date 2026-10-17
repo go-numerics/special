@@ -9,9 +9,9 @@ of Temme's C_k(η), from SciPy's igam_asymp_coeff.h) and emits
     igamTemmeSum(η, u) = Σ_k C_k(η) u^k,  u = 1/a,
 
 for |η| <= ETA and a >= AMIN, with each row cut at the degree where the
-terms left out sum to less than 2^-62 · 0.3 · AMIN^k (|C_0| >= 0.3 there,
-and the row is scaled by a^-k), and the rows cut where their bound
-max|C_k| · AMIN^-k falls below the same 2^-62 · 0.3. Every row, and the
+terms left out sum to less than TOL · AMIN^k (TOL = 2^-56 · 0.3: |C_0| >=
+0.3 there, and the row is scaled by a^-k), and the rows cut where their
+bound max|C_k| · AMIN^-k falls below TOL. Every row, and the
 combination of the rows in u, is evaluated by Estrin's scheme (no loop, no
 branch, a dependency depth of log2 of the degree instead of the degree: the
 sum costs latency, not arithmetic).
@@ -22,7 +22,11 @@ import re
 
 ETA = 0.34
 AMIN = 20.0
-TOL = 2.0 ** -62 * 0.3
+# R = exp(-z²) Σ/sqrt(2πa) is at most about 7% of the smaller of P and Q
+# where igamTemme is used (|η| <= 0.34, a > 20: R/Q ~ η Σ/2 in the tails,
+# 0.064 at η = 0, a = 20), so Σ (>= 0.3) to 2^-56 relative keeps its error
+# below 2^-60 of the result.
+TOL = 2.0 ** -56 * 0.3
 
 here = os.path.dirname(os.path.abspath(__file__))
 src = open(os.path.join(here, "..", "..", "incgamma_temme_coeffs.go")).read()

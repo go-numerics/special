@@ -140,7 +140,7 @@ func igamLog(x float64) float64 {
 // a log x - x - log Γ(a) cancels to the last bits of terms of size a log a.
 func igamLogPrefix(a, x float64) dd.DD {
 	if a >= 10 && x > 0x1p-20*a {
-		d := dd.DivF(sumDD(x, -a), a) // x-a exact, then one DD division
+		d := igamDivF(sumDD(x, -a), a) // x-a exact, then one division
 		l := dd.MulF(igamLog1pmxDDScaled(d, a), a)
 		l = dd.Add(l, dd.MulF(igamLogScaled(a, 0.5), 0.5))
 		l = dd.Sub(l, lnSqrt2Pi)
@@ -160,7 +160,7 @@ func igamSeriesPMant(a, x float64) (v dd.DD, k int) {
 		return dd.DD{}, 0
 	}
 	s := igamLowerSeries(a, x)
-	return dd.DivF(dd.Mul(m, s), a), k
+	return igamDivF(dd.Mul(m, s), a), k
 }
 
 // igamLowerSeries returns S = Σ_{n>=0} x^n / ((a+1)...(a+n)) as a
@@ -170,23 +170,39 @@ func igamLowerSeries(a, x float64) dd.DD {
 }
 
 // igamLowerSeriesRest returns S - 1 = Σ_{n>=1} x^n / ((a+1)...(a+n)) as a
-// double-double: the terms are formed in float64 (their relative errors
-// grow slowly with n, and they decrease geometrically wherever this series
-// is used) and summed with Neumaier's compensation.
+// double-double. The terms are positive. While they are above 2^-16 of
+// the sum each is carried as an unrenormalised pair (the factor x/(a+n) to
+// about 2^-104 from one division and its FMA remainder, a+n from TwoSum,
+// the product with TwoProd's error, the sum with TwoSum's): their float64
+// recurrence accumulated about two roundings per term, an ulp or two of S
+// once a few terms count, and P near 1/2 passed that on to Q = 1 - P. The
+// rest is summed in float64 (its weight keeps its error below 2^-60 of S).
 func igamLowerSeriesRest(a, x float64) dd.DD {
-	t := 1.0
-	s := 0.0
-	c := 0.0
-	for n := 1.0; n < 10000; n++ {
-		t *= x / (a + n)
-		y := s + t
-		c += (s - y) + t
-		s = y
-		if t <= 0x1p-60*s {
+	th, tl := 1.0, 0.0
+	sh, sl := 0.0, 0.0
+	n := 1.0
+	for ; n < 10000; n++ {
+		dh, de := dd.TwoSum(a, n)
+		r := 1 / dh
+		fh := x * r
+		fl := (math.FMA(-fh, dh, x) - fh*de) * r
+		ph := th * fh
+		tl = math.FMA(th, fh, -ph) + (th*fl + tl*fh)
+		th = ph
+		var e float64
+		sh, e = dd.TwoSum(sh, th)
+		sl += e + tl
+		if th <= 0x1p-16*sh {
+			n++
 			break
 		}
 	}
-	h, l := dd.FastTwoSum(s, c)
+	tail := 0.0
+	for ; n < 10000 && th > 0x1p-60*sh; n++ {
+		th *= x / (a + n)
+		tail += th
+	}
+	h, l := dd.FastTwoSum(sh, sl+tail)
 	return dd.DD{Hi: h, Lo: l}
 }
 
@@ -313,7 +329,7 @@ func igamSmallQDD(a, x float64) dd.DD {
 	s := dd.F(0)
 	t := dd.F(1)
 	for n := 1.0; n < 200; n++ {
-		t = dd.DivF(dd.MulF(t, -x), n)
+		t = igamDivF(dd.MulF(t, -x), n)
 		term := dd.Div(t, sumDD(a, n))
 		s = dd.Add(s, term)
 		if math.Abs(term.Hi) <= 0x1p-106*math.Abs(s.Hi) {
@@ -359,7 +375,7 @@ func igamExpm1DD(u dd.DD) dd.DD {
 // for |z| >= 1/2 the result is exp(-z²)·(erfcx(|z|)/2 ± R'), so the
 // Gaussian factor is applied once from the exact exponent.
 func igamTemme(a, x float64) (p, q float64) {
-	d := dd.DivF(sumDD(x, -a), a)
+	d := igamDivF(sumDD(x, -a), a)
 	lpm := igamLog1pmxDDScaled(d, a) // <= 0
 	z2 := dd.Neg(dd.MulF(lpm, a))
 	eta := math.Sqrt(-2 * lpm.Hi)
@@ -368,7 +384,8 @@ func igamTemme(a, x float64) (p, q float64) {
 		eta = -eta
 	}
 	// Σ_k C_k(η) a^-k (zz_igamTemmeSum_gen.go: each row cut where |η| <=
-	// 0.34 and a >= 20 allow, 2^-62 of the sum).
+	// 0.34 and a >= 20 allow, to 2^-56 of the sum: R is at most ~7% of the
+	// result).
 	sum := igamTemmeSum(eta, 1/a)
 	// Q = erfc(z)/2 + R (η > 0); P = erfc(|z|)/2 - R (η < 0), where
 	// R = exp(-z²) sum/sqrt(2πa) with sum computed at the signed η.
@@ -405,6 +422,17 @@ func igamPair(w dd.DD, k int) (v, c float64) {
 	}
 	h := math.Ldexp(w.Hi, k)
 	return v, (1 - h) - math.Ldexp(w.Lo, k)
+}
+
+// igamDivF returns x/b for a double-double x and a float64 b, to about
+// 2^-104 relative (Joldes, Muller & Popescu's DWDivFP with the remainder
+// x.Hi - q·b taken exactly by an FMA): a quarter of dd.DivF, which runs the
+// general double-double division.
+func igamDivF(x dd.DD, b float64) dd.DD {
+	q := x.Hi / b
+	l := (math.FMA(-q, b, x.Hi) + x.Lo) / b
+	h, e := dd.FastTwoSum(q, l)
+	return dd.DD{Hi: h, Lo: e}
 }
 
 // igamLogScaled returns log(x) for x > 0 as a double-double whose absolute
@@ -465,7 +493,7 @@ func igamLog1pmxDD(x dd.DD) dd.DD {
 		return dd.Sub(igamLog1pDD(x), x)
 	}
 	x2 := dd.Mul(x, x)
-	r := dd.Add(dd.MulF(x2, -0.5), dd.DivF(dd.Mul(x2, x), 3))
+	r := dd.Add(dd.MulF(x2, -0.5), igamDivF(dd.Mul(x2, x), 3))
 	xh := x.Hi
 	t := 0.0
 	for k := 11.0; k >= 4; k-- {
