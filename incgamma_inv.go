@@ -12,12 +12,16 @@ import (
 // 1986, eqs. 21-36) as implemented in Boost.Math's find_inverse_gamma
 // (boost/math/special_functions/detail/igamma_inverse.hpp, BSL-1.0, ported
 // below). Boost then runs Halley's method on P(x) - p; here the iteration
-// is Newton's method on log T(x) - log t in the variable log x, where T is
+// is Halley's method on log T(x) - log t in the variable log x (the second
+// derivative is the first times a - x ∓ r, r = d log T/d log x), stopped
+// once the step times that curvature is below 2^-30, where the cubic
+// convergence leaves nothing to correct, and T is
 // whichever of P and Q is the smaller at the root and t its exact target
 // (p, or 1 - p, which is exact when p >= 1/2). In that variable both log P
 // and log Q are concave (the log-gamma density is log-concave), so the
 // iteration converges monotonically after its first step, and it is kept
-// inside a bracket regardless. Each step is applied as x + x·expm1(-Δ), so
+// inside a bracket regardless; far from the root the step falls back to
+// Newton's. Each step is applied as x + x·expm1(-Δ), so
 // x itself is never recomputed from its logarithm. For a < 1 and x < 1.1
 // log P is evaluated in double-double from its series (and log Q from
 // -expm1(log P)): there d log P/d log x is about a, so locating x to one ulp
@@ -33,7 +37,7 @@ import (
 // argument. A root below the smallest subnormal returns 0.
 //
 // Algorithm: DiDonato & Morris' initial approximation (via Boost.Math's
-// find_inverse_gamma) refined by a safeguarded Newton iteration in log x;
+// find_inverse_gamma) refined by a safeguarded Halley iteration in log x;
 // see the comment at the top of incgamma_inv.go.
 func GammaPInv(a, p float64) float64 {
 	switch {
@@ -82,36 +86,61 @@ func GammaQInv(a, q float64) float64 {
 	return igamInvSolve(a, p, false, g) // p = 1 - q exactly
 }
 
-// igamLogTail returns log T(a, x), T = Q if upper else P, as a
-// double-double, and r = x·(d/dx)T / T in absolute value (the derivative
-// of log T with respect to log x), for finite a > 0, x > 0.
-func igamLogTail(a, x float64, upper bool) (lt dd.DD, r float64) {
-	lpre := igamLogPrefix(a, x) // log(x · x^(a-1) e^(-x) / Γ(a))
-	switch {
-	case a < 1 && x < 1.1:
+// igamLogTail returns g = log T(a, x) - log t (T = Q if upper else P) and
+// r = x·|dT/dx| / T (the derivative of log T with respect to log x), for
+// finite a > 0, x > 0; lt is log t as a double-double and lga is log Γ(a)
+// in float64.
+//
+// For a < 1 and x < 1.1, where d log P/d log x ~ a and x needs log P to
+// about a·2^-53 absolutely, log T is a double-double from the series
+// (igamLogPSeries / igamSmallQDD). Elsewhere T is the float64 value of
+// igamPQ (accurate to an ulp or so, which is what the root can be located
+// to) and g = log1p((T - t)/t) when T is within a factor 2 of t (T - t is
+// then exact), so g keeps its relative accuracy as the iteration closes in;
+// r only steers the step and is formed in float64.
+func igamLogTail(a, x, t float64, upper bool, lt dd.DD, lga float64) (g, r float64) {
+	if a < 1 && x < 1.1 {
+		lpre := igamLogPrefix(a, x) // log(x · x^(a-1) e^(-x) / Γ(a))
 		// Q from DLMF 8.7.3 with its leading difference exact; log P from
 		// it unless P is small, where the series gives log P directly.
 		qd := igamSmallQDD(a, x)
+		var l dd.DD
 		switch {
 		case upper:
-			lt = igamLogDD(qd)
+			l = igamLogDD(qd)
 		case qd.Hi > 0.99:
-			lt = igamLogPSeries(a, x, dd.LogAccurate(x))
+			l = igamLogPSeries(a, x, dd.LogAccurate(x))
 		default:
-			lt = igamLog1pDD(dd.Neg(qd))
+			l = igamLog1pDD(dd.Neg(qd))
 		}
-	default:
-		p, q := igamPQ(a, x)
-		v := p
-		if upper {
-			v = q
-		}
-		if v == 0 {
-			return dd.F(math.Inf(-1)), math.Inf(1)
-		}
-		lt = igamLogDD(dd.F(v))
+		return dd.Sub(l, lt).Float(), math.Exp(dd.Sub(lpre, l).Hi)
 	}
-	return lt, math.Exp(dd.Sub(lpre, lt).Hi)
+	p, q := igamPQ(a, x)
+	v := p
+	if upper {
+		v = q
+	}
+	if v == 0 {
+		return math.Inf(-1), math.Inf(1)
+	}
+	lv := logf(v)
+	if v > 0.5*t && v < 2*t {
+		g = math.Log1p((v - t) / t)
+	} else {
+		g = lv - lt.Hi
+	}
+	return g, math.Exp(igamLogPrefixF(a, x, lga) - lv)
+}
+
+// igamLogPrefixF is igamLogPrefix in float64 (for the Newton slope only):
+// a·log1pmx((x-a)/a) + log(a)/2 - log sqrt(2π) - S(a) for a >= 10, else
+// a log x - x - log Γ(a) with log Γ(a) given.
+func igamLogPrefixF(a, x, lga float64) float64 {
+	if a >= 10 && x > 0x1p-20*a {
+		d := (x - a) / a
+		return a*(math.Log1p(d)-d) + 0.5*math.Log(a) - lnSqrt2Pi.Hi - stirlingSeries(a)
+	}
+	return a*logf(x) - x - lga
 }
 
 // igamLogPSeries returns log P(a, x) for 0 < a < 1 and 0 <= x < 1.1 as a
@@ -133,16 +162,18 @@ func igamLogPSeries(a, x float64, lx dd.DD) dd.DD {
 // igamInvSolve returns the x with T(a, x) = t (T = Q if upper, else P),
 // for 0 < t <= 1/2, from the starting value x0.
 func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
-	lt := dd.LogAccurate(t)
+	// log t to 2^-104 where a < 1 (the series branch of igamLogTail needs
+	// it to a·2^-53 absolutely), else to 2^-72.
+	var lt dd.DD
+	if a < 1 {
+		lt = dd.LogAccurate(t)
+	} else {
+		lt = dd.Log(t)
+	}
+	lga := LogGamma(a)
 	// g(x) = ±(log T(x) - log t) increases with x; dg/dlog x = r > 0.
 	eval := func(x float64) (g, r float64) {
-		var l dd.DD
-		l, r = igamLogTail(a, x, upper)
-		if math.IsInf(l.Hi, -1) {
-			g = math.Inf(-1) // T underflowed: far below the root's T
-		} else {
-			g = dd.Sub(l, lt).Float()
-		}
+		g, r = igamLogTail(a, x, t, upper, lt, lga)
 		if upper {
 			g = -g
 		}
@@ -158,6 +189,11 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 			x0 = 1 // no usable guess: start in the middle of the range
 		}
 	}
+	// d r/d log x = r (a - x - r) for P, r (a - x + r) for Q.
+	sg := -1.0
+	if upper {
+		sg = 1
+	}
 	lo, hi := 0.0, math.Inf(1)
 	x := x0
 	for i := 0; i < 400; i++ {
@@ -170,13 +206,27 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 		} else {
 			hi = x
 		}
+		// Halley's step in log x, falling back to Newton's where the
+		// correction is large (far from the root).
 		step := -g / r
+		curv := a - x + sg*r // (d²g/du²)/(dg/du), u = log x
+		if h := step * curv / 2; math.Abs(h) < 0.5 {
+			step /= 1 + h
+		}
 		nx := math.NaN()
 		if !math.IsInf(step, 0) && !math.IsNaN(step) && step < 700 {
 			nx = float64(x + x*math.Expm1(step))
 		}
-		if nx == x || math.Abs(step) < 0x1p-52 {
-			return nx // converged: the step is below the resolution of x
+		// Converged: the step is below the resolution of x, or small enough
+		// against the curvature that Halley's cubic convergence leaves less
+		// than that (the error after the step is about (step·curv)² step).
+		if nx == x || math.Abs(step)*(1+math.Abs(curv)) < 0x1p-30 {
+			if nx > lo && nx < hi {
+				return nx
+			}
+			if nx == x || math.Abs(step) < 0x1p-52 {
+				return nx
+			}
 		}
 		if !(nx > lo && nx < hi) {
 			switch {

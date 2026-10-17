@@ -330,8 +330,10 @@ func igamSmallQDD(a, x float64) dd.DD {
 // as a double-double: expm1(u.Hi) + u.Lo·exp(u.Hi) with expm1(u.Hi) itself
 // refined by one Newton step on log1p (relative error about 2^-100).
 func igamExpm1DD(u dd.DD) dd.DD {
-	if u.Hi < -40 {
-		return dd.AddF(dd.F(-1), math.Exp(u.Hi))
+	if u.Hi < -30 {
+		// e^u < 2^-43: -1 + e^u directly. (Below about -36.7, expm1 rounds
+		// to -1 exactly and the Newton step below would take log1p(-1).)
+		return dd.AddF(dd.F(-1), math.Exp(u.Hi)*(1+u.Lo))
 	}
 	e := math.Expm1(u.Hi)
 	if e == 0 {
