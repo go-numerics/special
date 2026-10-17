@@ -3,7 +3,7 @@ package special
 import "math"
 
 // The inverse functions are evaluated directly, without a guess-and-refine
-// iteration, from two fitted approximations (testdata/gen/fit.py):
+// iteration, from two fitted approximations (tools/genfit):
 //
 //   - erfinv(p) = p R(p²) for |p| <= 1/2, R fitted in t = p² (the form of
 //     the central rational of Boost.Math's erf_inv_imp and of Giles,

@@ -21,7 +21,7 @@ type estPiece struct {
 	q           [16]float64
 }
 
-// estPieces converts fit.py pieces (coefficients descending, constant
+// estPieces converts fitted pieces (coefficients descending, constant
 // last, at most 16 non-constant coefficients).
 func estPieces(p []polyPiece) []estPiece {
 	out := make([]estPiece, len(p))

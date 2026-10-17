@@ -90,12 +90,14 @@ Two building blocks run through everything:
   300-bit mpmath tables.
 - **Float64 kernels** (`kernels.go`): table-driven exp and log after Tang
   in the arrangement of ARM's optimized-routines (exact Cody–Waite / TwoProd
-  reductions, 400-bit tables from `testdata/gen/kernel_tables.py`)
+  reductions, 400-bit tables from `go -C tools run ./genkernel`)
   returning an unevaluated hi + lo — exp to about 2^-68 relative, log to
   2^-68 absolute — at a few floating-point operations; the elementary
   families below use them instead of `internal/dd` on their main paths,
   which remains for the tails and for the incomplete gamma/beta functions.
-- **Fitted polynomials** (`testdata/gen/fit.py`, `zz_*_coeffs.go`): Chebyshev
+- **Fitted polynomials** (`testdata/gen/fit.py` and, for the tables added
+  with the float64 kernels, the Go port `go -C tools run ./genfit`;
+  `zz_*_coeffs.go`): Chebyshev
   interpolants of a well-chosen *regular part* of a function, fitted to
   mpmath at 200 bits on short pieces, degree chosen so that the
   interpolation error is below 2^-64, constant term kept in double-double.

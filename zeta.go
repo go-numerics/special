@@ -515,6 +515,14 @@ func Polygamma(n int, x float64) float64 {
 	return sign * math.Ldexp(m.Float(), h.e+f.e)
 }
 
+// polygamma1 is Polygamma(1, x) (the scalar function behind TrigammaTo).
+func polygamma1(x float64) float64 {
+	if x >= 0x1p-500 && x <= math.MaxFloat64 {
+		return trigamma(x)
+	}
+	return Polygamma(1, x)
+}
+
 // trigamma returns ψ'(x) = ζ(2, x) for 2^-500 <= x < +Inf (Polygamma's
 // n = 1, specialised: the integer power needs neither a logarithm nor an
 // exponential). From 10, the asymptotic series (DLMF 5.15.8)

@@ -19,7 +19,7 @@ import "math"
 // (Szabolcs Nagy; also glibc's): exp with N = 128 and a Cody–Waite
 // reduction, log with x = 2^k m, m in [0.75, 1.5), r = m·(1/c) - 1 formed
 // exactly through an FMA (TwoProd) and -log(1/c) tabulated for the rounded
-// reciprocal itself (testdata/gen/kernel_tables.py).
+// reciprocal itself (tools/genkernel).
 
 // pow2 returns 2^k for -1022 <= k <= 1023.
 func pow2(k int) float64 { return math.Float64frombits(uint64(k+1023) << 52) }
