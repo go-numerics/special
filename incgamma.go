@@ -186,7 +186,7 @@ func igamLowerSeriesRest(a, x float64) dd.DD {
 		r := 1 / dh
 		fh := x * r
 		fl := (math.FMA(-fh, dh, x) - fh*de) * r
-		ph := th * fh
+		ph := float64(th * fh) // rounded: it feeds the TwoSum below
 		tl = math.FMA(th, fh, -ph) + (th*fl + tl*fh)
 		th = ph
 		var e float64

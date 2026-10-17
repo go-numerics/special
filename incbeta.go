@@ -420,7 +420,7 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 		r := 1 / s2h
 		fh := th * r
 		fl := (math.FMA(-fh, s2h, th) + tl - fh*s2l) * r
-		ph := dh * fh
+		ph := float64(dh * fh) // rounded: it feeds the TwoSum below
 		dl = math.FMA(dh, fh, -ph) + (dh*fl + dl*fh)
 		dh = ph
 		var e float64
