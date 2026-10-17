@@ -127,9 +127,132 @@ func Gamma(x float64) float64 {
 		return math.Inf(1)
 	}
 	if x > 0 {
+		if x >= 10 {
+			return gammaLarge(x)
+		}
+		if x >= 1 {
+			h, l := gammaMid(x)
+			return h + l
+		}
 		return gammaPos(x).Float()
 	}
 	return gammaNeg(x)
+}
+
+// Float64 fast paths (kernels.go). They evaluate the same formulas as
+// gammaPos — Stirling's series above 10, the fitted Γ(1+t) and exact
+// factors below — with the logarithm and the exponential from the float64
+// kernels and the products formed as hi + lo; gammaPos remains for the
+// callers that need a double-double and for 0 < x < 1.
+
+// gamma1pEst holds the pieces of gamma1pPieces on [0, 1] (degrees <= 15).
+var gamma1pEst = estPieces(gamma1pPieces[2:])
+
+// stirlingHL returns Stirling's correction S(x) = log Γ(x) - [(x - 1/2)
+// log x - x + log sqrt(2π)] for x >= 10 as hi + lo (DLMF 5.11.1, the
+// coefficients and truncation of stirlingSeries): the leading term 1/(12x)
+// with 1/x carried as hi + lo, the rest (below 1/(360x³)) by Estrin's
+// scheme in z = 1/x², so that the result is accurate to about 2^-70
+// absolute instead of the half ulp of S a float64 sum leaves. ix is 1/x
+// rounded (the caller has it).
+func stirlingHL(x, ix float64) (hi, lo float64) {
+	const (
+		c1   = 1.0 / 12
+		c2   = -1.0 / 360
+		c3   = 1.0 / 1260
+		c4   = -1.0 / 1680
+		c5   = 1.0 / 1188
+		c6   = -691.0 / 360360
+		c7   = 1.0 / 156
+		c8   = -3617.0 / 122400
+		c9   = 43867.0 / 244188
+		c1lo = 4.625929269271485e-18 // 1/12 - c1
+	)
+	ixl := math.FMA(-ix, x, 1) * ix // 1/x = ix + ixl, ix = RN(1/x)
+	z := ix * ix
+	z2 := z * z
+	z4 := z2 * z2
+	a := math.FMA(math.FMA(c5, z, c4), z2, math.FMA(c3, z, c2))
+	b := math.FMA(math.FMA(c9, z, c8), z2, math.FMA(c7, z, c6))
+	tail := math.FMA(b, z4, a) * z * ix // Σ_{k>=2}
+	hi = float64(ix * c1)
+	return hi, math.FMA(ix, c1, -hi) + math.FMA(ixl, c1, math.FMA(ix, c1lo, tail))
+}
+
+// logGammaLargeHL returns log Γ(x) = (x - 1/2) log x - x + log sqrt(2π) +
+// S(x) (DLMF 5.11.1) as hi + lo for x >= 10 (lo not normalised, below
+// 2^-45 hi), from the log kernel (2^-68 absolute) with x - 1/2 = mh + ml
+// exact, the product formed exactly up to its low-order terms and every
+// sum of leading parts exact (Fast2Sum).
+func logGammaLargeHL(x float64) (hi, lo float64) { return logGammaLargeHL2(x, 0) }
+
+// logGammaLargeHL2 returns log Γ(x + xl) for x >= 10 and |xl| <= ulp(x)
+// as logGammaLargeHL, the low part entering to first order through
+// ψ(x) = log x - 1/(2x) + O(x^-2) (its relative error below 2^-8 on a
+// term below 2^-50 of the result).
+func logGammaLargeHL2(x, xl float64) (hi, lo float64) {
+	lh, ll := logHL(x)
+	ix := 1 / x
+	mh := x - 0.5
+	ml := (x - mh) - 0.5 // nonzero only above 2^52
+	ph := float64(mh * lh)
+	pl := math.FMA(mh, lh, -ph) + math.FMA(mh, ll, ml*lh)
+	sh, sl := stirlingHL(x, ix)
+	v := ph - x // Fast2Sum: (x - 1/2) log x >= 2.2 x here
+	vl := (ph - v) - x
+	h1 := v + lnSqrt2Pi.Hi // Fast2Sum: v > 13
+	e1 := (v - h1) + lnSqrt2Pi.Hi
+	hi = h1 + sh // Fast2Sum: sh < 0.01
+	e2 := (h1 - hi) + sh
+	return hi, (e1 + e2) + (vl + pl + (lnSqrt2Pi.Lo + sl) + xl*math.FMA(-0.5, ix, lh))
+}
+
+// gammaLarge returns Γ(x) for 10 <= x (finite; +Inf above gammaMax):
+// exp(log Γ(x)) with log Γ from logGammaLargeHL (absolute error about
+// 2^-61 up to x = 171.6) normalised before the exponential kernel.
+func gammaLarge(x float64) float64 {
+	if x > gammaMax {
+		return math.Inf(1)
+	}
+	h, l := logGammaLargeHL(x)
+	hn := h + l
+	eh, el, k := expHL(hn, l-(hn-h))
+	return (eh + el) * pow2(k) // k <= 1023
+}
+
+// gamma1pHL returns Γ(1+t) as hi + lo for 0 <= t <= 1: 1 + t(t-1)F(t)
+// with F from the fitted pieces and t(t-1) exact.
+func gamma1pHL(t float64) (hi, lo float64) {
+	fh, fl := gamma1pEst[min(int(t*4), 3)].eval(t)
+	// u = t - 1 exactly (TwoSum), p = u t, g = p F
+	uh := t - 1
+	bb := uh - t
+	ul := (t - (uh - bb)) + (-1 - bb)
+	ph := float64(uh * t)
+	pl := math.FMA(uh, t, -ph) + ul*t
+	gh := float64(ph * fh)
+	gl := math.FMA(ph, fh, -gh) + math.FMA(ph, fl, pl*fh)
+	hi = 1 + gh // Fast2Sum: |Γ(1+t) - 1| < 0.12
+	lo = ((1 - hi) + gh) + gl
+	return hi, lo
+}
+
+// gammaMid returns Γ(x) as hi + lo for 1 <= x < 10: Γ(z) Π (x - j) with
+// z = x - n in [1, 2] and every factor x - j exact, the product carried as
+// hi + lo.
+func gammaMid(x float64) (hi, lo float64) {
+	n := math.Ceil(x - 2)
+	if n <= 0 {
+		return gamma1pHL(x - 1) // exact
+	}
+	hi, lo = gamma1pHL(x - n - 1)
+	for j := 1.0; j <= n; j++ {
+		f := x - j
+		p := float64(hi * f)
+		lo = math.FMA(hi, f, -p) + lo*f
+		hi = p
+	}
+	return hi, lo
 }
 
 // gammaPos returns Γ(x) as a double-double for non-integer 0 < x <= gammaMax

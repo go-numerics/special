@@ -223,7 +223,13 @@ def erfcinv_X(w):
                            tol=mpf(2) ** -(mp.prec + 20))
 
 
+def digamma_x(x):
+    return mp.digamma(x)
+
+
 JOBS = {
+    "digammaMidPieces": ("digammaMidPieces: ψ(x) on [2, 10] (widths 1/4 on [2, 3], 1/2 on [3, 4], 1 on [4, 10]).",
+                         digamma_x, [2.0, 2.25, 2.5, 2.75, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
     "erfInvSmallPieces": ("erfInvSmallPieces: R(t) = erfinv(√t)/√t on [0, 1/4]; erfinv(p) = p R(p²) for |p| <= 1/2.",
                           erfinv_R, [0.0, 0.125, 0.25]),
     "erfcInvPieces": ("erfcInvPieces: X(w) = erfcinv(exp(-w²)) on [0.8125, 31.0625] (q = exp(-w²) < 1/2; widths 1/4, 1, 2, 4).",

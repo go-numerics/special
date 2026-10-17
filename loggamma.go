@@ -65,8 +65,12 @@ func LogGammaSign(x float64) (float64, int) {
 		return math.Inf(1), 1
 	}
 	if x > 0 {
-		if x > logGammaMax {
-			return math.Inf(1), 1
+		if x >= 10 {
+			if x > logGammaMax {
+				return math.Inf(1), 1
+			}
+			h, l := logGammaLargeHL(x)
+			return h + l, 1
 		}
 		return logGammaPos(x).Float(), 1
 	}
