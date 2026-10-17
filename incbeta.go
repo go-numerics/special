@@ -131,11 +131,33 @@ func (v ibetaXY) swap() ibetaXY {
 }
 
 // ibetaLogBeta returns log B(a, b) for a, b > 0 finite, as a double-double.
+//
+// For b >= 10 (a <= b) it is logBetaPos's cancellation-free form,
+//
+//	log Γ(a) - a log b - b log1pmx(a/b) - (a-1/2) log1p(a/b) + S(b) - S(a+b),
+//
+// with log1p(a/b) computed once and log1pmx taken from it where |a/b| >=
+// 2^-10 (the cancellation then costs at most 11 of its 72 bits), and a/b
+// from one division and its FMA remainder.
 func ibetaLogBeta(a, b float64) dd.DD {
 	if a > b {
 		a, b = b, a
 	}
-	return logBetaPos(a, b)
+	if b < 10 {
+		return logBetaPos(a, b)
+	}
+	xh := a / b
+	x := dd.DD{Hi: xh, Lo: math.FMA(-xh, b, a) / b}
+	L := log1pDD(x)
+	lpm := dd.Sub(L, x)
+	if xh < 0x1p-10 {
+		lpm = log1pmxDD(x)
+	}
+	t := dd.Neg(dd.MulF(dd.Log(b), a))
+	t = dd.Sub(t, dd.MulF(lpm, b))
+	t = dd.Sub(t, dd.Mul(sumDD(a, -0.5), L))
+	t = dd.AddF(t, stirlingSeries(b)-stirlingSeries(a+b))
+	return dd.Add(logGammaPos(a), t)
 }
 
 // ibetaLogABeta returns log(a·B(a, b)) as a double-double for a, b > 0
@@ -340,7 +362,8 @@ func ibetaBupDD(a, b float64, v ibetaXY, n int, eps float64) dd.DD {
 // d·f with TwoProd's error, the sum with TwoSum's. That is double-double
 // accuracy (the terms are positive: no cancellation can amplify the low
 // parts' own roundings) for about a third of the operations of the dd
-// package, which renormalises after each one.
+// package, which renormalises after each one. Once the terms fall below
+// 2^-16 of the sum the rest is summed in float64.
 func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	abh, abl := dd.TwoSum(a, b)
 	a1h, a1l := dd.TwoSum(a, 1)
@@ -348,7 +371,8 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	dh, dl := 1.0, 0.0
 	sh, sl := 1.0, 0.0
 	tol := eps * 0x1p-8
-	for i := 0; i < n-1; i++ {
+	i := 0
+	for ; i < n-1; i++ {
 		fi := float64(i)
 		s1h, e1 := dd.TwoSum(abh, fi)
 		s1l := e1 + abl
@@ -365,10 +389,22 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 		var e float64
 		sh, e = dd.TwoSum(sh, dh)
 		sl += e + dl
-		if i >= k0 && dh <= tol*sh {
+		if i >= k0 && dh <= 0x1p-16*sh {
+			i++
 			break
 		}
 	}
+	// The terms below 2^-16 of the sum in plain float64: their relative
+	// errors grow by about 3 units of 2^-53 per term, and their weight
+	// (below 2^-16 ρ^k) keeps the total under 2^-60 of the sum for a ratio
+	// of decrease ρ up to 0.9, 2^-56 up to 0.98.
+	tail := 0.0
+	for ; i < n-1 && dh > tol*sh; i++ {
+		fi := float64(i)
+		dh *= xh * (abh + fi) / (a1h + fi)
+		tail += dh
+	}
+	sl += tail
 	h, l := dd.FastTwoSum(sh, sl)
 	return dd.DD{Hi: h, Lo: l}
 }
