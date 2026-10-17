@@ -74,6 +74,8 @@ var helpers = map[string]bool{
 
 const maxDepth = 6
 
+var outName = "zz_inline.go"
+
 type decl struct {
 	src  string // the declaration's source
 	recv string // receiver type name for methods
@@ -131,7 +133,7 @@ func main() {
 		os.WriteFile("zz_inline.go.broken", out.Bytes(), 0o644)
 		log.Fatal(err)
 	}
-	if err := os.WriteFile("zz_inline.go", src, 0o644); err != nil {
+	if err := os.WriteFile(outName, src, 0o644); err != nil {
 		log.Fatal(err)
 	}
 }

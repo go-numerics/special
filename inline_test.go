@@ -65,6 +65,12 @@ func TestInlinedLoopsBitIdentical(t *testing.T) {
 		for _, row := range loadFixture(t, name) {
 			a, b = append(a, row.args[0]), append(b, row.args[1])
 		}
+		sp := []float64{math.Inf(1), math.Inf(-1), math.NaN(), 0, 1, 2, 0.5, -0.5, 5e-324, 1e300}
+		for _, u := range sp {
+			for _, v := range sp {
+				a, b = append(a, u), append(b, v)
+			}
+		}
 		for i := 0; i+1 < len(pts); i += 2 {
 			if name == "zeta_hurwitz" && math.Abs(pts[i]) > 1e6 {
 				continue // hurwitzPos sizes its term slice by s

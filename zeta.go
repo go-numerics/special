@@ -111,9 +111,18 @@ func hurwitzPos(s float64, q dd.DD) scaled {
 	if q.Hi < w0 {
 		n = math.Ceil(w0 - q.Hi)
 	}
-	terms := make([]scaled, 0, int(n)+1)
+	// n is huge for huge s (the sum then stops early): no capacity from it
+	terms := make([]scaled, 0, int(min(n, 63))+1)
 	for k := 0.0; k < n; k++ {
 		t := powNegDD(dd.AddF(q, k), s)
+		if t.m.Hi == 0 || math.IsInf(t.m.Hi, 0) {
+			// beyond the exponential's range (|s log(q+k)| > 1e7): the
+			// first term decides (0 or +Inf), later ones are smaller still
+			if k == 0 {
+				return t
+			}
+			return sumScaled(terms)
+		}
 		terms = append(terms, t)
 		if k > 0 && t.e < terms[0].e-80 {
 			// (q+k)^-s < 2^-79 q^-s: the remaining terms and the tail
