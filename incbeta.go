@@ -144,7 +144,7 @@ func ibetaLogBeta(a, b float64) dd.DD {
 		a, b = b, a
 	}
 	if b < 10 {
-		return logBetaPos(a, b)
+		return ibetaLogBetaSmall(a, b)
 	}
 	xh := a / b
 	x := dd.DD{Hi: xh, Lo: math.FMA(-xh, b, a) / b}
@@ -158,6 +158,43 @@ func ibetaLogBeta(a, b float64) dd.DD {
 	t = dd.Sub(t, dd.Mul(sumDD(a, -0.5), L))
 	t = dd.AddF(t, stirlingSeries(b)-stirlingSeries(a+b))
 	return dd.Add(logGammaPos(a), t)
+}
+
+// ibetaLogBetaSmall returns log B(a, b) for 0 < a <= b < 10 as
+// log(Γ(a) Γ(b) / Γ(s)) from the double-double Γ of gammaPos, with one
+// logarithm where logBetaPos takes three (s = a + b rounded; s.Lo enters
+// as -ψ(s)·s.Lo, where ψ is needed to 2^-9 only). Its absolute error, about
+// 2^-62, is what the power prefix x^a y^b/B needs; LogBeta itself, which
+// must keep its relative accuracy where log B ~ 0, stays on logBetaPos.
+// Arguments below 2^-56 (Γ ~ 1/a, its 1/a in double-double) go to
+// logBetaPos as well.
+func ibetaLogBetaSmall(a, b float64) dd.DD {
+	if a < 0x1p-56 {
+		return logBetaPos(a, b)
+	}
+	s := sumDD(a, b)
+	g := dd.Mul(gammaPos(a), gammaPos(b))
+	var l dd.DD
+	if s.Hi < 10 {
+		l = logDD(dd.Div(g, gammaPos(s.Hi)))
+	} else {
+		l = dd.Sub(logDD(g), logGammaStirling(s.Hi))
+	}
+	return dd.AddF(l, -ibetaPsiApprox(s.Hi)*s.Lo)
+}
+
+// ibetaPsiApprox returns ψ(x) for x > 0 to about 2^-12 absolutely (enough
+// for the first-order term ψ(s)·s.Lo): -1/x - γ + (π²/6)x below 0.1, else
+// the recurrence to x + 6 and log t - 1/(2t) - 1/(12t²).
+func ibetaPsiApprox(x float64) float64 {
+	if x < 0.1 {
+		return -1/x - 0.5772156649015329 + 1.6449340668482264*x
+	}
+	r := 0.0
+	for ; x < 6; x++ {
+		r -= 1 / x
+	}
+	return r + math.Log(x) - 0.5/x - 1/(12*x*x)
 }
 
 // ibetaLogABeta returns log(a·B(a, b)) as a double-double for a, b > 0
