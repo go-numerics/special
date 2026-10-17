@@ -121,12 +121,53 @@ func ibetaInv(a, b, p, q float64) float64 {
 	}
 }
 
+// ibetaInvTemme1 returns Temme's first approximation to the x with
+// I_x(a, b) = p for a and b large and close (N. M. Temme, "Asymptotic
+// inversion of the incomplete beta function", J. Comput. Appl. Math. 41,
+// 1992, eqs. 2.9-2.17, as in Boost.Math's temme_method_1_ibeta_inverse,
+// BSL-1.0): η from the inverse complementary error function and three
+// correction terms in 1/a, then x = (1 + sign(η) sqrt(1 - e^(-η²/2)))/2.
+func ibetaInvTemme1(a, b, p float64) float64 {
+	const r2 = math.Sqrt2
+	eta0 := ErfcInv(2*p) / -math.Sqrt(a/2)
+	B := b - a
+	B2 := B * B
+	B3 := B2 * B
+	t1 := ibetaPoly(eta0, -B*r2/2, (1-2*B)/8, -(B * r2 / 48), -1.0/192, -B*r2/3840)
+	t2 := ibetaPoly(eta0, B*r2*(3*B-2)/12, (20*B2-12*B+1)/128, B*r2*(20*B-1)/960,
+		(16*B2+30*B-15)/4608, B*r2*(21*B+32)/53760, (-32*B2+63)/368640, -B*r2*(120*B+17)/25804480)
+	t3 := ibetaPoly(eta0, B*r2*(-75*B2+80*B-16)/480, (-1080*B3+868*B2-90*B-45)/9216,
+		B*r2*(-1190*B2+84*B+373)/53760, (-2240*B3-2508*B2+2100*B-165)/368640)
+	eta := ibetaPoly(1/a, eta0, t1, t2, t3)
+	return (1 + math.Copysign(math.Sqrt(-math.Expm1(-eta*eta/2)), eta)) / 2
+}
+
+// ibetaPoly returns c[0] + c[1] z + c[2] z² + ...
+func ibetaPoly(z float64, c ...float64) float64 {
+	s := 0.0
+	for i := len(c) - 1; i >= 0; i-- {
+		s = s*z + c[i]
+	}
+	return s
+}
+
 // ibetaInvGuessX returns a starting value for the x in (0, 1) with
-// I_x(a, b) = p (1 - I = q), for a, b >= 1e-3: the normal approximation
-// when a, b >= 1 and a + b >= 10, else the power law of whichever tail
+// I_x(a, b) = p (1 - I = q), for a, b >= 1e-3: Temme's first method for
+// a, b > 5 close together (sqrt(min) > max - min, Boost's criterion) and a
+// tail above 1e-8 (beyond, x = (1 - sqrt(1 - e^(-η²/2)))/2 rounds to 0), the
+// normal approximation for other a, b >= 1 with a + b >= 10, else the
+// power law of whichever tail
 // the root is nearer (u^a/(a B) = p from below, (1-x)^b/(b B) = q from
 // above).
 func ibetaInvGuessX(a, b, p, q float64, lb dd.DD) float64 {
+	if mn, mx := min(a, b), max(a, b); mn > 5 && math.Sqrt(mn) > mx-mn && min(p, q) > 1e-8 {
+		// a and b close: Temme's first method, accurate enough that one
+		// Halley step lands within the forward function's own error
+		if p <= q {
+			return ibetaInvTemme1(a, b, p)
+		}
+		return 1 - ibetaInvTemme1(b, a, q)
+	}
 	if a >= 1 && b >= 1 && a+b >= 10 {
 		s := a + b
 		x := a/s + Ndtri(p)*math.Sqrt(a*b/(s*s*(s+1)))
@@ -171,15 +212,17 @@ func ibetaInvEval(a, b, p, q float64, lb dd.DD) func(u float64) (g, r float64) {
 
 // ibetaInvSide returns the u (at most about 1/2) with I_u(a, b) = p and
 // 1 - I_u(a, b) = q, matching the smaller of the two, from the starting
-// value u0, and true. Unless sure, the root is first confirmed to lie
-// below 1/2 (u0 <= 1/2): at once when it lies below u0, else by the sign
-// at 1/2; a root above 1/2 returns false (the caller then takes the other
-// side, where it is computed as 1 - (a root below 1/2)).
+// value u0, and true. Unless sure, the root must be shown to lie below 1/2
+// (u0 <= 1/2): by an iterate at or below 1/2 where g >= 0, or by the
+// iteration converging below 1/2; the sign at 1/2 is taken only when an
+// iterate would leave [0, 1/2), and a root above 1/2 returns false (the
+// caller then takes the other side, where it is computed as 1 - (a root
+// below 1/2)).
 //
 // Halley's method in log u: with r = d log T/d log u, the second
 // derivative of g is r (a - (b-1) u/(1-u) ∓ r) (- for the lower tail),
 // falling back to Newton's step far from the root. The iteration runs to
-// the computed root (a step below the resolution of u): the forward
+// the computed root (see stop below): the forward
 // function carries errors of a few ulps here, which vary from one u to
 // the next, so a step extrapolated from a nearby u lands up to that much
 // further from the true root.
@@ -198,6 +241,15 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 	if q < p {
 		sg = 1
 	}
+	// The last step: below the resolution of u where the tail comes from
+	// the double-double series (a < 1), so the root is found to its full
+	// accuracy; below 2^-50 elsewhere, where a step that small is the
+	// noise of the float64 forward function (a few ulps) and the next
+	// evaluation could only move u within it.
+	stop := 0x1p-52
+	if a >= 1 {
+		stop = 0x1p-50
+	}
 	lo, hi := 0.0, 0.75
 	for i := 0; i < 400; i++ {
 		g, r := eval(u)
@@ -209,15 +261,8 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 		} else {
 			hi = u
 		}
-		if !sure {
-			sure = true
-			if g < 0 {
-				// the root is above u0: below 1/2?
-				if gh, _ := eval(0.5); gh < 0 {
-					return 0, false
-				}
-				hi = 0.5
-			}
+		if !sure && g >= 0 && u <= 0.5 {
+			sure = true // the root is at most u
 		}
 		step := -g / r
 		curv := a - (b-1)*u/(1-u) + sg*r
@@ -228,7 +273,14 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 		if !math.IsInf(step, 0) && !math.IsNaN(step) && step < 700 {
 			nu = float64(u + u*math.Expm1(step))
 		}
-		if nu == u || math.Abs(step) < 0x1p-52 {
+		if !sure && !(nu < 0.5) {
+			// the iteration heads above 1/2: is the root there?
+			if gh, _ := eval(0.5); gh < 0 {
+				return 0, false
+			}
+			sure, hi = true, 0.5
+		}
+		if nu == u || math.Abs(step) < stop {
 			return nu, true
 		}
 		if !(nu > lo && nu < hi) {
