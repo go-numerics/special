@@ -97,9 +97,11 @@ func erfcDD(z dd.DD) dd.DD {
 // incomplete gamma and beta functions) and for the subnormal tails.
 
 var (
-	erfcxEst     = estPieces(erfcxPieces[:])
-	erfcxTailEst = estPieces(erfcxTailPieces[:])
-	erfSmallEst  = estPieces(erfSmallPieces[:])
+	logErfcxEst     = estPieces(logErfcxPieces[:])
+	logErfcxTailEst = estPieces(logErfcxTailPieces[:])
+	erfcxEst        = estPieces(erfcxPieces[:])
+	erfcxTailEst    = estPieces(erfcxTailPieces[:])
+	erfSmallEst     = estPieces(erfSmallPieces[:])
 )
 
 // erfcxHL returns erfcx(x) as hi + lo for 0.5 <= x < 1e300 (error about
@@ -109,11 +111,11 @@ var (
 // 2^-59 in G) and the quotient corrected by its FMA residual.
 func erfcxHL(x float64) (hi, lo float64) {
 	if x < 8 {
-		return erfcxEst[int((x-0.5)*2)].eval(x)
+		return erfcxEst[int((x-0.5)*2)].evalLow(x, 0)
 	}
 	inv := 1 / x
 	u := inv * inv
-	gh, gl := erfcxTailEst[min(int(u*128), 1)].eval(u)
+	gh, gl := erfcxTailEst[min(int(u*128), 1)].evalShort(u)
 	y := gh * inv
 	r := math.FMA(-y, x, gh) + gl
 	return y, r * inv
@@ -151,7 +153,7 @@ func erfcHL(zh, zl float64) (hi, lo float64, k int, erfcx float64) {
 	el := ((tu - (e0 - th)) + math.FMA(th, u, -tu)) + math.FMA(th, ue+pu, math.FMA(tl, u, tl))
 	eh := e0 + el
 	el -= eh - e0
-	// erfcx(zh): estPiece.eval on [0.5, 8), erfcxHL beyond
+	// erfcx(zh): estPiece.evalLow on [0.5, 8), erfcxHL beyond
 	var ch, cl float64
 	if zh < 8 {
 		e := &erfcxEst[int((zh-0.5)*2)]
@@ -159,35 +161,35 @@ func erfcHL(zh, zl float64) (hi, lo float64, k int, erfcx float64) {
 		q := &e.q
 		s2 := s * s
 		s4 := s2 * s2
-		a0 := math.FMA(q[4], s, q[3])
-		a1 := math.FMA(q[6], s, q[5])
-		a2 := math.FMA(q[8], s, q[7])
-		a3 := math.FMA(q[10], s, q[9])
-		a4 := math.FMA(q[12], s, q[11])
-		a5 := math.FMA(q[14], s, q[13])
+		a0 := math.FMA(q[5], s, q[4])
+		a1 := math.FMA(q[7], s, q[6])
+		a2 := math.FMA(q[9], s, q[8])
+		a3 := math.FMA(q[11], s, q[10])
+		a4 := math.FMA(q[13], s, q[12])
+		a5 := math.FMA(q[15], s, q[14])
 		b0 := math.FMA(a1, s2, a0)
 		b1 := math.FMA(a3, s2, a2)
 		b2 := math.FMA(a5, s2, a4)
-		c0 := math.FMA(b1, s4, b0)
-		c1 := math.FMA(q[15], s4, b2)
-		p := math.FMA(c1, s4*s4, c0)
-		p = math.FMA(math.FMA(math.FMA(p, s, q[2]), s, q[1]), s, q[0])
-		rr := float64(s * p)
-		ch = e.c0 + rr
-		cl = (rr - (ch - e.c0)) + (math.FMA(s, p, -rr) + e.c0lo)
+		p := math.FMA(b2, s4*s4, math.FMA(b1, s4, b0))
+		p = math.FMA(math.FMA(math.FMA(p, s, q[3]), s, q[2]), s, q[1])
+		r1 := float64(s * q[0])
+		ch = e.c0 + r1
+		cl = (r1 - (ch - e.c0)) + ((math.FMA(s, q[0], -r1) + s*e.c1lo) + math.FMA(s2, p, e.c0lo))
 	} else {
 		ch, cl = erfcxHL(zh)
 	}
-	cl += zl * math.FMA(2*zh, ch, -twoOverSqrtPi.Hi)
-	hi = float64(eh * ch)
-	lo = math.FMA(eh, ch, -hi) + math.FMA(eh, cl, el*ch)
-	return hi, lo, ki >> 7, ch
+	ex := ch + cl // erfcx(zh); ch alone is not normalised
+	cl += zl * math.FMA(2*zh, ex, -twoOverSqrtPi.Hi)
+	ph := float64(eh * ch)
+	pl := math.FMA(eh, ch, -ph) + math.FMA(eh, cl, el*ch)
+	hi = ph + pl // normalised: callers add 1 or take log1p
+	return hi, pl - (hi - ph), ki >> 7, ex
 }
 
 // erfSmallHL returns erf(x) as hi + lo for |x| <= 1/2 (x E(x²); the
 // product left unevaluated).
 func erfSmallHL(x float64) (hi, lo float64) {
-	eh, el := erfSmallEst[0].eval(x * x)
+	eh, el := erfSmallEst[0].evalShort(x * x)
 	hi = float64(x * eh)
 	return hi, math.FMA(x, eh, -hi) + x*el
 }
@@ -202,7 +204,7 @@ func Erf(x float64) float64 {
 	ax := math.Abs(x)
 	switch {
 	case ax <= 0.5:
-		eh, el := erfSmallEst[0].eval(x * x)
+		eh, el := erfSmallEst[0].evalShort(x * x)
 		return math.FMA(x, eh, x*el)
 	case ax < 6:
 		h, l, k, _ := erfcHL(ax, 0)
@@ -399,20 +401,59 @@ func LogNdtr(x float64) float64 {
 	zh, zl := ndtrZHL(x)
 	switch {
 	case zh >= 0.5:
-		// log erfcx(z) - z² - log 2
-		ch, cl := erfcxHL(zh)
-		cl += zl * math.FMA(2*zh, ch, -twoOverSqrtPi.Hi)
-		lh, ll := logHL(ch)
-		ll += cl / ch
+		// log erfcx(z) - z² - log 2, log erfcx fitted directly (no
+		// logarithm of erfcx): on [0.5, 8) as a function of z, beyond as
+		// H(u) - log z, H = log(z erfcx(z)) in u = 1/z².
+		var ch, cl float64
+		if zh < 8 {
+			var i int
+			switch {
+			case zh < 2:
+				i = int((zh - 0.5) * 2)
+			case zh < 4:
+				i = 3 + int(zh-2)
+			default:
+				i = 5 + int((zh-4)*0.5)
+			}
+			ch, cl = logErfcxEst[i].evalLow(zh, zl)
+		} else {
+			iz := 1 / zh
+			u := iz * iz
+			hh, hl := logErfcxTailEst[min(int(u*128), 1)].evalShort(u)
+			// log z: logHL written out (z >= 8 is normal)
+			ixb := math.Float64bits(zh)
+			tmp := ixb - 0x3fe8000000000000
+			kf := float64(int64(tmp) >> 52)
+			m := math.Float64frombits(ixb - uint64(int64(tmp)>>52)<<52)
+			t := &logT[int(m*256+0.5)-192]
+			invc := t[0]
+			p := float64(m * invc) // float64(): not fused into r below
+			pe := math.FMA(m, invc, -p)
+			r := p - 1
+			r2 := r * r
+			q0 := math.FMA(r, 1.0/3, -0.5)
+			q1 := math.FMA(r, 1.0/5, -0.25)
+			q2 := math.FMA(r, 1.0/7, -1.0/6)
+			q2 = math.FMA(r2, -1.0/8, q2)
+			q1 = math.FMA(r2, q2, q1)
+			q := r2 * math.FMA(r2, q1, q0)
+			l0 := kf*ln2Hi42 + t[1]
+			gh := l0 + r
+			gl := (r - (gh - l0)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + q))
+			gl += zl * iz
+			ch = hh - gh // TwoSum
+			bb := ch - hh
+			cl = ((hh - (ch - bb)) + (-gh - bb)) + (hl - gl)
+		}
 		sh := float64(zh * zh)
 		sl := math.FMA(zh, zh, -sh) + 2*zh*zl
-		a := lh - ln2DD.Hi // TwoSum
-		bb := a - lh
-		ae := (lh - (a - bb)) + (-ln2DD.Hi - bb)
+		a := ch - ln2DD.Hi // TwoSum
+		bb := a - ch
+		ae := (ch - (a - bb)) + (-ln2DD.Hi - bb)
 		v := a - sh // TwoSum
 		bb = v - a
 		ve := (a - (v - bb)) + (-sh - bb)
-		return v + (ve + (ae + (ll - sl - ln2DD.Lo)))
+		return v + (ve + (ae + (cl - sl - ln2DD.Lo)))
 	case zh <= -0.5:
 		// log1p(-Φ(-x)), Φ(-x) = erfc(-z)/2 < 1/4
 		h, l, k, _ := erfcHL(-zh, -zl)

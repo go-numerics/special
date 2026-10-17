@@ -161,7 +161,7 @@ func zetaMidFast(s float64) float64 {
 	dl := (s - (dh - bb)) + (-1 - bb)
 	q := 1 / dh
 	ql := (math.FMA(-q, dh, 1) - q*dl) * q // 1/(s-1) = q + ql
-	rh, rl := zetaEst[min(int((s+1)*2), len(zetaEst)-1)].eval(s)
+	rh, rl := zetaEst[min(int((s+1)*2), len(zetaEst)-1)].evalShort(s)
 	v := q + rh // TwoSum
 	bb = v - q
 	ve := (q - (v - bb)) + (rh - bb)

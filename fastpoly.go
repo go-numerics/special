@@ -67,3 +67,41 @@ func (e *estPiece) eval(t float64) (hi, lo float64) {
 	lo = (r - (hi - e.c0)) + (math.FMA(s, p, -r) + e.c0lo)
 	return hi, lo
 }
+
+// evalShort is eval for pieces of degree <= 10 (q[10..15] zero): the same
+// Horner-finished Estrin scheme on q[0..9] only.
+func (e *estPiece) evalShort(t float64) (hi, lo float64) {
+	s := t - e.c
+	q := &e.q
+	s2 := s * s
+	a0 := math.FMA(q[4], s, q[3])
+	a1 := math.FMA(q[6], s, q[5])
+	a2 := math.FMA(q[8], s, q[7])
+	b0 := math.FMA(a1, s2, a0)
+	b1 := math.FMA(q[9], s2, a2)
+	p := math.FMA(b1, s2*s2, b0)
+	p = math.FMA(math.FMA(math.FMA(p, s, q[2]), s, q[1]), s, q[0])
+	r := float64(s * p) // float64(): not fused into hi
+	hi = e.c0 + r
+	lo = (r - (hi - e.c0)) + (math.FMA(s, p, -r) + e.c0lo)
+	return hi, lo
+}
+
+// maxDegree returns the largest degree among the pieces (for the init-time
+// checks of the callers of evalShort).
+func maxDegree(p []polyPiece) int {
+	d := 0
+	for i := range p {
+		d = max(d, len(p[i].coef)-1)
+	}
+	return d
+}
+
+func init() {
+	// evalShort reads q[0..9] only.
+	for _, p := range [][]polyPiece{erfSmallPieces[:], erfcxTailPieces[:], logErfcxTailPieces[:], zetaPieces[:]} {
+		if maxDegree(p) > 10 {
+			panic("special: evalShort table of degree above 10")
+		}
+	}
+}

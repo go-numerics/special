@@ -227,7 +227,25 @@ def digamma_x(x):
     return mp.digamma(x)
 
 
+def log_erfcx(x):
+    with mp.workprec(mp.prec + 60):
+        return mp.log(mp.exp(x * x) * mp.erfc(x))
+
+
+def log_erfcx_G(u):
+    # log(x erfcx(x)) with u = 1/x^2
+    if u == 0:
+        return -mp.log(mp.sqrt(mp.pi))
+    x = 1 / mp.sqrt(u)
+    with mp.workprec(mp.prec + 200):
+        return mp.log(x * mp.exp(x * x) * mp.erfc(x))
+
+
 JOBS = {
+    "logErfcxPieces": ("logErfcxPieces: log erfcx(x) on [0.5, 8] (widths 1/2 on [0.5, 2], 1 on [2, 4], 2 on [4, 8]).",
+                       log_erfcx, [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0]),
+    "logErfcxTailPieces": ("logErfcxTailPieces: H(u) = log(x erfcx(x)), u = 1/x², on [0, 1/64] (x >= 8).",
+                           log_erfcx_G, [0.0, 1.0 / 128, 1.0 / 64]),
     "digammaMidPieces": ("digammaMidPieces: ψ(x) on [2, 10] (widths 1/4 on [2, 3], 1/2 on [3, 4], 1 on [4, 10]).",
                          digamma_x, [2.0, 2.25, 2.5, 2.75, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
     "erfInvSmallPieces": ("erfInvSmallPieces: R(t) = erfinv(√t)/√t on [0, 1/4]; erfinv(p) = p R(p²) for |p| <= 1/2.",
