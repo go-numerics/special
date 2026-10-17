@@ -62,7 +62,30 @@ func erfInvSmallHL(p float64) (hi, lo float64) {
 
 // erfcInvHL returns erfcinv(q) as hi + lo for 0 < q < 1/2.
 func erfcInvHL(q float64) (hi, lo float64) {
-	lh, ll := logHL(q)
+	var lh, ll float64
+	if iq := math.Float64bits(q); iq >= 1<<52 {
+		// logHL written out for normal q
+		tmp := iq - 0x3fe8000000000000
+		kf := float64(int64(tmp) >> 52)
+		m := math.Float64frombits(iq - uint64(int64(tmp)>>52)<<52)
+		t := &logT[int(m*256+0.5)-192]
+		invc := t[0]
+		p := float64(m * invc) // float64(): not fused into r below
+		pe := math.FMA(m, invc, -p)
+		r := p - 1
+		r2 := r * r
+		q0 := math.FMA(r, 1.0/3, -0.5)
+		q1 := math.FMA(r, 1.0/5, -0.25)
+		q2 := math.FMA(r, 1.0/7, -1.0/6)
+		q2 = math.FMA(r2, -1.0/8, q2)
+		q1 = math.FMA(r2, q2, q1)
+		qq := r2 * math.FMA(r2, q1, q0)
+		l0 := kf*ln2Hi42 + t[1]
+		lh = l0 + r
+		ll = (r - (lh - l0)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + qq))
+	} else {
+		lh, ll = logHL(q)
+	}
 	s := lh + ll // log q = s + e (Fast2Sum)
 	e := ll - (s - lh)
 	wh := math.Sqrt(-s)
@@ -145,28 +168,30 @@ func ErfcInv(q float64) float64 {
 // subnormals, keeps full relative accuracy). For p > 1/2,
 // Ndtri(p) = -Ndtri(1-p) with 1-p exact.
 func Ndtri(p float64) float64 {
+	var h, l float64
 	switch {
-	case math.IsNaN(p) || p < 0 || p > 1:
-		return math.NaN()
+	case p > 0.25 && p < 0.75:
+		// sqrt(2) erfinv(2p - 1), 2p - 1 exact here
+		t := 2*p - 1
+		h, l = erfInvSmallHL(math.Abs(t))
+		if t < 0 {
+			h, l = -h, -l
+		}
+	case p > 0 && p <= 0.25:
+		h, l = erfcInvHL(2 * p) // 2p exact (or an exact subnormal doubling)
+		h, l = -h, -l
+	case p >= 0.75 && p < 1:
+		h, l = erfcInvHL(2 * (1 - p)) // exact
 	case p == 0:
 		return math.Inf(-1)
 	case p == 1:
 		return math.Inf(1)
-	case p == 0.5:
-		return 0
-	case p > 0.5:
-		return -Ndtri(1 - p) // exact
+	default:
+		return math.NaN()
 	}
-	q := 2 * p // exact (or an exact subnormal doubling)
-	var h, l float64
-	if q < 0.5 {
-		h, l = erfcInvHL(q)
-	} else {
-		h, l = erfInvSmallHL(1 - q) // 1 - q exact
-	}
-	// -sqrt(2) (h + l), one rounding
+	// sqrt(2) (h + l), one rounding
 	v := float64(math.Sqrt2 * h)
-	return -(v + (math.FMA(math.Sqrt2, h, -v) + math.FMA(math.Sqrt2, l, sqrt2Lo*h)))
+	return v + (math.FMA(math.Sqrt2, h, -v) + math.FMA(math.Sqrt2, l, sqrt2Lo*h))
 }
 
 // sqrt2Lo = sqrt(2) - math.Sqrt2 (mpmath).
