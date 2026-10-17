@@ -25,6 +25,36 @@ var bernoulliOverFactorial = [...]float64{
 	2.267952452337683e-24,
 }
 
+// bernoulliOverFactorial25[j-1] = B_2j / (2j)!, j = 1..25 (mpmath), for
+// hurwitzFast's longer Bernoulli tail.
+var bernoulliOverFactorial25 = [...]float64{
+	0.08333333333333333,
+	-0.001388888888888889,
+	3.306878306878307e-05,
+	-8.267195767195768e-07,
+	2.08767569878681e-08,
+	-5.284190138687493e-10,
+	1.3382536530684679e-11,
+	-3.3896802963225827e-13,
+	8.586062056277845e-15,
+	-2.174868698558062e-16,
+	5.5090028283602295e-18,
+	-1.3954464685812522e-19,
+	3.534707039629467e-21,
+	-8.953517427037546e-23,
+	2.267952452337683e-24,
+	-5.744790668872202e-26,
+	1.455172475614865e-27,
+	-3.6859949406653103e-29,
+	9.336734257095045e-31,
+	-2.36502241570063e-32,
+	5.990671762482134e-34,
+	-1.5174548844682903e-35,
+	3.843758125454189e-37,
+	-9.736353072646691e-39,
+	2.466247044200681e-40,
+}
+
 // scaled is a value m * 2^e with a double-double mantissa, used to sum
 // terms whose magnitudes would overflow or underflow float64 on their own.
 type scaled struct {
@@ -276,14 +306,50 @@ func HurwitzZeta(s, q float64) float64 {
 // terms, and the exp kernel (2^-68 relative); about 2^-62 relative in all
 // for s log y up to 700.
 func powNegHL(yh, yl, s float64) (hi, lo float64) {
-	lh, ll := logHL(yh)
-	ll += yl / yh
+	// logHL and expHL written out: this is the inner loop of HurwitzZeta.
+	iyb := math.Float64bits(yh) // yh >= 2^-20 is normal
+	tmp := iyb - 0x3fe8000000000000
+	kf := float64(int64(tmp) >> 52)
+	m := math.Float64frombits(iyb - uint64(int64(tmp)>>52)<<52)
+	t := &logT[int(m*256+0.5)-192]
+	invc := t[0]
+	p := float64(m * invc) // float64(): not fused into r below
+	pe := math.FMA(m, invc, -p)
+	r := p - 1
+	r2 := r * r
+	q0 := math.FMA(r, 1.0/3, -0.5)
+	q1 := math.FMA(r, 1.0/5, -0.25)
+	q2 := math.FMA(r, 1.0/7, -1.0/6)
+	q2 = math.FMA(r2, -1.0/8, q2)
+	q1 = math.FMA(r2, q2, q1)
+	q := r2 * math.FMA(r2, q1, q0)
+	l0 := kf*ln2Hi42 + t[1]
+	lh := l0 + r
+	ll := (r - (lh - l0)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + q)) + yl/yh
 	ph := float64(-s * lh)
 	pl := math.FMA(-s, lh, -ph) - s*ll
-	h := ph + pl // normalise for the exp kernel
-	eh, el, k := expHL(h, pl-(h-ph))
-	sc := pow2(k)
-	return eh * sc, el * sc
+	xh := ph + pl // normalised for the reduction
+	xl := pl - (xh - ph)
+	kd := math.RoundToEven(xh * expInvLn2N)
+	ki := int(kd)
+	er := xh - kd*expC1
+	dr := xl - kd*expC2
+	u := er + dr
+	ue := dr - (u - er)
+	u2 := u * u
+	pa := math.FMA(u, 1.0/6, 0.5)
+	pb := math.FMA(u, 1.0/120, 1.0/24)
+	pb = math.FMA(u2, 1.0/720, pb)
+	pu := u2 * math.FMA(u2, pb, pa)
+	et := &expT[ki&127]
+	th, tl := et[0], et[1]
+	tu := float64(th * u)
+	h0 := th + tu
+	el := ((tu - (h0 - th)) + math.FMA(th, u, -tu)) + math.FMA(th, ue+pu, math.FMA(tl, u, tl))
+	h1 := h0 + el
+	el -= h1 - h0
+	sc := pow2(ki >> 7)
+	return h1 * sc, el * sc
 }
 
 // hurwitzFast is hurwitzPos for the common range, in float64 kernels:
@@ -297,11 +363,13 @@ func hurwitzFast(s, q float64) (float64, bool) {
 	if !(s > 1 && s <= 64 && q >= 0x1p-20 && q <= 0x1p40) {
 		return 0, false
 	}
-	// The shift w = q + N: 15 Bernoulli terms reach 2^-66 of w/(s-1) for
-	// w >= 0.8s + 9 (computed with mpmath for 1 < s <= 64: the bound
-	// needed is 6.4 at s = 1, 24.2 at s = 20, 57.6 at s = 64), a shorter
-	// direct sum than hurwitzPos's 0.7(s+30), which allows for s > 64.
-	w0 := math.Max(10, 0.8*s+9)
+	// The shift w = q + N: 25 Bernoulli terms reach 2^-66 of w/(s-1) for
+	// w >= 7.3 + s/2 (computed with mpmath for 1 < s <= 64: the bound
+	// needed is 6.1 at s = 1, 7.4 at 1.5, 8.5 at 3, 12.0 at 10, 16.5 at
+	// 20, 34.8 at 64), a much shorter direct sum than hurwitzPos's
+	// 0.7(s+30) with 15 terms, which allows for s > 64; a series that has
+	// not converged falls back to hurwitzPos.
+	w0 := 7.3 + 0.5*s
 	n := 0.0
 	if q < w0 {
 		n = math.Ceil(w0 - q)
@@ -355,8 +423,8 @@ func hurwitzFast(s, q float64) (float64, bool) {
 	pw := iw * iw2                                                               // w^(1-2j)
 	rest := 0.0
 	conv := false
-	for j := 2; j <= len(bernoulliOverFactorial); j++ {
-		t := bernoulliOverFactorial[j-1] * poch * pw
+	for j := 2; j <= len(bernoulliOverFactorial25); j++ {
+		t := bernoulliOverFactorial25[j-1] * poch * pw
 		rest += t
 		if math.Abs(t) < 0x1p-64*bh {
 			conv = true
