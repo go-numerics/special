@@ -148,7 +148,7 @@ func Beta(a, b float64) float64 {
 		}
 		if b >= 10 && a < 10 && a > 0x1p-56 && b <= 1e300 {
 			// Γ(a) exp(log Γ(b) - log Γ(a+b))
-			gh, gl := gammaHL(a)
+			gh, gl := gammaHLsmall(a)
 			dh, dl := logGammaDiffHL(a, b, a+b)
 			hn := dh + dl
 			eh, el, k := expHL(hn, dl-(hn-dh))
@@ -158,8 +158,8 @@ func Beta(a, b float64) float64 {
 				return (ph + pl) * pow2(k)
 			}
 		}
-		if b >= 10 && b <= 1e300 {
-			h, l := logBetaHL(a, b)
+		if b >= 10 && a >= 10 && b <= 1e300 {
+			h, l := logBetaHL10(a, b)
 			hn := h + l
 			eh, el, k := expHL(hn, l-(hn-h))
 			if k >= -1021 && k <= 1022 {
@@ -190,14 +190,19 @@ func Beta(a, b float64) float64 {
 
 // gammaHL returns Γ(x) as hi + lo for 0 < x <= 171 (x not tiny: x >= 2^-56).
 func gammaHL(x float64) (hi, lo float64) {
-	switch {
-	case x >= 10:
-		h, l := logGammaLargeHL(x)
-		hn := h + l
-		eh, el, k := expHL(hn, l-(hn-h))
-		s := pow2(k) // k <= 1022 for x <= 171
-		return eh * s, el * s
-	case x >= 1:
+	if x < 10 {
+		return gammaHLsmall(x)
+	}
+	h, l := logGammaLargeHL(x)
+	hn := h + l
+	eh, el, k := expHL(hn, l-(hn-h))
+	s := pow2(k) // k <= 1022 for x <= 171
+	return eh * s, el * s
+}
+
+// gammaHLsmall is gammaHL for 2^-56 <= x < 10.
+func gammaHLsmall(x float64) (hi, lo float64) {
+	if x >= 1 {
 		return gammaMid(x)
 	}
 	// Γ(1+x)/x
@@ -213,8 +218,8 @@ func betaSmall(a, b float64) float64 {
 	s := a + b
 	bb := s - a
 	sl := (a - (s - bb)) + (b - bb)
-	ah, al := gammaHL(a)
-	bh, bl := gammaHL(b)
+	ah, al := gammaHLsmall(a)
+	bh, bl := gammaHLsmall(b)
 	ch, cl := gammaHL(s)
 	if sl != 0 {
 		cl += ch * Digamma(s) * sl
@@ -232,20 +237,29 @@ func betaSmall(a, b float64) float64 {
 // factor b/a); otherwise log Γ(a) + [log Γ(b) - log Γ(a+b)] with the
 // bracket from logGammaDiffHL, which does not cancel.
 func logBetaHL(a, b float64) (hi, lo float64) {
+	if a >= 10 {
+		return logBetaHL10(a, b)
+	}
+	g := logGammaPos(a)
+	dh, dl := logGammaDiffHL(a, b, a+b)
+	v := g.Hi + dh // TwoSum
+	bb := v - g.Hi
+	ve := (g.Hi - (v - bb)) + (dh - bb)
+	return v, ve + (g.Lo + dl)
+}
+
+// logBetaHL10 is logBetaHL for 10 <= a <= b: the direct combination up
+// to b = 64a, beyond log Γ(a) + logGammaDiff with x = a/b < 1/64 (its
+// series branch).
+func logBetaHL10(a, b float64) (hi, lo float64) {
 	s := a + b
 	bb := s - a
 	sl := (a - (s - bb)) + (b - bb)
-	if a >= 10 && b <= 64*a {
+	if b <= 64*a {
 		return logBetaDirect(a, b, s, sl)
 	}
-	var gh, gl float64
-	if a >= 10 {
-		gh, gl = logGammaLargeHL(a)
-	} else {
-		g := logGammaPos(a)
-		gh, gl = g.Hi, g.Lo
-	}
-	dh, dl := logGammaDiffHL(a, b, s)
+	gh, gl := logGammaLargeHL(a)
+	dh, dl := logGammaDiffSeries(a, b, s)
 	v := gh + dh // TwoSum
 	bb = v - gh
 	ve := (gh - (v - bb)) + (dh - bb)
@@ -278,32 +292,44 @@ func logBetaDirect(a, b, s, sl float64) (hi, lo float64) {
 // T_n = (b^-n - (a+b)^-n)/d = Σ_i b^-i (a+b)^-(n-1-i) (the differences of
 // powers factored, so that a small a costs no cancellation).
 func logGammaDiffHL(a, b, s float64) (hi, lo float64) {
+	if a/b < 1.0/64 {
+		return logGammaDiffSeries(a, b, s)
+	}
 	xh := a / b
 	xl := math.FMA(-xh, b, a) / b
-	var lh, ll, mh, ml float64 // L = log1p(x), M = L - x
-	if xh < 1.0/64 {
-		// M = -x²/2 + x³(1/3 - x/4 + ...), to x^12/12 (next below 2^-62 M)
-		x2 := float64(xh * xh)
-		x2l := math.FMA(xh, xh, -x2) + 2*xh*xl
-		x4 := x2 * x2
-		p := math.FMA(math.FMA(-1.0/6, xh, 1.0/5), x2, math.FMA(-1.0/4, xh, 1.0/3))
-		q := math.FMA(math.FMA(-1.0/10, xh, 1.0/9), x2, math.FMA(-1.0/8, xh, 1.0/7))
-		r := math.FMA(math.FMA(-1.0/12, xh, 1.0/11), x4, q)
-		t := math.FMA(r, x4, p) * xh // x/3 - x²/4 + ... - x^10/12
-		mh = -0.5 * x2
-		ml = math.FMA(x2, t, -0.5*x2l)
-		lh = xh + mh // Fast2Sum: |M| < x/100
-		ll = ((xh - lh) + mh) + (xl + ml)
-	} else {
-		wh := 1 + xh // Fast2Sum: x <= 1
-		wl := ((1 - wh) + xh) + xl
-		var l2 float64
-		lh, l2 = logHL(wh)
-		ll = l2 + wl/wh
-		mh = lh - xh // exact: x/2 <= L <= x
-		ml = ll - xl
-	}
-	bh, bl := logHL(b)
+	wh := 1 + xh // Fast2Sum: x <= 1
+	wl := ((1 - wh) + xh) + xl
+	lh, l2 := logHLn(wh)
+	ll := l2 + wl/wh
+	mh := lh - xh // exact: x/2 <= L <= x
+	ml := ll - xl
+	return logGammaDiffRest(a, b, s, lh, ll, mh, ml)
+}
+
+// logGammaDiffSeries is logGammaDiffHL for a < b/64 (L - x from its
+// series).
+func logGammaDiffSeries(a, b, s float64) (hi, lo float64) {
+	xh := a / b
+	xl := math.FMA(-xh, b, a) / b
+	// M = -x²/2 + x³(1/3 - x/4 + ...), to x^12/12 (next below 2^-62 M)
+	x2 := float64(xh * xh)
+	x2l := math.FMA(xh, xh, -x2) + 2*xh*xl
+	x4 := x2 * x2
+	p := math.FMA(math.FMA(-1.0/6, xh, 1.0/5), x2, math.FMA(-1.0/4, xh, 1.0/3))
+	q := math.FMA(math.FMA(-1.0/10, xh, 1.0/9), x2, math.FMA(-1.0/8, xh, 1.0/7))
+	r := math.FMA(math.FMA(-1.0/12, xh, 1.0/11), x4, q)
+	t := math.FMA(r, x4, p) * xh // x/3 - x²/4 + ... - x^10/12
+	mh := -0.5 * x2
+	ml := math.FMA(x2, t, -0.5*x2l)
+	lh := xh + mh // Fast2Sum: |M| < x/100
+	ll := ((xh - lh) + mh) + (xl + ml)
+	return logGammaDiffRest(a, b, s, lh, ll, mh, ml)
+}
+
+// logGammaDiffRest completes logGammaDiffHL from L = log1p(a/b) = lh + ll
+// and M = L - a/b = mh + ml.
+func logGammaDiffRest(a, b, s, lh, ll, mh, ml float64) (hi, lo float64) {
+	bh, bl := logHLn(b)
 	t1h := float64(a * bh) // a log b
 	t1l := math.FMA(a, bh, -t1h) + a*bl
 	t2h := float64(b * mh) // b M

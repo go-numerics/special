@@ -60,15 +60,16 @@ var targets = []struct {
 
 // Helpers expanded in place (functions, and methods as "Type.method").
 var helpers = map[string]bool{
-	"expHL": true, "logHL": true, "pow2": true,
-	"erfcHL": true, "erfcxHL": true, "erfSmallHL": true, "ndtrZHL": true, "erfDeriv": true,
+	"expHL": true, "logHL": true, "logHLn": true, "logHLk": true, "pow2": true,
+	"erfcHL": true, "erfcHLmain": true, "erfcHLtail": true, "erfcInvN": true, "erfcInvLog": true, "erfcxHL": true, "erfSmallHL": true, "ndtrZHL": true, "erfDeriv": true,
 	"erfcInvHL": true, "erfInvSmallHL": true, "log1pHL": true,
 	"gammaLarge": true, "gammaMid": true, "gamma1pHL": true, "gammaHL": true,
 	"logGammaLargeHL": true, "logGammaLargeHL2": true,
 	"digammaSmall": true, "digammaLarge": true,
 	"zetaMidFast": true, "zetaTailFast": true, "trigamma": true, "trigammaAsym": true,
 	"hurwitzFast": true, "powNegHL": true,
-	"logBetaHL": true, "logBetaDirect": true, "logGammaDiffHL": true, "betaSmall": true,
+	"logBetaHL": true, "logBetaHL10": true, "logBetaDirect": true, "logGammaDiffHL": true,
+	"logGammaDiffSeries": true, "logGammaDiffRest": true, "betaSmall": true, "gammaHLsmall": true,
 	"estPiece.eval": true, "estPiece.evalLow": true, "estPiece.evalShort": true,
 }
 

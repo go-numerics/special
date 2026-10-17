@@ -70,12 +70,18 @@ func expHL(xh, xl float64) (hi, lo float64, k int) {
 // k·ln2Hi42 + logc_hi exact (both multiples of 2^-42) and log1p(r) - r
 // summed to r^8/8 (truncation below 2^-76).
 func logHL(x float64) (hi, lo float64) {
-	ix := math.Float64bits(x)
-	ke := 0
-	if ix < 1<<52 { // subnormal
-		ix = math.Float64bits(x * 0x1p54)
-		ke = -54
+	if math.Float64bits(x) < 1<<52 { // subnormal
+		return logHLk(x*0x1p54, -54)
 	}
+	return logHLk(x, 0)
+}
+
+// logHLn is logHL for a normal x (no subnormal test).
+func logHLn(x float64) (hi, lo float64) { return logHLk(x, 0) }
+
+// logHLk is logHL for x·2^ke with x normal.
+func logHLk(x float64, ke int) (hi, lo float64) {
+	ix := math.Float64bits(x)
 	tmp := ix - 0x3fe8000000000000 // bits of 0.75
 	ke += int(int64(tmp) >> 52)
 	m := math.Float64frombits(ix - uint64(int64(tmp)>>52)<<52)

@@ -62,46 +62,41 @@ func erfInvSmallHL(p float64) (hi, lo float64) {
 
 // erfcInvHL returns erfcinv(q) as hi + lo for 0 < q < 1/2.
 func erfcInvHL(q float64) (hi, lo float64) {
-	var lh, ll float64
-	if iq := math.Float64bits(q); iq >= 1<<52 {
-		// logHL written out for normal q
-		tmp := iq - 0x3fe8000000000000
-		kf := float64(int64(tmp) >> 52)
-		m := math.Float64frombits(iq - uint64(int64(tmp)>>52)<<52)
-		t := &logT[int(m*256+0.5)-192]
-		invc := t[0]
-		p := float64(m * invc) // float64(): not fused into r below
-		pe := math.FMA(m, invc, -p)
-		r := p - 1
-		r2 := r * r
-		q0 := math.FMA(r, 1.0/3, -0.5)
-		q1 := math.FMA(r, 1.0/5, -0.25)
-		q2 := math.FMA(r, 1.0/7, -1.0/6)
-		q2 = math.FMA(r2, -1.0/8, q2)
-		q1 = math.FMA(r2, q2, q1)
-		qq := r2 * math.FMA(r2, q1, q0)
-		l0 := kf*ln2Hi42 + t[1]
-		lh = l0 + r
-		ll = (r - (lh - l0)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + qq))
-	} else {
-		lh, ll = logHL(q)
-	}
+	lh, ll := logHL(q) // q may be subnormal
+	return erfcInvLog(lh, ll)
+}
+
+// erfcInvN is erfcInvHL for a normal q.
+func erfcInvN(q float64) (hi, lo float64) {
+	lh, ll := logHLn(q)
+	return erfcInvLog(lh, ll)
+}
+
+// erfcInvLog returns erfcinv(q) as hi + lo from log q = lh + ll (q < 1/2):
+// w = sqrt(-log q) carried as hi + lo and X(w) from its piece, located
+// without a branch (erfcInvIdx: per unit of w - 1/16, the segment's start,
+// inverse width and first piece; the segments are [0.8125, 3.0625) by
+// 1/4, [3.0625, 7.0625) by 1, [7.0625, 11.0625) by 2, then by 4).
+func erfcInvLog(lh, ll float64) (hi, lo float64) {
 	s := lh + ll // log q = s + e (Fast2Sum)
 	e := ll - (s - lh)
 	wh := math.Sqrt(-s)
 	wl := (math.FMA(-wh, wh, -s) - e) / (2 * wh) // w = sqrt(-log q) = wh + wl
-	var i int
-	switch {
-	case wh < 3.0625:
-		i = int((wh - 0.8125) * 4)
-	case wh < 7.0625:
-		i = 9 + int(wh-3.0625)
-	case wh < 11.0625:
-		i = 13 + int((wh-7.0625)*0.5)
-	default:
-		i = 15 + int((wh-11.0625)*0.25)
-	}
-	return erfcInvEst[i].evalLow(wh, wl)
+	u := wh - 0.0625                             // exact
+	t := &erfcInvIdx[int(u)]
+	return erfcInvEst[int(t[2])+int((u-t[0])*t[1])].evalLow(wh, wl)
+}
+
+// erfcInvIdx[f] = {segment start in u = w - 1/16, pieces per unit, first
+// piece of the segment} for f = floor(u) (w < 27.3 for every q > 0).
+var erfcInvIdx = [31][3]float64{
+	{0.75, 4, 0}, {0.75, 4, 0}, {0.75, 4, 0},
+	{3, 1, 9}, {3, 1, 9}, {3, 1, 9}, {3, 1, 9},
+	{7, 0.5, 13}, {7, 0.5, 13}, {7, 0.5, 13}, {7, 0.5, 13},
+	{11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15},
+	{11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15},
+	{11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15},
+	{11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15}, {11, 0.25, 15},
 }
 
 // ErfInv returns the inverse error function: ErfInv(Erf(x)) = x.
@@ -126,7 +121,7 @@ func ErfInv(y float64) float64 {
 		h, l := erfInvSmallHL(p)
 		return math.Copysign(h+l, y)
 	}
-	h, l := erfcInvHL(1 - p) // 1-p exact for p >= 1/2
+	h, l := erfcInvN(1 - p) // 1-p exact (and normal) for 1/2 <= p < 1
 	return math.Copysign(h+l, y)
 }
 
@@ -181,7 +176,7 @@ func Ndtri(p float64) float64 {
 		h, l = erfcInvHL(2 * p) // 2p exact (or an exact subnormal doubling)
 		h, l = -h, -l
 	case p >= 0.75 && p < 1:
-		h, l = erfcInvHL(2 * (1 - p)) // exact
+		h, l = erfcInvN(2 * (1 - p)) // exact, normal
 	case p == 0:
 		return math.Inf(-1)
 	case p == 1:

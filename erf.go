@@ -121,17 +121,27 @@ func erfcxHL(x float64) (hi, lo float64) {
 	return y, r * inv
 }
 
-// erfcHL returns hi, lo, k with erfc(zh + zl) = (hi + lo)·2^k (and
-// erfcx(zh) to about 2^-53, for the inverse functions' Newton steps) for
+// erfcHL returns hi, lo, k with erfc(zh + zl) = (hi + lo)·2^k for
 // 0.5 <= zh <= 26.5 and |zl| <= ulp(zh): exp(-z²) from z² = sh + sl exact
 // to 2^-106 (the exp kernel, 2^-68), erfcx(zh) corrected to first order in
 // zl through erfcx'(x) = 2x erfcx(x) - 2/sqrt(pi), and the product formed
-// exactly up to its low-order terms.
+// exactly up to its low-order terms. erfcHLmain covers zh < 8 (the fitted
+// pieces of erfcx), erfcHLtail zh >= 8 (G(u)/z); callers that know their
+// range call one directly.
 //
 // This is the hot path of Erf, Erfc and Ndtr, so expHL and the erfcx piece
 // evaluation are written in (a call would spill every live register under
-// Go's ABI); they are the same operations as expHL and estPiece.eval.
-func erfcHL(zh, zl float64) (hi, lo float64, k int, erfcx float64) {
+// Go's ABI); they are the same operations as expHL and estPiece.evalLow
+// (the exponential is repeated in the two functions).
+func erfcHL(zh, zl float64) (hi, lo float64, k int) {
+	if zh < 8 {
+		return erfcHLmain(zh, zl)
+	}
+	return erfcHLtail(zh, zl)
+}
+
+// erfcHLmain is erfcHL for 0.5 <= zh < 8.
+func erfcHLmain(zh, zl float64) (hi, lo float64, k int) {
 	sh := float64(zh * zh) // float64(): not fused below
 	sl := math.FMA(zh, zh, -sh) + 2*zh*zl
 	// exp(-sh - sl): expHL
@@ -153,9 +163,9 @@ func erfcHL(zh, zl float64) (hi, lo float64, k int, erfcx float64) {
 	el := ((tu - (e0 - th)) + math.FMA(th, u, -tu)) + math.FMA(th, ue+pu, math.FMA(tl, u, tl))
 	eh := e0 + el
 	el -= eh - e0
-	// erfcx(zh): estPiece.evalLow on [0.5, 8), erfcxHL beyond
+	// erfcx(zh): estPiece.evalLow
 	var ch, cl float64
-	if zh < 8 {
+	{
 		e := &erfcxEst[int((zh-0.5)*2)]
 		s := zh - e.c
 		q := &e.q
@@ -175,7 +185,41 @@ func erfcHL(zh, zl float64) (hi, lo float64, k int, erfcx float64) {
 		r1 := float64(s * q[0])
 		ch = e.c0 + r1
 		cl = (r1 - (ch - e.c0)) + ((math.FMA(s, q[0], -r1) + s*e.c1lo) + math.FMA(s2, p, e.c0lo))
-	} else {
+	}
+	ex := ch + cl // erfcx(zh); ch alone is not normalised
+	cl += zl * math.FMA(2*zh, ex, -twoOverSqrtPi.Hi)
+	ph := float64(eh * ch)
+	pl := math.FMA(eh, ch, -ph) + math.FMA(eh, cl, el*ch)
+	hi = ph + pl // normalised: callers add 1 or take log1p
+	return hi, pl - (hi - ph), ki >> 7
+}
+
+// erfcHLtail is erfcHL for 8 <= zh <= 26.5.
+func erfcHLtail(zh, zl float64) (hi, lo float64, k int) {
+	sh := float64(zh * zh) // float64(): not fused below
+	sl := math.FMA(zh, zh, -sh) + 2*zh*zl
+	// exp(-sh - sl): expHL
+	kd := math.RoundToEven(-sh * expInvLn2N)
+	ki := int(kd)
+	r := -sh - kd*expC1
+	dr := -sl - kd*expC2
+	u := r + dr
+	ue := dr - (u - r)
+	u2 := u * u
+	pa := math.FMA(u, 1.0/6, 0.5)
+	pb := math.FMA(u, 1.0/120, 1.0/24)
+	pb = math.FMA(u2, 1.0/720, pb)
+	pu := u2 * math.FMA(u2, pb, pa)
+	t := &expT[ki&127]
+	th, tl := t[0], t[1]
+	tu := float64(th * u)
+	e0 := th + tu
+	el := ((tu - (e0 - th)) + math.FMA(th, u, -tu)) + math.FMA(th, ue+pu, math.FMA(tl, u, tl))
+	eh := e0 + el
+	el -= eh - e0
+	// erfcx(zh) = G(u)/z, u = 1/z²: erfcxHL's tail written out
+	var ch, cl float64
+	{
 		// erfcxHL's tail written out: G(u)/z, u = 1/z²
 		inv := 1 / zh
 		u := inv * inv
@@ -197,13 +241,11 @@ func erfcHL(zh, zl float64) (hi, lo float64, k int, erfcx float64) {
 		cl = (math.FMA(-ch, zh, gh) + gl) * inv
 	}
 	ex := ch + cl // erfcx(zh); ch alone is not normalised
-	if zl != 0 {
-		cl += zl * math.FMA(2*zh, ex, -twoOverSqrtPi.Hi)
-	}
+	cl += zl * math.FMA(2*zh, ex, -twoOverSqrtPi.Hi)
 	ph := float64(eh * ch)
 	pl := math.FMA(eh, ch, -ph) + math.FMA(eh, cl, el*ch)
 	hi = ph + pl // normalised: callers add 1 or take log1p
-	return hi, pl - (hi - ph), ki >> 7, ex
+	return hi, pl - (hi - ph), ki >> 7
 }
 
 // erfSmallHL returns erf(x) as hi + lo for |x| <= 1/2 (x E(x²); the
@@ -227,7 +269,7 @@ func Erf(x float64) float64 {
 		eh, el := erfSmallEst[0].evalShort(x * x)
 		return math.FMA(x, eh, x*el)
 	case ax < 6:
-		h, l, k, _ := erfcHL(ax, 0)
+		h, l, k := erfcHLmain(ax, 0)
 		s := pow2(k)
 		h *= s
 		l *= s
@@ -252,14 +294,14 @@ func Erf(x float64) float64 {
 func Erfc(x float64) float64 {
 	switch {
 	case x >= 0.5 && x <= 26.5:
-		h, l, k, _ := erfcHL(x, 0)
+		h, l, k := erfcHL(x, 0)
 		return (h + l) * pow2(k) // erfc(26.5) > 2^-1020: normal
 	case x > -0.5 && x < 0.5:
 		eh, el := erfSmallHL(x)
 		v := 1 - eh // Fast2Sum: |erf| < 1/2
 		return v + (((1 - v) - eh) - el)
 	case x <= -0.5 && x > -6:
-		h, l, k, _ := erfcHL(-x, 0)
+		h, l, k := erfcHLmain(-x, 0) // -x < 6
 		s := pow2(k)
 		h *= s
 		l *= s
@@ -357,10 +399,10 @@ func Ndtr(x float64) float64 {
 	zh, zl := ndtrZHL(x)
 	switch {
 	case zh >= 0.5:
-		h, l, k, _ := erfcHL(zh, zl)
+		h, l, k := erfcHL(zh, zl)
 		return (h + l) * pow2(k-1) // Φ(-37.4) > 2^-1021: normal
 	case zh <= -0.5:
-		h, l, k, _ := erfcHL(-zh, -zl)
+		h, l, k := erfcHLmain(-zh, -zl) // x < 8.5: -zh < 6.02
 		s := pow2(k - 1)
 		h *= s
 		l *= s
@@ -476,7 +518,7 @@ func LogNdtr(x float64) float64 {
 		return v + (ve + (ae + (cl - sl - ln2DD.Lo)))
 	case zh <= -0.5:
 		// log1p(-Φ(-x)), Φ(-x) = erfc(-z)/2 < 1/4
-		h, l, k, _ := erfcHL(-zh, -zl)
+		h, l, k := erfcHL(-zh, -zl)
 		s := pow2(k - 1)
 		h *= s
 		l *= s
@@ -486,7 +528,7 @@ func LogNdtr(x float64) float64 {
 		}
 		wh := 1 - h // Fast2Sum
 		wl := ((1 - wh) - h) - l
-		lh, ll := logHL(wh)
+		lh, ll := logHLn(wh)
 		return lh + (ll + wl/wh)
 	}
 	// log Φ, Φ = (1 - erf(z))/2 in (1/4, 3/4)
@@ -494,7 +536,7 @@ func LogNdtr(x float64) float64 {
 	el += zl * erfDeriv(zh)
 	ph := 1 - eh
 	pl := ((1 - ph) - eh) - el
-	lh, ll := logHL(ph)
+	lh, ll := logHLn(ph)
 	a := lh - ln2DD.Hi // TwoSum
 	bb := a - lh
 	ae := (lh - (a - bb)) + (-ln2DD.Hi - bb)

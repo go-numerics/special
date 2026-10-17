@@ -234,7 +234,8 @@ func apply2(loop func(dst, a, b []float64, sa, sb int), f func(x, y float64) flo
 	}
 	sa, sb := 1, 1
 	switch {
-	case len(x) == n && len(y) == n && sameShape(a.Shape(), b.Shape()):
+	case len(x) == n && len(y) == n && len(a.Shape()) == len(b.Shape()):
+		// same rank and both of the broadcast size: the same shape
 	case len(x) == 1 && len(y) == n:
 		sa = 0
 	case len(y) == 1 && len(x) == n:
@@ -247,16 +248,4 @@ func apply2(loop func(dst, a, b []float64, sa, sb int), f func(x, y float64) flo
 		loop(out[lo:hi], x[lo*sa:], y[lo*sb:], sa, sb)
 	})
 	return result(out, shape, xf32 && yf32 && a.DType() == ndarray.Float32 && b.DType() == ndarray.Float32), nil
-}
-
-func sameShape(p, q []int) bool {
-	if len(p) != len(q) {
-		return false
-	}
-	for i := range p {
-		if p[i] != q[i] {
-			return false
-		}
-	}
-	return true
 }

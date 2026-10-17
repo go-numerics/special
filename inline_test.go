@@ -29,7 +29,7 @@ func TestInlinedLoopsBitIdentical(t *testing.T) {
 		"erfinv": {ErfInvTo, ErfInv}, "erfcinv": {ErfcInvTo, ErfcInv},
 		"ndtr": {NdtrTo, Ndtr}, "ndtri": {NdtriTo, Ndtri}, "log_ndtr": {LogNdtrTo, LogNdtr},
 		"expit": {ExpitTo, Expit}, "logit": {LogitTo, Logit}, "log1pexp": {Log1pExpTo, Log1pExp},
-		"zeta": {ZetaTo, Zeta}, "polygamma": {TrigammaTo, func(x float64) float64 { return Polygamma(1, x) }},
+		"zeta": {ZetaTo, Zeta}, "polygamma": {TrigammaTo, polygamma1},
 	}
 	for name, f := range unary {
 		var x []float64
@@ -50,6 +50,13 @@ func TestInlinedLoopsBitIdentical(t *testing.T) {
 			if w := f.scalar(v); math.Float64bits(w) != math.Float64bits(dst[i]) && !(w != w && dst[i] != dst[i]) {
 				t.Errorf("%s(%v): array %v, scalar %v", name, v, dst[i], w)
 				break
+			}
+		}
+		if name == "polygamma" {
+			for _, v := range x {
+				if w, u := Polygamma(1, v), polygamma1(v); math.Float64bits(w) != math.Float64bits(u) && !(w != w && u != u) {
+					t.Errorf("polygamma1(%v) = %v, Polygamma(1, x) = %v", v, u, w)
+				}
 			}
 		}
 	}

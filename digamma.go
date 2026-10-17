@@ -246,7 +246,7 @@ func digammaLarge(x float64) float64 {
 		b8 = -3617.0 / 8160
 		b9 = 43867.0 / 14364
 	)
-	lh, ll := logHL(x)
+	lh, ll := logHLn(x)
 	ix := 1 / x
 	hh := 0.5 * ix
 	hl := 0.5 * math.FMA(-ix, x, 1) * ix // 1/(2x) = hh + hl

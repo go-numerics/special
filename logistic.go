@@ -221,7 +221,7 @@ func log1pHL(th, tl float64) float64 {
 	wh := 1 + th
 	bb := wh - 1
 	wl := (1 - (wh - bb)) + (th - bb) + tl
-	lh, ll := logHL(wh)
+	lh, ll := logHLn(wh)
 	return lh + (ll + wl/wh)
 }
 
