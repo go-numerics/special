@@ -83,35 +83,82 @@ func BetaIncCInv(a, b, q float64) float64 {
 // ibetaInv returns the x with I_x(a, b) = p, 1 - I_x(a, b) = q, where
 // p + q = 1 and the smaller of the two is exact.
 func ibetaInv(a, b, p, q float64) float64 {
-	// Which side of 1/2: the sign of the x-side residual at 1/2, from the
-	// same (double-double where needed) evaluation as the iteration, so a
-	// nearly flat I (tiny a and b) is not decided by a rounded I_(1/2).
 	if a == b && p == q {
 		return 0.5 // symmetry
 	}
-	g := ibetaInvEval(a, b, p, q)
-	switch g0, _ := g(0.5); {
-	case g0 == 0:
-		return 0.5
-	case g0 > 0:
-		return ibetaInvSide(a, b, p, q)
+	lb := ibetaLogBeta(a, b)
+	if a < 1e-3 || b < 1e-3 {
+		// Which side of 1/2: the sign of the x-side residual at 1/2, from
+		// the same (double-double where needed) evaluation as the
+		// iteration, so a nearly flat I (tiny a and b) is not decided by
+		// a rounded I_(1/2).
+		switch g0, _ := ibetaInvEval(a, b, p, q, lb)(0.5); {
+		case g0 == 0:
+			return 0.5
+		case g0 > 0:
+			u, _ := ibetaInvSide(a, b, p, q, lb, ibetaInvGuess(a, b, p, lb), true)
+			return u
+		}
+		// I_x(a,b) = p  <=>  I_(1-x)(b,a) = q
+		u, _ := ibetaInvSide(b, a, q, p, lb, ibetaInvGuess(b, a, q, lb), true)
+		return 1 - u
 	}
-	// I_x(a,b) = p  <=>  I_(1-x)(b,a) = q
-	u := ibetaInvSide(b, a, q, p)
-	return 1 - u
+	// Elsewhere the side is taken from a starting value and confirmed by
+	// the iteration's own evaluations (ibetaInvSide), which saves the
+	// evaluation at 1/2 whenever the guess lies on the root's side of it.
+	if x0 := ibetaInvGuessX(a, b, p, q, lb); x0 <= 0.5 {
+		if u, ok := ibetaInvSide(a, b, p, q, lb, x0, false); ok {
+			return u
+		}
+		u, _ := ibetaInvSide(b, a, q, p, lb, 0.5, true)
+		return 1 - u
+	} else {
+		if u, ok := ibetaInvSide(b, a, q, p, lb, 1-x0, false); ok {
+			return 1 - u
+		}
+		u, _ := ibetaInvSide(a, b, p, q, lb, 0.5, true)
+		return u
+	}
+}
+
+// ibetaInvGuessX returns a starting value for the x in (0, 1) with
+// I_x(a, b) = p (1 - I = q), for a, b >= 1e-3: the normal approximation
+// when a, b >= 1 and a + b >= 10, else the power law of whichever tail
+// the root is nearer (u^a/(a B) = p from below, (1-x)^b/(b B) = q from
+// above).
+func ibetaInvGuessX(a, b, p, q float64, lb dd.DD) float64 {
+	if a >= 1 && b >= 1 && a+b >= 10 {
+		s := a + b
+		x := a/s + Ndtri(p)*math.Sqrt(a*b/(s*s*(s+1)))
+		if x > 0 && x < 1 {
+			return x
+		}
+	}
+	lu := (igamLog(p) + math.Log(a) + lb.Hi) / a
+	lv := (igamLog(q) + math.Log(b) + lb.Hi) / b
+	if lu <= lv {
+		return math.Exp(lu)
+	}
+	return -math.Expm1(lv)
 }
 
 // ibetaInvEval returns g(u) = ±(log T(u) - log t), increasing in u, and
 // r = dg/d log u > 0, where T is the smaller-target tail of I_u(a, b)
 // (lower with target p, or upper with target q).
-func ibetaInvEval(a, b, p, q float64) func(u float64) (g, r float64) {
+func ibetaInvEval(a, b, p, q float64, lb dd.DD) func(u float64) (g, r float64) {
 	upper := q < p
 	t := p
 	if upper {
 		t = q
 	}
-	lt := dd.LogAccurate(t)
-	lb := ibetaLogBeta(a, b)
+	// log t to 2^-104 where the series branch of ibetaInvTail (a < 1)
+	// compares double-double logarithms; elsewhere only far from the root
+	var lt dd.DD
+	if a < 1 {
+		lt = dd.LogAccurate(t)
+	} else {
+		lt = dd.Log(t)
+	}
 	lbf := lb.Hi + lb.Lo
 	return func(u float64) (g, r float64) {
 		g, r = ibetaInvTail(a, b, u, t, upper, lt, lb, lbf)
@@ -123,7 +170,11 @@ func ibetaInvEval(a, b, p, q float64) func(u float64) (g, r float64) {
 }
 
 // ibetaInvSide returns the u (at most about 1/2) with I_u(a, b) = p and
-// 1 - I_u(a, b) = q, matching the smaller of the two.
+// 1 - I_u(a, b) = q, matching the smaller of the two, from the starting
+// value u0, and true. Unless sure, the root is first confirmed to lie
+// below 1/2 (u0 <= 1/2): at once when it lies below u0, else by the sign
+// at 1/2; a root above 1/2 returns false (the caller then takes the other
+// side, where it is computed as 1 - (a root below 1/2)).
 //
 // Halley's method in log u: with r = d log T/d log u, the second
 // derivative of g is r (a - (b-1) u/(1-u) ∓ r) (- for the lower tail),
@@ -132,16 +183,15 @@ func ibetaInvEval(a, b, p, q float64) func(u float64) (g, r float64) {
 // function carries errors of a few ulps here, which vary from one u to
 // the next, so a step extrapolated from a nearby u lands up to that much
 // further from the true root.
-func ibetaInvSide(a, b, p, q float64) float64 {
-	eval := ibetaInvEval(a, b, p, q)
-	lb := ibetaLogBeta(a, b)
-	u := ibetaInvGuess(a, b, p, lb)
+func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64, bool) {
+	eval := ibetaInvEval(a, b, p, q, lb)
+	u := u0
 	// A root below the float64 range altogether: the power-law guess says
 	// so (it is then near or below the normal range), except for tiny
 	// parameters, where I is too flat for the guess to be trusted.
 	if u < 0x1p-1000 || a < 1e-3 || b < 1e-3 {
 		if g, _ := eval(0x1p-1074); g >= 0 {
-			return 0
+			return 0, true
 		}
 	}
 	sg := -1.0
@@ -152,12 +202,22 @@ func ibetaInvSide(a, b, p, q float64) float64 {
 	for i := 0; i < 400; i++ {
 		g, r := eval(u)
 		if g == 0 {
-			return u
+			return u, true
 		}
 		if g < 0 {
 			lo = u
 		} else {
 			hi = u
+		}
+		if !sure {
+			sure = true
+			if g < 0 {
+				// the root is above u0: below 1/2?
+				if gh, _ := eval(0.5); gh < 0 {
+					return 0, false
+				}
+				hi = 0.5
+			}
 		}
 		step := -g / r
 		curv := a - (b-1)*u/(1-u) + sg*r
@@ -169,7 +229,7 @@ func ibetaInvSide(a, b, p, q float64) float64 {
 			nu = float64(u + u*math.Expm1(step))
 		}
 		if nu == u || math.Abs(step) < 0x1p-52 {
-			return nu
+			return nu, true
 		}
 		if !(nu > lo && nu < hi) {
 			if lo == 0 {
@@ -180,7 +240,7 @@ func ibetaInvSide(a, b, p, q float64) float64 {
 		}
 		u = nu
 	}
-	return u
+	return u, true
 }
 
 // ibetaInvTail returns g = log T(u) - log t, T = 1 - I_u(a, b) if upper
@@ -263,19 +323,9 @@ func ibetaLogBpser(a, b float64, v ibetaXY) dd.DD {
 }
 
 // ibetaInvGuess returns a starting value for the u <= ~1/2 with
-// I_u(a, b) = p: the normal approximation (mean a/(a+b), variance
-// ab/((a+b)²(a+b+1))) when a and b are both at least 1 and a+b >= 10,
-// else the power law I_u ~ u^a/(a B(a, b)).
+// I_u(a, b) = p where a or b is below 1e-3: the power law
+// I_u ~ u^a/(a B(a, b)).
 func ibetaInvGuess(a, b, p float64, lb dd.DD) float64 {
-	if a >= 1 && b >= 1 && a+b >= 10 {
-		s := a + b
-		m := a / s
-		sd := math.Sqrt(a*b/(s*s*(s+1))) / 1
-		u := m + Ndtri(p)*sd
-		if u > 0 && u <= 0.75 {
-			return u
-		}
-	}
 	lu := (igamLog(p) + math.Log(a) + lb.Hi) / a
 	if lu > math.Log(0.5) {
 		return 0.5
