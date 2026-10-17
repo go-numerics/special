@@ -93,10 +93,30 @@ func Log1pExp(x float64) float64 {
 	if !(x >= -660 && x <= 40) {
 		return log1pExpTail(x)
 	}
-	h, l, k := expHL(-math.Abs(x), 0)
-	s := pow2(k)
-	h *= s
-	l *= s
+	// e = exp(-|x|) and log(1 + e): expHL and logHL written out (two
+	// calls would cost a sixth of the function).
+	xh := -math.Abs(x)
+	kd := math.RoundToEven(xh * expInvLn2N)
+	ki := int(kd)
+	er := xh - kd*expC1
+	dr := -kd * expC2
+	u := er + dr
+	ue := dr - (u - er)
+	u2 := u * u
+	pa := math.FMA(u, 1.0/6, 0.5)
+	pb := math.FMA(u, 1.0/120, 1.0/24)
+	pb = math.FMA(u2, 1.0/720, pb)
+	pu := u2 * math.FMA(u2, pb, pa)
+	et := &expT[ki&127]
+	th, tl := et[0], et[1]
+	tu := float64(th * u)
+	h0 := th + tu
+	l := ((tu - (h0 - th)) + math.FMA(th, u, -tu)) + math.FMA(th, ue+pu, math.FMA(tl, u, tl))
+	h := h0 + l
+	l -= h - h0
+	sc := pow2(ki >> 7)
+	h *= sc
+	l *= sc
 	if h < 0x1p-27 {
 		// log1p(e) = e - e²/2 + e³/3 - ..., e⁴/4 below 2^-80 e. (Through
 		// w = 1 + e the second-order term of log(w.hi + w.lo) would be
@@ -109,8 +129,29 @@ func Log1pExp(x float64) float64 {
 	}
 	wh := 1 + h
 	wl := (1 - wh) + h + l
-	lh, ll := logHL(wh)
-	ll += wl / wh
+	// log wh, wh in (1, 2]
+	iw := math.Float64bits(wh)
+	tmp := iw - 0x3fe8000000000000
+	kf := float64(int64(tmp) >> 52) // 0 or 1
+	m := math.Float64frombits(iw - uint64(int64(tmp)>>52)<<52)
+	t := &logT[int(m*256+0.5)-192]
+	invc := t[0]
+	p := float64(m * invc) // float64(): not fused into r below
+	pe := math.FMA(m, invc, -p)
+	r := p - 1
+	r2 := r * r
+	q0 := math.FMA(r, 1.0/3, -0.5)
+	q1 := math.FMA(r, 1.0/5, -0.25)
+	q2 := math.FMA(r, 1.0/7, -1.0/6)
+	q2 = math.FMA(r2, -1.0/8, q2)
+	q1 = math.FMA(r2, q2, q1)
+	q := r2 * math.FMA(r2, q1, q0)
+	l0 := kf*ln2Hi42 + t[1]
+	lh := l0 + r
+	// wl/wh = wl invc 2^-k (1 - r + r² ...): the r² dropped is below 2^-61
+	// of the result (|wl| < 2^-53, and the result is about r when c = 1,
+	// above 2^-9 otherwise).
+	ll := (r - (lh - l0)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + q) + wl*invc*(1-0.5*kf)*(1-r))
 	if x <= 0 {
 		return lh + ll
 	}
