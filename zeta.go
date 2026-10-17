@@ -140,13 +140,55 @@ func Zeta(s float64) float64 {
 		// ζ(s) - 1 < 2^-63: rounds to 1.
 		return 1
 	case s > 6:
-		return zetaAbove2(s).Float()
+		return zetaTailFast(s)
 	case s >= -1:
-		h, l := dd.TwoSum(s, -1)
-		r := dd.Div(dd.F(1), dd.DD{Hi: h, Lo: l})
-		return dd.Add(r, evalPiecesDD(zetaPieces[:], s)).Float()
+		return zetaMidFast(s)
 	}
 	return zetaReflect(s)
+}
+
+var (
+	zetaEst     = estPieces(zetaPieces[:])
+	zetaTailEst = estPieces(zetaTailPieces[1:]) // piece 0 has degree 17
+)
+
+// zetaMidFast returns ζ(s) for -1 <= s <= 6, s != 1, as Zeta's
+// 1/(s-1) + R(s) with the reciprocal and R as hi + lo (float64 kernels
+// of fastpoly.go instead of double-double).
+func zetaMidFast(s float64) float64 {
+	dh := s - 1 // TwoSum
+	bb := dh - s
+	dl := (s - (dh - bb)) + (-1 - bb)
+	q := 1 / dh
+	ql := (math.FMA(-q, dh, 1) - q*dl) * q // 1/(s-1) = q + ql
+	rh, rl := zetaEst[min(int((s+1)*2), len(zetaEst)-1)].eval(s)
+	v := q + rh // TwoSum
+	bb = v - q
+	ve := (q - (v - bb)) + (rh - bb)
+	return v + (ve + (ql + rl))
+}
+
+// zetaTailFast returns ζ(s) for 6 < s < 64 as 1 + g(s) 2^-s, g from the
+// fitted pieces as hi + lo, 2^-s = exp(-s ln 2) from the exp kernel with
+// s ln 2 carried exactly, one rounding.
+func zetaTailFast(s float64) float64 {
+	var gh, gl float64
+	if i := int((s - 6) * 0.5); i == 0 {
+		g := evalPiecesDD(zetaTailPieces[:1], s)
+		gh, gl = g.Hi, g.Lo
+	} else {
+		gh, gl = zetaTailEst[i-1].eval(s)
+	}
+	xh := float64(-s * ln2DD.Hi)
+	xl := math.FMA(-s, ln2DD.Hi, -xh) - s*ln2DD.Lo
+	eh, el, k := expHL(xh, xl)
+	sc := pow2(k) // k >= -65
+	th := float64(eh * gh)
+	tl := math.FMA(eh, gh, -th) + math.FMA(eh, gl, el*gh)
+	th *= sc
+	tl *= sc
+	r := 1 + th // Fast2Sum: ζ(s) - 1 < 0.02
+	return r + (((1 - r) + th) + tl)
 }
 
 // zetaAbove2 returns ζ(s) for s > 2 as a double-double: on (2, 6] from the
