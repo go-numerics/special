@@ -146,6 +146,18 @@ func Beta(a, b float64) float64 {
 		if b < 10 && a > 0x1p-56 {
 			return betaSmall(a, b)
 		}
+		if b >= 10 && a < 10 && a > 0x1p-56 && b <= 1e300 {
+			// Γ(a) exp(log Γ(b) - log Γ(a+b))
+			gh, gl := gammaHL(a)
+			dh, dl := logGammaDiffHL(a, b, a+b)
+			hn := dh + dl
+			eh, el, k := expHL(hn, dl-(hn-dh))
+			if k >= -1021 && k <= 1022 {
+				ph := float64(gh * eh)
+				pl := math.FMA(gh, eh, -ph) + math.FMA(gh, el, gl*eh)
+				return (ph + pl) * pow2(k)
+			}
+		}
 		if b >= 10 && b <= 1e300 {
 			h, l := logBetaHL(a, b)
 			hn := h + l
@@ -230,14 +242,7 @@ func logBetaHL(a, b float64) (hi, lo float64) {
 	bb := s - a
 	sl := (a - (s - bb)) + (b - bb)
 	if a >= 10 && b <= 64*a {
-		ah, al := logGammaLargeHL(a)
-		bh, bl := logGammaLargeHL(b)
-		ch, cl := logGammaLargeHL2(s, sl)
-		u := bh + ah // Fast2Sum: log Γ is increasing here and b >= a
-		ue := ah - (u - bh)
-		v := u - ch // Fast2Sum: log B < 0 here, so log Γ(a+b) > u
-		ve := u - (v + ch)
-		return v, (ve + ue) + (al + bl - cl)
+		return logBetaDirect(a, b, s, sl)
 	}
 	var gh, gl float64
 	if a >= 10 {
@@ -251,6 +256,53 @@ func logBetaHL(a, b float64) (hi, lo float64) {
 	bb = v - gh
 	ve := (gh - (v - bb)) + (dh - bb)
 	return v, ve + (gl + dl)
+}
+
+// logBetaDirect returns log B(a, b) for 10 <= a <= b <= 64a, s + sl = a + b
+// exactly: the Stirling expressions of the three log-gammas combined before
+// rounding, the terms -a - b + s cancelling to -sl:
+//
+//	(a-½) log a + (b-½) log b - (s-½) log s + log sqrt(2π)
+//	    + S(a) + S(b) - S(s) - sl (1 + ψ(s))
+//
+// (-sl from -a - b + s, sl ψ(s) the first-order change of log Γ at s, with
+// ψ(s) = log s - 1/(2s) to first order; sl is below ulp(s)/2). The
+// logarithms come from the log kernel (2^-68 absolute) and the three
+// products are formed exactly up to their low-order terms and summed by
+// TwoSum, so the error is about 2^-66 b absolute, below 2^-62 of |log B|
+// in this range.
+func logBetaDirect(a, b, s, sl float64) (hi, lo float64) {
+	lah, lal := logHL(a)
+	lbh, lbl := logHL(b)
+	lsh, lsl := logHL(s)
+	ma := a - 0.5 // exact below 2^52
+	mb := b - 0.5
+	ms := s - 0.5
+	pa := float64(ma * lah)
+	pal := math.FMA(ma, lah, -pa) + ma*lal + ((a-ma)-0.5)*lah
+	pb := float64(mb * lbh)
+	pbl := math.FMA(mb, lbh, -pb) + mb*lbl + ((b-mb)-0.5)*lbh
+	ps := float64(ms * lsh)
+	psl := math.FMA(ms, lsh, -ps) + ms*lsl + ((s-ms)-0.5)*lsh
+	u := pb + pa // Fast2Sum: b >= a
+	ue := pa - (u - pb)
+	v := u - ps // Fast2Sum: (s-½) log s > u
+	ve := u - (v + ps)
+	w := v + lnSqrt2Pi.Hi // Fast2Sum: |v| > 14
+	we := (v - w) + lnSqrt2Pi.Hi
+	// S(a) + S(b) - S(s), each as hi + lo, the leading parts added to w
+	// exactly (Fast2Sum: |S| < 0.0084 < |w|): a float64 sum would leave
+	// 2^-60 absolute, which Beta's exponential turns into a relative error.
+	sah, sal := stirlingHL(a, 1/a)
+	sbh, sbl := stirlingHL(b, 1/b)
+	ssh, ssl := stirlingHL(s, 1/s)
+	w1 := w + sah
+	e1 := (w - w1) + sah
+	w2 := w1 + sbh
+	e2 := (w1 - w2) + sbh
+	w3 := w2 - ssh
+	e3 := (w2 - w3) - ssh
+	return w3, (ue + ve + we) + (e1 + e2 + e3) + (pal + pbl - psl + lnSqrt2Pi.Lo + (sal + sbl - ssl) - sl*(1+lsh-0.5/s))
 }
 
 // logGammaDiffHL returns log Γ(b) - log Γ(a+b) as hi + lo for 0 < a <= b,

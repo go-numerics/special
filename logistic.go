@@ -14,7 +14,7 @@ func expDD(x float64) dd.DD {
 
 // Expit returns the logistic sigmoid 1/(1 + exp(-x)).
 //
-// e = exp(-|x|) comes from the float64 kernel as hi + lo (about 2^-61
+// e = exp(-|x|) comes from the float64 kernel as hi + lo (about 2^-68
 // relative); 1 + e is formed exactly (Fast2Sum) and the quotient 1/(1+e)
 // or e/(1+e) is corrected by its FMA residual, so the result is within
 // about half an ulp everywhere, including the lower tail where it is

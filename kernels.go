@@ -10,7 +10,7 @@ import "math"
 // keep only the error-free steps that matter: an exact argument reduction,
 // the table value as a double-double, and one rounding of a term that is
 // already 2^-8 smaller than the result. Their output hi + lo is accurate to
-// about 2^-61 (exp) and 2^-68 absolute (log) — far below the half ulp the
+// about 2^-68 relative (exp) and 2^-68 absolute (log) — far below the half ulp the
 // caller's final rounding adds — at the cost of a few floating-point
 // operations and one table lookup.
 //
@@ -25,7 +25,7 @@ import "math"
 func pow2(k int) float64 { return math.Float64frombits(uint64(k+1023) << 52) }
 
 // expHL returns hi, lo, k with exp(xh + xl) = (hi + lo)·2^k, hi in
-// [0.99, 2.02), |lo| <= ulp(hi)/2 (normalised), relative error below 2^-60 for |xh| <= 745 and
+// [0.99, 2.02), |lo| <= ulp(hi)/2 (normalised), relative error below 2^-68 for |xh| <= 745 and
 // |xl| <= 2^-40 |xh| (or |xl| <= 2^-50). Callers check the range.
 //
 // x = (128k' + j) ln2/128 + u, |u| <= ln2/256 + 2^-60: kd·expC1 is exact
@@ -46,9 +46,14 @@ func expHL(xh, xl float64) (hi, lo float64, k int) {
 	t := &expT[ki&127]
 	th, tl := t[0], t[1]
 	// 2^(j/128)·(1 + u + ue + p) = th + [th·u + th·(ue+p) + tl·(1+u)]
-	lo = math.FMA(th, u, math.FMA(th, ue+p, math.FMA(tl, u, tl)))
-	hi = th + lo // Fast2Sum: |lo| < 2^-7 th
-	lo -= hi - th
+	// 2^(j/128)·(1 + u + ue + p) = th + th·u + [th·(ue+p) + tl·(1+u)],
+	// th·u exact (TwoProd) and added by Fast2Sum, so that only the
+	// bracket, below 2^-16 th, is rounded; then renormalised.
+	pu := float64(th * u) // float64(): not fused below
+	h := th + pu          // Fast2Sum: |th·u| < 2^-7 th
+	lo = ((pu - (h - th)) + math.FMA(th, u, -pu)) + math.FMA(th, ue+p, math.FMA(tl, u, tl))
+	hi = h + lo
+	lo -= hi - h
 	return hi, lo, ki >> 7
 }
 

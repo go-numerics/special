@@ -122,7 +122,7 @@ func erfcxHL(x float64) (hi, lo float64) {
 // erfcHL returns hi, lo, k with erfc(zh + zl) = (hi + lo)·2^k (and
 // erfcx(zh) to about 2^-53, for the inverse functions' Newton steps) for
 // 0.5 <= zh <= 26.5 and |zl| <= ulp(zh): exp(-z²) from z² = sh + sl exact
-// to 2^-106 (the exp kernel, 2^-61), erfcx(zh) corrected to first order in
+// to 2^-106 (the exp kernel, 2^-68), erfcx(zh) corrected to first order in
 // zl through erfcx'(x) = 2x erfcx(x) - 2/sqrt(pi), and the product formed
 // exactly up to its low-order terms.
 //
@@ -146,9 +146,11 @@ func erfcHL(zh, zl float64) (hi, lo float64, k int, erfcx float64) {
 	pu := u2 * math.FMA(u2, pb, pa)
 	t := &expT[ki&127]
 	th, tl := t[0], t[1]
-	elo := math.FMA(th, u, math.FMA(th, ue+pu, math.FMA(tl, u, tl)))
-	eh := th + elo
-	el := elo - (eh - th)
+	tu := float64(th * u)
+	e0 := th + tu
+	el := ((tu - (e0 - th)) + math.FMA(th, u, -tu)) + math.FMA(th, ue+pu, math.FMA(tl, u, tl))
+	eh := e0 + el
+	el -= eh - e0
 	// erfcx(zh): estPiece.eval on [0.5, 8), erfcxHL beyond
 	var ch, cl float64
 	if zh < 8 {
