@@ -53,7 +53,7 @@ func BetaInc(a, b, x float64) float64 {
 	if w, _, done := ibetaEdges(a, b, x); done {
 		return w
 	}
-	w, _ := ibetaRatio(a, b, ibetaNewXY(x))
+	w, _ := ibetaRatio(a, b, ibetaNewXY(x, a+b))
 	return w
 }
 
@@ -69,7 +69,7 @@ func BetaIncC(a, b, x float64) float64 {
 	if _, w1, done := ibetaEdges(a, b, x); done {
 		return w1
 	}
-	_, w1 := ibetaRatio(a, b, ibetaNewXY(x))
+	_, w1 := ibetaRatio(a, b, ibetaNewXY(x, a+b))
 	return w1
 }
 
@@ -107,20 +107,27 @@ type ibetaXY struct {
 	xd, yd dd.DD // x and y exactly (one of them is a float64 already)
 	lx, ly dd.DD
 	xExact bool // x is exact (y may be rounded); else y is exact
+	// lb = log B(a, b) when hasLB (set once by ibetaRatio: B is symmetric,
+	// so it survives a swap of the parameters with x and y).
+	lb    dd.DD
+	hasLB bool
 }
 
-// ibetaNewXY returns the pair for an exact x in (0, 1).
-func ibetaNewXY(x float64) ibetaXY {
+// ibetaNewXY returns the pair for an exact x in (0, 1). The logarithms
+// are multiplied by at most scale (a + b: by a, b or ν = a + (b-1)/2) and
+// carry the precision that keeps the products' absolute error below about
+// 2^-64 (igamLogScaled, igamLog1pDDScaled).
+func ibetaNewXY(x, scale float64) ibetaXY {
 	y := 1 - x
 	if x <= 0.5 {
-		return ibetaXY{x: x, y: y, xd: dd.F(x), yd: sumDD(1, -x), lx: dd.LogAccurate(x), ly: igamLog1pDD(dd.F(-x)), xExact: true}
+		return ibetaXY{x: x, y: y, xd: dd.F(x), yd: sumDD(1, -x), lx: igamLogScaled(x, scale), ly: igamLog1pDDScaled(dd.F(-x), scale), xExact: true}
 	}
 	// y = 1 - x is exact for x >= 1/2 (Sterbenz)
-	return ibetaXY{x: x, y: y, xd: dd.F(x), yd: dd.F(y), lx: igamLog1pDD(dd.F(-y)), ly: dd.LogAccurate(y), xExact: false}
+	return ibetaXY{x: x, y: y, xd: dd.F(x), yd: dd.F(y), lx: igamLog1pDDScaled(dd.F(-y), scale), ly: igamLogScaled(y, scale), xExact: false}
 }
 
 func (v ibetaXY) swap() ibetaXY {
-	return ibetaXY{x: v.y, y: v.x, xd: v.yd, yd: v.xd, lx: v.ly, ly: v.lx, xExact: !v.xExact}
+	return ibetaXY{x: v.y, y: v.x, xd: v.yd, yd: v.xd, lx: v.ly, ly: v.lx, xExact: !v.xExact, lb: v.lb, hasLB: v.hasLB}
 }
 
 // ibetaLogBeta returns log B(a, b) for a, b > 0 finite, as a double-double.
@@ -147,7 +154,20 @@ func ibetaLogABeta(a, b float64) dd.DD {
 // BRCOMP), from its double-double logarithm.
 func ibetaPowMant(a, b float64, v ibetaXY) (dd.DD, int) {
 	l := dd.Add(dd.MulF(v.lx, a), dd.MulF(v.ly, b))
-	return dd.ExpMant(dd.Sub(l, ibetaLogBeta(a, b)))
+	lb := v.lb
+	if !v.hasLB {
+		lb = ibetaLogBeta(a, b)
+	}
+	return dd.ExpMant(dd.Sub(l, lb))
+}
+
+// ibetaLdexpDD returns m·2^k as a double-double; where the value nears the
+// subnormal range it is rounded once instead (its complement is then 1).
+func ibetaLdexpDD(m dd.DD, k int) dd.DD {
+	if k < -960 {
+		return dd.F(math.Ldexp(m.Hi+m.Lo, k))
+	}
+	return dd.Ldexp(m, k)
 }
 
 // ibetaScale returns m·2^k·f rounded to float64.
@@ -161,12 +181,14 @@ func ibetaScale(m dd.DD, k int, f float64) float64 {
 func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 	const eps = ibetaEps
 	// res returns (w, w1) from the directly computed one, undoing a swap.
-	res := func(swapped bool, direct float64, directIsW bool) (float64, float64) {
-		var w, w1 float64
-		if directIsW {
-			w, w1 = direct, 1-direct
-		} else {
-			w, w1 = 1-direct, direct
+	// The complement is formed from the double-double (one rounding of
+	// the direct value would cost up to w/(1-w) ulp of the complement).
+	res := func(swapped bool, direct dd.DD, directIsW bool) (float64, float64) {
+		d := direct.Hi + direct.Lo
+		c := (1 - direct.Hi) - direct.Lo
+		w, w1 := d, c
+		if !directIsW {
+			w, w1 = c, d
 		}
 		if swapped {
 			return w1, w
@@ -182,38 +204,38 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 		}
 		x0 := v0.x
 		if b0 < math.Min(eps, eps*a0) {
-			return res(swapped, ibetaFpser(a0, b0, v0, eps), true)
+			return res(swapped, dd.F(ibetaFpser(a0, b0, v0, eps)), true)
 		}
 		if a0 < math.Min(eps, eps*b0) && b0*x0 <= 1 {
-			return res(swapped, ibetaApser(a0, b0, x0, eps), false)
+			return res(swapped, dd.F(ibetaApser(a0, b0, x0, eps)), false)
 		}
 		if math.Max(a0, b0) <= 1 {
 			if math.Pow(x0, a0) <= 0.9 || a0 >= math.Min(0.2, b0) {
-				return res(swapped, ibetaBpser(a0, b0, v0, eps), true)
+				return res(swapped, ibetaBpserDD(a0, b0, v0, eps), true)
 			}
 			if x0 >= 0.3 {
-				return res(swapped, ibetaBpser(b0, a0, v0.swap(), eps), false)
+				return res(swapped, ibetaBpserDD(b0, a0, v0.swap(), eps), false)
 			}
 			w1 := ibetaBup(b0, a0, v0.swap(), 20, eps)
 			w1 = ibetaBgrat(b0+20, a0, v0.swap(), w1, 15*eps)
-			return res(swapped, w1, false)
+			return res(swapped, dd.F(w1), false)
 		}
 		if b0 <= 1 {
-			return res(swapped, ibetaBpser(a0, b0, v0, eps), true)
+			return res(swapped, ibetaBpserDD(a0, b0, v0, eps), true)
 		}
 		if x0 >= 0.3 {
-			return res(swapped, ibetaBpser(b0, a0, v0.swap(), eps), false)
+			return res(swapped, ibetaBpserDD(b0, a0, v0.swap(), eps), false)
 		}
 		if x0 < 0.1 && math.Pow(x0*b0, a0) <= 0.7 {
-			return res(swapped, ibetaBpser(a0, b0, v0, eps), true)
+			return res(swapped, ibetaBpserDD(a0, b0, v0, eps), true)
 		}
 		if b0 > 15 {
 			w1 := ibetaBgrat(b0, a0, v0.swap(), 0, 15*eps)
-			return res(swapped, w1, false)
+			return res(swapped, dd.F(w1), false)
 		}
 		w1 := ibetaBup(b0, a0, v0.swap(), 20, eps)
 		w1 = ibetaBgrat(b0+20, a0, v0.swap(), w1, 15*eps)
-		return res(swapped, w1, false)
+		return res(swapped, dd.F(w1), false)
 	}
 	// a, b > 1. λ = (a+b)y - b = a - (a+b)x in double-double.
 	lambda := ibetaLambda(a, b, v)
@@ -224,7 +246,7 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 	}
 	x0 := v0.x
 	if b0 < 40 && b0*x0 <= 0.7 {
-		return res(swapped, ibetaBpser(a0, b0, v0, eps), true)
+		return res(swapped, ibetaBpserDD(a0, b0, v0, eps), true)
 	}
 	if b0 < 40 {
 		n := int(b0)
@@ -233,22 +255,23 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 			n--
 			b0 = 1
 		}
-		w := ibetaBup(b0, a0, v0.swap(), n, eps)
+		// every prefix below is for the pair (a0, b0)
+		v0.lb, v0.hasLB = ibetaLogBeta(a0, b0), true
+		wd := ibetaBupDD(b0, a0, v0.swap(), n, eps)
 		if x0 <= 0.7 {
-			w += ibetaBpser(a0, b0, v0, eps)
-			return res(swapped, w, true)
+			return res(swapped, dd.Add(wd, ibetaBpserDD(a0, b0, v0, eps)), true)
 		}
 		if a0 <= 15 {
-			w += ibetaBup(a0, b0, v0, 20, eps)
+			wd = dd.Add(wd, ibetaBupDD(a0, b0, v0, 20, eps))
 			a0 += 20
 		}
-		w = ibetaBgrat(a0, b0, v0, w, 15*eps)
-		return res(swapped, w, true)
+		w := ibetaBgrat(a0, b0, v0, wd.Hi+wd.Lo, 15*eps)
+		return res(swapped, dd.F(w), true)
 	}
 	if (a0 > b0 && (b0 <= 100 || lambda.Hi > 0.03*b0)) || (a0 <= b0 && (a0 <= 100 || lambda.Hi > 0.03*a0)) {
-		return res(swapped, ibetaBfrac(a0, b0, v0, lambda.Hi, 15*eps), true)
+		return res(swapped, dd.F(ibetaBfrac(a0, b0, v0, lambda.Hi, 15*eps)), true)
 	}
-	return res(swapped, ibetaBasym(a0, b0, lambda, 100*eps), true)
+	return res(swapped, dd.F(ibetaBasym(a0, b0, lambda, 100*eps)), true)
 }
 
 // ibetaLambda returns λ = (a+b)y - b = a - (a+b)x as a double-double,
@@ -261,34 +284,21 @@ func ibetaLambda(a, b float64, v ibetaXY) dd.DD {
 	return dd.Sub(dd.MulF(s, v.y), dd.F(b))
 }
 
-// ibetaBpser returns I_x(a, b) by the power series (TOMS 708's BPSER),
-// used when b <= 1 or b·x <= 0.7:
+// ibetaBpserDD returns I_x(a, b), as a double-double, where TOMS 708 uses its power series BPSER
+// (b <= 1 or b·x <= 0.7). The series is taken in Euler's form,
 //
-//	I_x(a,b) = x^a/(a B(a,b)) [1 + a Σ_{n>=1} (1-b)(2-b)...(n-b) x^n / (n! (a+n))].
-func ibetaBpser(a, b float64, v ibetaXY, eps float64) float64 {
-	// prefix x^a / (a B(a, b))
-	l := dd.Sub(dd.MulF(v.lx, a), ibetaLogABeta(a, b))
-	m, k := dd.ExpMant(l)
-	if m.Hi == 0 || a <= 0.1*eps {
-		return ibetaScale(m, k, 1)
+//	I_x(a,b) = x^a y^b/(a B(a,b)) Σ_{i>=0} (a+b)_i/(a+1)_i x^i
+//
+// (DLMF 8.17.8 / 15.8.1 applied to BPSER's 2F1(a, 1-b; a+1; x)), whose terms
+// are all positive: BPSER's own terms alternate for b > 1 and a·Σ cancels
+// against the leading 1. It is BUP run to convergence (ibetaPosSum).
+func ibetaBpserDD(a, b float64, v ibetaXY, eps float64) dd.DD {
+	m, k := ibetaPowMant(a, b, v)
+	m = dd.DivF(m, a)
+	if !(m.Hi == 0 || a <= 0.1*eps) {
+		m = dd.Mul(m, ibetaPosSum(a, b, v.xd, 0, 1<<30, eps))
 	}
-	// The terms are carried in double-double: with b > 1 they alternate
-	// and a·Σ can cancel against the leading 1, and their product form
-	// accumulates one rounding per term otherwise.
-	sum := dd.F(0)
-	c := dd.F(1)
-	tol := eps / a
-	for n := 1.0; n < 100000; n++ {
-		c = dd.Mul(c, v.xd)
-		c = dd.Sub(c, dd.DivF(dd.MulF(c, b), n)) // c·(1 - b/n)
-		w := dd.Div(c, sumDD(a, n))
-		sum = dd.Add(sum, w)
-		if !(math.Abs(w.Hi) > tol*0x1p-8) {
-			break
-		}
-	}
-	r := dd.Mul(m, dd.AddF(dd.MulF(sum, a), 1))
-	return math.Ldexp(r.Hi+r.Lo, k)
+	return ibetaLdexpDD(m, k)
 }
 
 // ibetaBup returns I_x(a, b) - I_x(a+n, b) for a positive integer n
@@ -297,45 +307,70 @@ func ibetaBpser(a, b float64, v ibetaXY, eps float64) float64 {
 //	x^a y^b / (a B(a,b)) Σ_{i=0}^{n-1} d_i,  d_0 = 1,
 //	d_{i+1} = d_i (a+b+i)/(a+1+i) x.
 func ibetaBup(a, b float64, v ibetaXY, n int, eps float64) float64 {
+	return ibetaBupDD(a, b, v, n, eps).Float()
+}
+
+// ibetaBupDD is ibetaBup as a double-double.
+func ibetaBupDD(a, b float64, v ibetaXY, n int, eps float64) dd.DD {
 	m, k := ibetaPowMant(a, b, v)
 	m = dd.DivF(m, a)
 	if n == 1 || m.Hi == 0 {
-		return ibetaScale(m, k, 1)
-	}
-	x, y := v.x, v.y
-	nm1 := n - 1
-	// d_{i+1} = d_i (a+b+i)/(a+1+i) x in double-double (a+b and a+1 exact):
-	// the n-1 products otherwise accumulate one rounding each.
-	apb := sumDD(a, b)
-	ap1 := sumDD(a, 1)
-	d := dd.F(1)
-	w := d
-	next := func(i int) {
-		fi := float64(i)
-		d = dd.Div(dd.Mul(dd.Mul(d, dd.AddF(apb, fi)), v.xd), dd.AddF(ap1, fi))
-		w = dd.Add(w, d)
+		return dd.Ldexp(m, k)
 	}
 	// k0: index of the largest term; the terms before it are all added
 	k0 := 0
 	if b > 1 {
 		// (y > 1e-4 here: BUP is only called with b > 1 on the side where
 		// x <= 0.7 or with b < 1)
-		r := (b-1)*x/y - a
+		r := (b-1)*v.x/v.y - a
 		if r >= 1 {
-			k0 = int(math.Min(r, float64(nm1)))
+			k0 = int(math.Min(r, float64(n-1)))
 		}
 	}
-	for i := 0; i < k0; i++ {
-		next(i)
-	}
-	for i := k0; i < nm1; i++ {
-		next(i)
-		if d.Hi <= eps*0x1p-8*w.Hi {
+	return ibetaLdexpDD(dd.Mul(m, ibetaPosSum(a, b, v.xd, k0, n, eps)), k)
+}
+
+// ibetaPosSum returns Σ_{i=0}^{n-1} d_i, d_0 = 1, d_{i+1} = d_i (a+b+i)/(a+1+i)
+// x, stopping once i >= k0 and d_i <= 2^-8 eps of the sum.
+//
+// Every quantity is a pair hi + lo carried without renormalisation: the
+// factor (a+b+i) x/(a+1+i) to about 2^-104 (its numerator and denominator
+// from TwoSum, the quotient th·(1/s2) corrected by its exact FMA remainder,
+// so one division per term), the product
+// d·f with TwoProd's error, the sum with TwoSum's. That is double-double
+// accuracy (the terms are positive: no cancellation can amplify the low
+// parts' own roundings) for about a third of the operations of the dd
+// package, which renormalises after each one.
+func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
+	abh, abl := dd.TwoSum(a, b)
+	a1h, a1l := dd.TwoSum(a, 1)
+	xh, xl := x.Hi, x.Lo
+	dh, dl := 1.0, 0.0
+	sh, sl := 1.0, 0.0
+	tol := eps * 0x1p-8
+	for i := 0; i < n-1; i++ {
+		fi := float64(i)
+		s1h, e1 := dd.TwoSum(abh, fi)
+		s1l := e1 + abl
+		s2h, e2 := dd.TwoSum(a1h, fi)
+		s2l := e2 + a1l
+		th := s1h * xh
+		tl := math.FMA(s1h, xh, -th) + (s1h*xl + s1l*xh)
+		r := 1 / s2h
+		fh := th * r
+		fl := (math.FMA(-fh, s2h, th) + tl - fh*s2l) * r
+		ph := dh * fh
+		dl = math.FMA(dh, fh, -ph) + (dh*fl + dl*fh)
+		dh = ph
+		var e float64
+		sh, e = dd.TwoSum(sh, dh)
+		sl += e + dl
+		if i >= k0 && dh <= tol*sh {
 			break
 		}
 	}
-	r := dd.Mul(m, w)
-	return math.Ldexp(r.Hi+r.Lo, k)
+	h, l := dd.FastTwoSum(sh, sl)
+	return dd.DD{Hi: h, Lo: l}
 }
 
 // ibetaBfrac returns I_x(a, b) by the continued fraction of TOMS 708's

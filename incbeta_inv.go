@@ -170,7 +170,7 @@ func ibetaInvSide(a, b, p, q float64) float64 {
 // upper else I_u(a, b), and r = |d log T / d log u| = u^a (1-u)^(b-1) /
 // (B(a, b) T); lb = log B(a, b).
 func ibetaInvTail(a, b, u float64, upper bool, lb dd.DD) (lt dd.DD, r float64) {
-	v := ibetaNewXY(u)
+	v := ibetaNewXY(u, math.Inf(1))
 	ld := dd.Sub(dd.Add(dd.MulF(v.lx, a), dd.MulF(v.ly, b-1)), lb)
 	bpser := a < 1 && (b <= 1 || b*u <= 0.7)
 	switch {
