@@ -310,6 +310,9 @@ func Polygamma(n int, x float64) float64 {
 	case math.IsInf(x, 1):
 		return 0
 	}
+	if n == 1 && x >= 0x1p-500 {
+		return trigamma(x)
+	}
 	sign := 1.0
 	if n%2 == 0 {
 		sign = -1
@@ -331,4 +334,62 @@ func Polygamma(n int, x float64) float64 {
 	}
 	m := dd.Mul(h.m, f.m)
 	return sign * math.Ldexp(m.Float(), h.e+f.e)
+}
+
+// trigamma returns ψ'(x) = ζ(2, x) for 2^-500 <= x < +Inf (Polygamma's
+// n = 1, specialised: the integer power needs neither a logarithm nor an
+// exponential). From 10, the asymptotic series (DLMF 5.15.8)
+// 1/x + 1/(2x²) + Σ B_2k/x^(2k+1) with its first two terms as hi + lo and
+// twelve Bernoulli terms (truncation below 2^-63 relative at x = 10).
+// Below 10, the recurrence ψ'(x) = Σ_{k<n} 1/(x+k)² + ψ'(x+n) with x + n
+// in [10, 11): every x + k exact as hi + lo, every 1/(x+k)² as hi + lo,
+// the sum by TwoSum, and ψ'(x+n) corrected to first order for the low
+// part of x + n.
+func trigamma(x float64) float64 {
+	if x >= 10 {
+		h, l := trigammaAsym(x)
+		return h + l
+	}
+	n := math.Ceil(10 - x)
+	sh, sl := 0.0, 0.0
+	for k := n - 1; k >= 0; k-- {
+		yh := x + k // TwoSum
+		bb := yh - x
+		yl := (x - (yh - bb)) + (k - bb)
+		q := 1 / yh
+		ql := (math.FMA(-q, yh, 1) - q*yl) * q // 1/(x+k) = q + ql
+		th := float64(q * q)
+		tl := math.FMA(q, q, -th) + 2*q*ql
+		v := sh + th // TwoSum
+		bb = v - sh
+		sl += ((sh - (v - bb)) + (th - bb)) + tl
+		sh = v
+	}
+	yh := x + n
+	bb := yh - x
+	yl := (x - (yh - bb)) + (n - bb)
+	ah, al := trigammaAsym(yh)
+	iy := 1 / yh
+	al -= yl * iy * iy * (1 + iy*(1+0.5*iy)) // ψ''(y) yl, ψ''(y) = -(1/y² + 1/y³ + 1/(2y⁴)) + O(y^-6)
+	v := sh + ah
+	bb = v - sh
+	ve := (sh - (v - bb)) + (ah - bb)
+	return v + (ve + (sl + al))
+}
+
+// trigammaAsym returns ψ'(x) as hi + lo for x >= 10 (see trigamma).
+func trigammaAsym(x float64) (hi, lo float64) {
+	q := 1 / x
+	ql := math.FMA(-q, x, 1) * q // 1/x = q + ql
+	zh := float64(q * q)
+	zl := math.FMA(q, q, -zh) + 2*q*ql // 1/x² = zh + zl
+	z2 := zh * zh
+	z4 := z2 * z2
+	a := math.FMA(math.FMA(-1.0/30, zh, 1.0/42), z2, math.FMA(-1.0/30, zh, 1.0/6))
+	b := math.FMA(math.FMA(-3617.0/510, zh, 7.0/6), z2, math.FMA(-691.0/2730, zh, 5.0/66))
+	c := math.FMA(math.FMA(-236364091.0/2730, zh, 854513.0/138), z2, math.FMA(-174611.0/330, zh, 43867.0/798))
+	ser := math.FMA(math.FMA(c, z4, b), z4, a) * zh * q
+	h := 0.5 * zh
+	hi = q + h // Fast2Sum: 1/(2x²) < 1/x
+	return hi, ((q - hi) + h) + (ql + 0.5*zl + ser)
 }
