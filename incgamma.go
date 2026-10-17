@@ -123,9 +123,10 @@ func igamPQ(a, x float64) (p, q float64) {
 }
 
 // igamLog returns log(x) for x > 0, subnormal x included (math.Log is
-// wrong for subnormal arguments on some platforms; dd.Log normalises).
+// wrong for subnormal arguments on some platforms; logf normalises). Its
+// uses are branch decisions and starting values.
 func igamLog(x float64) float64 {
-	return dd.LogAccurate(x).Hi
+	return logf(x)
 }
 
 // igamLogPrefix returns log(x^a e^(-x) / Γ(a)) as a double-double, for
