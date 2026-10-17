@@ -192,6 +192,17 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 	if upper {
 		sg = 1
 	}
+	// The last step: below the resolution of x where the tail comes from
+	// the double-double series (a < 1, x < 1.1), so the root is found to
+	// its full accuracy; below 2^-50 elsewhere, where a step that small is
+	// the noise of the float64 forward function and the next evaluation
+	// could only move x within it.
+	stop := func(x float64) float64 {
+		if a < 1 && x < 1.1 {
+			return 0x1p-52
+		}
+		return 0x1p-50
+	}
 	lo, hi := 0.0, math.Inf(1)
 	x := x0
 	for i := 0; i < 400; i++ {
@@ -219,7 +230,7 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 		// earlier on the cubic convergence lands up to the forward
 		// function's error away from its computed root, which varies from
 		// one x to the next: about an ulp more at the worst points.)
-		if nx == x || math.Abs(step) < 0x1p-52 {
+		if nx == x || math.Abs(step) < stop(x) {
 			return nx
 		}
 		if !(nx > lo && nx < hi) {
