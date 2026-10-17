@@ -25,8 +25,27 @@ func Expit(x float64) float64 {
 	if !(x >= -660 && x <= 40) {
 		return expitTail(x)
 	}
-	h, l, k := expHL(-math.Abs(x), 0)
-	s := pow2(k) // k >= -1022
+	// e = exp(-|x|): expHL written out (a call costs a tenth of Expit)
+	xh := -math.Abs(x)
+	kd := math.RoundToEven(xh * expInvLn2N)
+	ki := int(kd)
+	r := xh - kd*expC1
+	dr := -kd * expC2
+	u := r + dr
+	ue := dr - (u - r)
+	u2 := u * u
+	pa := math.FMA(u, 1.0/6, 0.5)
+	pb := math.FMA(u, 1.0/120, 1.0/24)
+	pb = math.FMA(u2, 1.0/720, pb)
+	pu := u2 * math.FMA(u2, pb, pa)
+	t := &expT[ki&127]
+	th, tl := t[0], t[1]
+	tu := float64(th * u)
+	h0 := th + tu
+	l := ((tu - (h0 - th)) + math.FMA(th, u, -tu)) + math.FMA(th, ue+pu, math.FMA(tl, u, tl))
+	h := h0 + l
+	l -= h - h0
+	s := pow2(ki >> 7) // >= -953 for x >= -660
 	h *= s
 	l *= s
 	// d = 1 + e exactly (e <= 1).
@@ -38,8 +57,8 @@ func Expit(x float64) float64 {
 	}
 	inv := 1 / dh
 	y := nh * inv
-	r := math.FMA(-y, dh, nh) + (nl - y*dl) // n - y·d
-	return math.FMA(r, inv, y)
+	res := math.FMA(-y, dh, nh) + (nl - y*dl) // n - y·d
+	return math.FMA(res, inv, y)
 }
 
 // expitTail is Expit outside [-660, 40] (and NaN).
@@ -168,19 +187,51 @@ func log1pHL(th, tl float64) float64 {
 // Xlogy returns x*log(y), defined as 0 when x = 0 and y is not NaN (so that
 // 0*log(0) terms of entropies vanish), as SciPy's xlogy. log(y) comes from
 // the log kernel as hi + lo (2^-68 absolute) and the product is rounded
-// once by an FMA.
+// once by an FMA. The kernel is written out here (the same operations as
+// logHL, without its subnormal branch): at a few ns per call, the spill of
+// a call under Go's ABI is a tenth of the cost.
 func Xlogy(x, y float64) float64 {
+	iy := math.Float64bits(y)
+	if iy-1<<52 >= 0x7ff0000000000000-1<<52 || x == 0 || x-x != 0 {
+		// y not normal positive finite (or NaN), x zero, infinite or NaN
+		return xlogyTail(x, y)
+	}
+	tmp := iy - 0x3fe8000000000000
+	ke := int(int64(tmp) >> 52)
+	m := math.Float64frombits(iy - uint64(int64(tmp)>>52)<<52)
+	t := &logT[int(m*256+0.5)-192]
+	invc := t[0]
+	p := float64(m * invc) // float64(): not fused into r below
+	pe := math.FMA(m, invc, -p)
+	r := p - 1
+	r2 := r * r
+	c0 := math.FMA(r, 1.0/3, -0.5)
+	c1 := math.FMA(r, 1.0/5, -0.25)
+	c2 := math.FMA(r, 1.0/7, -1.0/6)
+	c2 = math.FMA(r2, -1.0/8, c2)
+	c1 = math.FMA(r2, c2, c1)
+	q := r2 * math.FMA(r2, c1, c0)
+	kf := float64(ke)
+	lh := kf*ln2Hi42 + t[1]
+	hi := lh + r
+	lo := (r - (hi - lh)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + q))
+	return math.FMA(x, hi, x*lo)
+}
+
+// xlogyTail is Xlogy for x = 0, y <= 0, subnormal, infinite or NaN, and x
+// infinite or NaN.
+func xlogyTail(x, y float64) float64 {
 	if x == 0 && !math.IsNaN(y) {
 		return 0
 	}
-	if !(y > 0 && y <= math.MaxFloat64) || math.IsInf(x, 0) || math.IsNaN(x) {
-		if math.IsNaN(x) || math.IsNaN(y) || y < 0 {
-			return math.NaN()
-		}
-		return x * math.Log(y)
+	if math.IsNaN(x) || math.IsNaN(y) || y < 0 {
+		return math.NaN()
 	}
-	lh, ll := logHL(y)
-	return math.FMA(x, lh, x*ll)
+	if y > 0 && y < 0x1p-1022 && !math.IsInf(x, 0) {
+		lh, ll := logHL(y)
+		return math.FMA(x, lh, x*ll)
+	}
+	return x * math.Log(y)
 }
 
 // Xlog1py returns x*log1p(y), defined as 0 when x = 0 and y is not NaN, as
