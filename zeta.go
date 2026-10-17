@@ -263,8 +263,124 @@ func HurwitzZeta(s, q float64) float64 {
 		}
 		return math.NaN()
 	}
+	if v, ok := hurwitzFast(s, q); ok {
+		return v
+	}
 	h := hurwitzAny(s, q)
 	return math.Ldexp(h.m.Float(), h.e)
+}
+
+// powNegHL returns (yh + yl)^-s as hi + lo for yh > 0 with the result in
+// the normal range (the caller checks): exp(-s log y) with log y from the
+// log kernel (2^-68 absolute), -s log y formed exactly up to its low-order
+// terms, and the exp kernel (2^-68 relative); about 2^-62 relative in all
+// for s log y up to 700.
+func powNegHL(yh, yl, s float64) (hi, lo float64) {
+	lh, ll := logHL(yh)
+	ll += yl / yh
+	ph := float64(-s * lh)
+	pl := math.FMA(-s, lh, -ph) - s*ll
+	h := ph + pl // normalise for the exp kernel
+	eh, el, k := expHL(h, pl-(h-ph))
+	sc := pow2(k)
+	return eh * sc, el * sc
+}
+
+// hurwitzFast is hurwitzPos for the common range, in float64 kernels:
+// 1 < s <= 64, 2^-20 <= q <= 2^40 with every term and the tail in the
+// normal range (s log2(max(q, w)) <= 1000, s log2(1/q) <= 1000). The same
+// Euler–Maclaurin arrangement (DLMF 25.11.5; Cephes zeta.c) and the same
+// Bernoulli terms with a shorter direct sum; each (q+k)^-s from powNegHL with q + k exact as
+// hi + lo, the terms summed by TwoSum, the tail w^-s [w/(s-1) + 1/2 +
+// Σ_j B_2j/(2j)! (s)_{2j-1} w^(1-2j)] with its first term as hi + lo.
+func hurwitzFast(s, q float64) (float64, bool) {
+	if !(s > 1 && s <= 64 && q >= 0x1p-20 && q <= 0x1p40) {
+		return 0, false
+	}
+	// The shift w = q + N: 15 Bernoulli terms reach 2^-66 of w/(s-1) for
+	// w >= 0.8s + 9 (computed with mpmath for 1 < s <= 64: the bound
+	// needed is 6.4 at s = 1, 24.2 at s = 20, 57.6 at s = 64), a shorter
+	// direct sum than hurwitzPos's 0.7(s+30), which allows for s > 64.
+	w0 := math.Max(10, 0.8*s+9)
+	n := 0.0
+	if q < w0 {
+		n = math.Ceil(w0 - q)
+	}
+	_, ew := math.Frexp(q + n)
+	_, eq := math.Frexp(q)
+	if s*float64(ew) > 1000 || s*float64(1-eq) > 1000 {
+		return 0, false
+	}
+	sh, sl := 0.0, 0.0
+	first := 0.0
+	for k := 0.0; k < n; k++ {
+		yh := q + k // TwoSum
+		bb := yh - q
+		yl := (q - (yh - bb)) + (k - bb)
+		th, tl := powNegHL(yh, yl, s)
+		if k == 0 {
+			first = th
+		} else if th < 0x1p-80*first {
+			// (q+k)^-s < 2^-80 q^-s: the remaining terms and the tail
+			// (at most (q+k)/(s-1) times this term) cannot reach the
+			// result's last bit.
+			return sh + sl, true
+		}
+		v := sh + th // TwoSum
+		bb = v - sh
+		sl += ((sh - (v - bb)) + (th - bb)) + tl
+		sh = v
+	}
+	wh := q + n
+	bb := wh - q
+	wl := (q - (wh - bb)) + (n - bb)
+	ph, pl := powNegHL(wh, wl, s) // w^-s
+	// bracket: w/(s-1) + 1/2 + Σ_j c_j (s)_{2j-1} w^(1-2j)
+	dh := s - 1 // TwoSum
+	bb = dh - s
+	dl := (s - (dh - bb)) + (-1 - bb)
+	bh := wh / dh
+	bl := (math.FMA(-bh, dh, wh) + wl - bh*dl) / dh
+	iw := 1 / wh
+	iw2 := iw * iw
+	// The first Bernoulli term t1 = s/(12w) apart, as hi + lo, the others (below
+	// t1 s²/(30 w²)) summed in float64: summing them onto 1/2 would leave
+	// the rounding of 1/2's ulp at every step.
+	iwl := (math.FMA(-iw, wh, 1) - iw*wl) * iw // 1/w = iw + iwl
+	sw := float64(s * iw)
+	swl := math.FMA(s, iw, -sw) + s*iwl // s/w = sw + swl
+	t1 := float64(sw * (1.0 / 12))
+	t1l := math.FMA(sw, 1.0/12, -t1) + (swl*(1.0/12) + sw*4.625929269271485e-18) // 1/12 - RN(1/12)
+	poch := s * (s + 1) * (s + 2)                                                // (s)_{2j-1}
+	pw := iw * iw2                                                               // w^(1-2j)
+	rest := 0.0
+	conv := false
+	for j := 2; j <= len(bernoulliOverFactorial); j++ {
+		t := bernoulliOverFactorial[j-1] * poch * pw
+		rest += t
+		if math.Abs(t) < 0x1p-64*bh {
+			conv = true
+			break
+		}
+		kk := float64(2*j - 1)
+		poch *= (s + kk) * (s + kk + 1)
+		pw *= iw2
+	}
+	if !conv {
+		return 0, false
+	}
+	c1 := bh + 0.5 // Fast2Sum: w/(s-1) > 1
+	e1 := (bh - c1) + 0.5
+	ch := c1 + t1 // Fast2Sum: t1 < 0.2
+	e2 := (c1 - ch) + t1
+	cl := (e1 + e2) + (bl + (t1l + rest))
+	// T = w^-s · bracket
+	th := float64(ph * ch)
+	tl := math.FMA(ph, ch, -th) + math.FMA(ph, cl, pl*ch)
+	v := sh + th // TwoSum
+	bb = v - sh
+	ve := (sh - (v - bb)) + (th - bb)
+	return v + (ve + (sl + tl)), true
 }
 
 // hurwitzAny returns ζ(s, q) as a scaled value for finite s > 1 and q not a
