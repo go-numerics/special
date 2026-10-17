@@ -222,7 +222,13 @@ func besselCF2JY(v, x float64) (p, q dd.DD) {
 			break
 		}
 	}
-	return besselCF2Tail(v, x, 4*k+40)
+	// Backwards from beyond Lentz's depth k: four times it below x = 8,
+	// where the fraction converges slowly and next to the zeros of Y the
+	// value is differenced to a fraction of itself; twice it above.
+	if x < 8 {
+		return besselCF2Tail(v, x, 4*k+40)
+	}
+	return besselCF2Tail(v, x, 2*k+20)
 }
 
 // besselCF2Tail evaluates the fraction of besselCF2JY from level n down:
