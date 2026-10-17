@@ -129,38 +129,67 @@ func besselCF1IK(v, x float64) dd.DD {
 func besselCF2IK(u, x float64) (ku, ku1 float64) {
 	// The recurrences in double-double: the float64 version of this sum
 	// costs several ulps (the sum S of Steed's algorithm accumulates one
-	// rounding per term).
-	a := dd.AddF(dd.MulFF(u, u), -0.25)
+	// rounding per term). The terms are summed until they fall below 2^-64
+	// of S (the result needs no more), and the divisions are reciprocals
+	// with their FMA remainder (besselRecipDD) or divisions by a float64.
+	a := besselAddFS(dd.MulFF(u, u), -0.25)
 	b := dd.F(2 * (x + 1))
-	D := dd.Div(dd.F(1), b)
+	D := besselRecipDD(b)
 	f, delta := D, D
 	prev, cur := dd.F(0), dd.F(1)
 	C := dd.Neg(a)
 	Q := C
-	S := dd.Add(dd.F(1), dd.Mul(Q, delta))
+	S := besselAddS(dd.F(1), dd.Mul(Q, delta))
 	for k := 2; k < besselMaxIter; k++ {
-		a = dd.AddF(a, -2*float64(k-1))
-		b = dd.AddF(b, 2)
-		D = dd.Div(dd.F(1), dd.Add(b, dd.Mul(a, D)))
-		delta = dd.Mul(delta, dd.AddF(dd.Mul(b, D), -1))
-		f = dd.Add(f, delta)
-		q := dd.Div(dd.Sub(prev, dd.Mul(dd.AddF(b, -2), cur)), a)
+		a = besselAddFS(a, -2*float64(k-1))
+		b = besselAddFS(b, 2)
+		D = besselRecipDD(besselAddS(b, dd.Mul(a, D)))
+		delta = dd.Mul(delta, besselAddFS(dd.Mul(b, D), -1))
+		f = besselAddS(f, delta)
+		q := dd.Mul(besselAddS(prev, dd.Neg(dd.Mul(besselAddFS(b, -2), cur))), besselRecipDD(a))
 		prev, cur = cur, q
-		C = dd.DivF(dd.Mul(C, dd.Neg(a)), float64(k))
-		Q = dd.Add(Q, dd.Mul(C, q))
-		S = dd.Add(S, dd.Mul(Q, delta))
+		C = igamDivF(dd.Mul(C, dd.Neg(a)), float64(k))
+		Q = besselAddS(Q, dd.Mul(C, q))
+		S = besselAddS(S, dd.Mul(Q, delta))
 		if q.Hi < 0x1p-52 { // rescale (Boost): C, prev, cur by q
 			C = dd.Mul(C, q)
-			prev = dd.Div(prev, q)
-			cur = dd.Div(cur, q)
+			r := besselRecipDD(q)
+			prev = dd.Mul(prev, r)
+			cur = dd.Mul(cur, r)
 		}
-		if math.Abs(Q.Hi*delta.Hi) < math.Abs(S.Hi)*0x1p-106 {
+		if math.Abs(Q.Hi*delta.Hi) < math.Abs(S.Hi)*0x1p-64 {
 			break
 		}
 	}
-	k := dd.Div(dd.Sqrt(dd.DivF(besselPiOver2DD, x)), S)
-	t := dd.AddF(dd.Add(dd.Mul(a0(u), f), dd.F(0.5+u)), x)
-	return k.Float(), dd.DivF(dd.Mul(k, t), x).Float()
+	k := dd.Mul(dd.Sqrt(igamDivF(besselPiOver2DD, x)), besselRecipDD(S))
+	t := besselAddFS(besselAddS(dd.Mul(a0(u), f), dd.F(0.5+u)), x)
+	return k.Float(), igamDivF(dd.Mul(k, t), x).Float()
+}
+
+// besselAddS returns a + b for double-doubles with the low parts added in
+// float64 (Dekker's "sloppy" addition, half the operations of dd.Add): its
+// error is a rounding of a.Lo + b.Lo, which is 2^-105 of the result unless
+// a.Hi and b.Hi cancel, and the recurrences that use it do not cancel by
+// more than a few bits.
+func besselAddS(a, b dd.DD) dd.DD {
+	s, e := dd.TwoSum(a.Hi, b.Hi)
+	h, l := dd.FastTwoSum(s, e+(a.Lo+b.Lo))
+	return dd.DD{Hi: h, Lo: l}
+}
+
+// besselAddFS returns a + b for a double-double a and a float64 b.
+func besselAddFS(a dd.DD, b float64) dd.DD {
+	s, e := dd.TwoSum(a.Hi, b)
+	h, l := dd.FastTwoSum(s, e+a.Lo)
+	return dd.DD{Hi: h, Lo: l}
+}
+
+// besselRecipDD returns 1/w for a double-double w to about 2^-104: the
+// float64 reciprocal corrected by its FMA remainder.
+func besselRecipDD(w dd.DD) dd.DD {
+	r := 1 / w.Hi
+	h, l := dd.FastTwoSum(r, (math.FMA(-r, w.Hi, 1)-r*w.Lo)*r)
+	return dd.DD{Hi: h, Lo: l}
 }
 
 // a0 returns u^2 - 1/4 as a double-double.

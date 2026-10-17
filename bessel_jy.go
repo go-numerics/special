@@ -501,13 +501,18 @@ func besselSteed(nu, x float64, fv dd.DD) (j, gamma, p, q dd.DD) {
 func besselRecur(u, x float64, n int, a, b dd.DD, sg float64) (fn, fn1 dd.DD, e int) {
 	for k := 1; k <= n; k++ {
 		h, l := dd.TwoSum(u, float64(k))
-		f := dd.DivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
+		f := igamDivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
 		if math.Abs(b.Hi)*f.Hi > 0x1p1000 || math.Abs(a.Hi) > 0x1p1000 {
 			ex := math.Ilogb(b.Hi)
 			a, b = besselScaleDD(a, -ex), besselScaleDD(b, -ex)
 			e += ex
 		}
-		a, b = b, dd.Add(dd.Mul(f, b), dd.MulF(a, sg))
+		if sg > 0 {
+			// K: every term positive, no cancellation for the sloppy sum
+			a, b = b, besselAddS(dd.Mul(f, b), a)
+		} else {
+			a, b = b, dd.Sub(dd.Mul(f, b), a)
+		}
 	}
 	return a, b, e
 }
@@ -518,7 +523,7 @@ func besselRecur(u, x float64, n int, a, b dd.DD, sg float64) (fn, fn1 dd.DD, e 
 func besselRecurDown(u, x float64, n int, a, b dd.DD) (ju1, ju dd.DD, e int) {
 	for k := n; k >= 1; k-- {
 		h, l := dd.TwoSum(u, float64(k))
-		f := dd.DivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
+		f := igamDivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
 		if math.Abs(b.Hi)*f.Hi > 0x1p1000 || math.Abs(a.Hi) > 0x1p1000 {
 			ex := math.Ilogb(b.Hi)
 			a, b = besselScaleDD(a, -ex), besselScaleDD(b, -ex)
