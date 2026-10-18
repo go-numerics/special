@@ -140,6 +140,7 @@ func cosPiReduced(r float64) dd.DD {
 type polyPiece struct {
 	lo, hi, c float64
 	c0lo      float64 // low part of the constant term coef[n] as a double-double
+	c1lo      float64 // low part of the linear coefficient coef[n-1] (when emitted)
 	coef      []float64
 }
 

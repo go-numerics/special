@@ -8,40 +8,40 @@ import (
 )
 
 // Gamma applies special.Gamma element-wise.
-func Gamma(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Gamma, x) }
+func Gamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.GammaTo, x) }
 
 // LogGamma applies special.LogGamma element-wise.
-func LogGamma(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.LogGamma, x) }
+func LogGamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.LogGammaTo, x) }
 
 // GammaSign applies special.GammaSign element-wise.
 func GammaSign(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.GammaSign, x) }
 
 // Digamma applies special.Digamma element-wise.
-func Digamma(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Digamma, x) }
+func Digamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.DigammaTo, x) }
 
 // Erf applies special.Erf element-wise.
-func Erf(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Erf, x) }
+func Erf(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.ErfTo, x) }
 
 // Erfc applies special.Erfc element-wise.
-func Erfc(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Erfc, x) }
+func Erfc(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.ErfcTo, x) }
 
 // Erfcx applies special.Erfcx element-wise.
-func Erfcx(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Erfcx, x) }
+func Erfcx(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.ErfcxTo, x) }
 
 // ErfInv applies special.ErfInv element-wise.
-func ErfInv(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.ErfInv, x) }
+func ErfInv(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.ErfInvTo, x) }
 
 // ErfcInv applies special.ErfcInv element-wise.
-func ErfcInv(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.ErfcInv, x) }
+func ErfcInv(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.ErfcInvTo, x) }
 
 // Ndtr applies special.Ndtr element-wise.
-func Ndtr(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Ndtr, x) }
+func Ndtr(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.NdtrTo, x) }
 
 // Ndtri applies special.Ndtri element-wise.
-func Ndtri(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Ndtri, x) }
+func Ndtri(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.NdtriTo, x) }
 
 // LogNdtr applies special.LogNdtr element-wise.
-func LogNdtr(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.LogNdtr, x) }
+func LogNdtr(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.LogNdtrTo, x) }
 
 // Factorial applies special.Factorial element-wise.
 func Factorial(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Factorial, x) }
@@ -50,19 +50,19 @@ func Factorial(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.F
 func LogFactorial(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.LogFactorial, x) }
 
 // Expit applies special.Expit element-wise.
-func Expit(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Expit, x) }
+func Expit(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.ExpitTo, x) }
 
 // LogExpit applies special.LogExpit element-wise.
 func LogExpit(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.LogExpit, x) }
 
 // Log1pExp applies special.Log1pExp element-wise.
-func Log1pExp(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Log1pExp, x) }
+func Log1pExp(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.Log1pExpTo, x) }
 
 // Logit applies special.Logit element-wise.
-func Logit(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Logit, x) }
+func Logit(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.LogitTo, x) }
 
 // Zeta applies special.Zeta element-wise.
-func Zeta(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.Zeta, x) }
+func Zeta(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.ZetaTo, x) }
 
 // EllipK applies special.EllipK element-wise.
 func EllipK(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.EllipK, x) }
@@ -74,26 +74,41 @@ func EllipKm1(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.El
 func EllipE(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.EllipE, x) }
 
 // Beta applies special.Beta element-wise to the broadcast arguments.
-func Beta(a, b *ndarray.Array) (*ndarray.Array, error) { return Map2(special.Beta, a, b) }
+func Beta(a, b *ndarray.Array) (*ndarray.Array, error) {
+	return apply2(special.BetaTo, special.Beta, a, b)
+}
 
 // LogBeta applies special.LogBeta element-wise to the broadcast arguments.
-func LogBeta(a, b *ndarray.Array) (*ndarray.Array, error) { return Map2(special.LogBeta, a, b) }
+func LogBeta(a, b *ndarray.Array) (*ndarray.Array, error) {
+	return apply2(special.LogBetaTo, special.LogBeta, a, b)
+}
 
 // Binom applies special.Binom element-wise to the broadcast arguments.
 func Binom(a, b *ndarray.Array) (*ndarray.Array, error) { return Map2(special.Binom, a, b) }
 
 // Xlogy applies special.Xlogy element-wise to the broadcast arguments.
-func Xlogy(a, b *ndarray.Array) (*ndarray.Array, error) { return Map2(special.Xlogy, a, b) }
+func Xlogy(a, b *ndarray.Array) (*ndarray.Array, error) {
+	return apply2(special.XlogyTo, special.Xlogy, a, b)
+}
 
 // Xlog1py applies special.Xlog1py element-wise to the broadcast arguments.
 func Xlog1py(a, b *ndarray.Array) (*ndarray.Array, error) { return Map2(special.Xlog1py, a, b) }
 
 // HurwitzZeta applies special.HurwitzZeta element-wise to the broadcast arguments.
-func HurwitzZeta(a, b *ndarray.Array) (*ndarray.Array, error) { return Map2(special.HurwitzZeta, a, b) }
+func HurwitzZeta(a, b *ndarray.Array) (*ndarray.Array, error) {
+	return apply2(special.HurwitzZetaTo, special.HurwitzZeta, a, b)
+}
 
 // Polygamma applies special.Polygamma element-wise to the broadcast arguments; an
 // n that is not an integer gives NaN.
 func Polygamma(n, x *ndarray.Array) (*ndarray.Array, error) {
+	if n.Size() == 1 && len(n.Shape()) <= len(x.Shape()) && (x.DType() != ndarray.Float32 || n.DType() == ndarray.Float32) {
+		// A single order 1 (the shape and dtype of the result are x's):
+		// ψ' through the generated loop.
+		if v, _, err := operand(n); err == nil && v[0] == 1 {
+			return apply1(special.TrigammaTo, x)
+		}
+	}
 	return Map2(func(n, x float64) float64 {
 		if n != math.Trunc(n) || math.Abs(n) > math.MaxInt32 {
 			return math.NaN()

@@ -89,7 +89,10 @@ func Digamma(x float64) float64 {
 		return dd.AddF(dd.Neg(r), -euler).Float()
 	}
 	if x > 0 {
-		return digammaPos(x).Float()
+		if x >= 10 {
+			return digammaLarge(x)
+		}
+		return digammaSmall(x)
 	}
 	if x == math.Trunc(x) {
 		return math.NaN()
@@ -181,6 +184,80 @@ func trigamma1p(t float64) float64 {
 	}
 	y := t + 9
 	return s + 1/y + 1/(2*y*y) + 1/(6*y*y*y)
+}
+
+var (
+	digammaMidEst = estPieces(digammaMidPieces[:])
+	digamma1pEst  = estPieces(digamma1pPieces[:])
+)
+
+// digammaSmall returns ψ(x) for 2^-60 <= x < 10: on [2, 10) the fitted
+// pieces of ψ itself (evaluated with their constant and linear terms
+// exact); on [1, 2) (x - x0) D(x - 1) with the zero x0 and D as in
+// digamma1p; below 1, ψ(1+x) - 1/x with 1/x as hi + lo.
+func digammaSmall(x float64) float64 {
+	if x >= 2 {
+		var i int
+		switch {
+		case x < 3:
+			i = int((x - 2) * 4)
+		case x < 4:
+			i = 4 + int((x-3)*2)
+		default:
+			i = 6 + int(x-4)
+		}
+		h, l := digammaMidEst[i].evalLow(x, 0)
+		return h + l
+	}
+	t := x
+	if x >= 1 {
+		t = x - 1 // exact
+	}
+	// (t - r) D(t), t - r = dh + dl exactly
+	dh := t - digammaRoot.Hi
+	bb := dh - t
+	dl := ((t - (dh - bb)) + (-digammaRoot.Hi - bb)) - digammaRoot.Lo
+	fh, fl := digamma1pEst[min(int(t*4), 3)].eval(t)
+	ph := float64(dh * fh)
+	pl := math.FMA(dh, fh, -ph) + math.FMA(dh, fl, dl*fh)
+	if x >= 1 {
+		return ph + pl
+	}
+	// ψ(1+x) - 1/x
+	q := 1 / x
+	ql := math.FMA(-q, x, 1) * q
+	v := ph - q // Fast2Sum: 1/x > 1 > |ψ(1+x)|
+	return v + ((ph - (v + q)) + (pl - ql))
+}
+
+// digammaLarge returns ψ(x) for x >= 10 by the asymptotic series of
+// digammaAsym (DLMF 5.11.2, same terms) with log x from the log kernel
+// (2^-68 absolute), 1/(2x) as hi + lo, the series by Estrin's scheme and
+// one rounding.
+func digammaLarge(x float64) float64 {
+	const (
+		b1 = 1.0 / 12
+		b2 = -1.0 / 120
+		b3 = 1.0 / 252
+		b4 = -1.0 / 240
+		b5 = 1.0 / 132
+		b6 = -691.0 / 32760
+		b7 = 1.0 / 12
+		b8 = -3617.0 / 8160
+		b9 = 43867.0 / 14364
+	)
+	lh, ll := logHLn(x)
+	ix := 1 / x
+	hh := 0.5 * ix
+	hl := 0.5 * math.FMA(-ix, x, 1) * ix // 1/(2x) = hh + hl
+	z := ix * ix
+	z2 := z * z
+	z4 := z2 * z2
+	a := math.FMA(math.FMA(b4, z, b3), z2, math.FMA(b2, z, b1))
+	b := math.FMA(math.FMA(b8, z, b7), z2, math.FMA(b6, z, b5))
+	s := math.FMA(math.FMA(b9, z4, b), z4, a) * z
+	r := lh - hh // Fast2Sum: log x > 2.3 > 1/(2x)
+	return r + ((((lh - r) - hh) + ll) - (hl + s))
 }
 
 func digammaPos(x float64) dd.DD {
