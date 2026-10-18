@@ -11,87 +11,71 @@ import (
 // Near 0 the power series of DLMF 10.2.2 (J) and 10.8.1-2 (Y, with the
 // logarithm in double-double) are summed; they converge quickly there.
 //
-// Between the power series near 0 and x = 100 the function is summed as a
-// Taylor series about the nearest zero of the function or of its
-// derivative, tabulated in double-double with the value and the derivative
-// there; the higher coefficients follow from Bessel's equation (the method
-// of J. Harrison, "Fast and accurate Bessel function computation", ARITH
-// 19, 2009). With h = x - z formed exactly, the leading term d*h carries
-// the value with full relative accuracy however close x is to a zero.
+// Below x = 100 (from 0 for J, from the end of the series for Y) the
+// function is one polynomial per cell (zz_besselCells_coeffs.go,
+// testdata/gen/fitgo bessel-cells): the cells are centred on the zeros of
+// the function and of its derivative (the points of J. Harrison, "Fast and
+// accurate Bessel function computation", ARITH 19, 2009) and on the
+// midpoints between them, and on each f(z + h) = a0 + a1 h + h² R(h) with
+// a0, a1 exact to double-double and R fitted to mpmath. With h = x - z
+// formed exactly, the leading term a1 h carries the value with full
+// relative accuracy however close x is to a zero.
 //
 // From 100 on, besselAsymJY: Hankel's expansion in modulus-phase form with
 // the phase in double-double.
 
-// besselZeroTaylorMax is where besselAsymJY takes over from the series about
-// the tabulated zeros.
+// besselZeroTaylorMax is where besselAsymJY takes over from the cell
+// polynomials.
 const besselZeroTaylorMax = 100
 
-// besselPointTaylor evaluates the solution of Bessel's equation of order n,
-// x*x*y2 + x*y1 + (x*x - n*n)*y = 0 (y1, y2 the derivatives), as a Taylor
-// series about the tabulated point nearest to x. The points are the zeros
-// of the function and of its derivative, tab[i] = {z, y(z), y'(z)}, each a
-// double-double, so |x - z| <= ~pi/4 beyond the first point.
-func besselPointTaylor(tab [][6]float64, n2, x float64, singular bool) float64 {
-	// x is in [tab[0] - pi/4, 100] here, so this first guess is an index.
-	i := int((x-tab[0][0])/(math.Pi/2) + 0.5)
-	// For Y, whose singularity at 0 limits the radius of convergence about
-	// z to z, the point is chosen by |x - z|/z; for J by |x - z|.
-	dist := func(j int) float64 {
-		d := math.Abs(x - tab[j][0])
-		if singular {
-			d /= tab[j][0]
-		}
-		return d
-	}
-	for i+1 < len(tab) && dist(i+1) < dist(i) {
+// besselCell is one cell of zz_besselCells_coeffs.go: on [lo, next lo)
+// the function is f(z + h) = a0 + a1 h + h² R(h), h = x - z, with z, a0, a1
+// double-doubles (a0 = 0 when z is a zero of f) and R a degree-11
+// polynomial (r descending).
+type besselCell struct {
+	lo, z, zlo, a0, a0lo, a1, a1lo float64
+	r                              [12]float64
+}
+
+// besselCellEval evaluates the cell table at x in [cells[0].lo, 100).
+//
+// The cell is found from the uniform table lut (8 entries per unit of x,
+// each the cell holding the left end of its interval), then by stepping
+// right while x is past the next cell's edge. h = x - z is exact
+// (Sterbenz: every cell lies within [z/2, 2z]); z has a low part only at a
+// zero of f, where h = x - z - zlo is formed as a double-double.
+// R is summed in float64; w = a1 + h R and then a0 + h w are formed with
+// error-free transformations, so that the only roundings that reach the
+// result are those of h R (|h² R| is a small fraction of |f| on every
+// cell, or vanishes with h next to a zero) and the final one.
+func besselCellEval(cells []besselCell, lut []uint16, x float64) float64 {
+	i := int(lut[int(x*8)])
+	for i+1 < len(cells) && x >= cells[i+1].lo {
 		i++
 	}
-	for i > 0 && dist(i-1) < dist(i) {
-		i--
-	}
-	z := tab[i]
-	hs, he := dd.TwoSum(x, -z[0])
-	h := dd.AddF(dd.DD{Hi: hs, Lo: he}, -z[1])
-	z0 := z[0]
-	// a[k] are the Taylor coefficients about z0; from the equation, for
-	// k >= 0, z0^2 (k+1)(k+2) a[k+2] = -[z0 (k+1)(2k+1) a[k+1]
-	//   + (k^2 + z0^2 - n^2) a[k] + 2 z0 a[k-1] + a[k-2]].
-	var a [64]float64
-	a[0], a[1] = z[2], z[4]
-	hh := math.Abs(h.Hi)
-	lead := math.Max(math.Abs(a[0]), math.Abs(a[1]*hh))
-	K := len(a) - 1
-	small := 0
-	pw := hh
-	for k := 0; k+2 < len(a); k++ {
-		fk := float64(k)
-		s := z0*(fk+1)*(2*fk+1)*a[k+1] + (fk*fk+z0*z0-n2)*a[k]
-		if k >= 1 {
-			s += 2 * z0 * a[k-1]
-		}
-		if k >= 2 {
-			s += a[k-2]
-		}
-		a[k+2] = -s / (z0 * z0 * (fk + 1) * (fk + 2))
-		pw *= hh
-		if math.Abs(a[k+2])*pw <= 0x1p-60*lead {
-			small++
-			if small == 2 {
-				K = k + 2
-				break
-			}
-		} else {
-			small = 0
-		}
-	}
-	tail := 0.0
-	for k := K; k >= 2; k-- {
-		tail = tail*h.Hi + a[k]
-	}
-	tail *= h.Hi * h.Hi
-	r := dd.Add(dd.DD{Hi: z[2], Lo: z[3]}, dd.Mul(dd.DD{Hi: z[4], Lo: z[5]}, h))
-	r = dd.AddF(r, tail)
-	return r.Hi + r.Lo
+	c := &cells[i]
+	// x - (z + zlo) = he + hl exactly: x - z is exact, and the TwoSum
+	// keeps the cancellation between it and zlo next to a zero.
+	he, hl := dd.TwoSum(x-c.z, -c.zlo)
+	r := &c.r
+	t := r[0]
+	t = t*he + r[1]
+	t = t*he + r[2]
+	t = t*he + r[3]
+	t = t*he + r[4]
+	t = t*he + r[5]
+	t = t*he + r[6]
+	t = t*he + r[7]
+	t = t*he + r[8]
+	t = t*he + r[9]
+	t = t*he + r[10]
+	t = t*he + r[11]
+	// w = a1 + h R(h); f = a0 + h w
+	wh, wl := dd.TwoSum(c.a1, float64(he*t))
+	wl += c.a1lo
+	p, pe := dd.TwoProd(he, wh)
+	s, se := dd.TwoSum(c.a0, p)
+	return s + (se + pe + he*wl + hl*wh + c.a0lo)
 }
 
 // besselRational evaluates (p[0] + p[1] z + ...)/(q[0] + q[1] z + ...)
@@ -201,9 +185,9 @@ func besselY1Series(x float64) float64 {
 // for real x (even in x). J0(0) = 1, J0(±Inf) = 0 (the limit; SciPy returns
 // NaN), J0(NaN) = NaN.
 //
-// Algorithm: the power series for |x| <= 1.5; a Taylor series about the
-// nearest zero of J0 or J1 (tabulated in double-double, coefficients from
-// Bessel's equation; Harrison 2009) up to 100; Hankel's expansion in
+// Algorithm: below 100, one polynomial per cell about the zeros of J0, of
+// J1 and the midpoints between them, with the value and the derivative at
+// the centre in double-double (Harrison 2009); Hankel's expansion in
 // modulus-phase form with the phase in double-double and exact
 // (Payne-Hanek) reduction beyond. The error stays within a few ulps of the
 // value, also next to the zeros.
@@ -214,10 +198,8 @@ func J0(x float64) float64 {
 		return x
 	case math.IsInf(x, 0):
 		return 0
-	case x <= 1.5:
-		return besselJ0Series(x)
 	case x < besselZeroTaylorMax:
-		return besselPointTaylor(besselJ0Points[:], 0, x, false)
+		return besselCellEval(besselJ0Cells[:], besselJ0CellsLUT[:], x)
 	}
 	j, _, _ := besselAsymJY(0, x, true, false)
 	return j
@@ -227,9 +209,8 @@ func J0(x float64) float64 {
 // J1(x) = (1/pi) * integral_0^pi cos(t - x sin t) dt, for real x (odd in x).
 // J1(0) = 0, J1(±Inf) = 0, J1(NaN) = NaN.
 //
-// Algorithm: as J0 (power series for |x| <= 2, Taylor series about the
-// zeros of J1 and of its derivative up to 100, modulus-phase Hankel
-// expansion beyond).
+// Algorithm: as J0 (cell polynomials about the zeros of J1 and of its
+// derivative up to 100, modulus-phase Hankel expansion beyond).
 func J1(x float64) float64 {
 	sign := 1.0
 	if x < 0 {
@@ -240,10 +221,8 @@ func J1(x float64) float64 {
 		return x
 	case math.IsInf(x, 0):
 		return 0
-	case x <= 2:
-		return sign * besselJ1Series(x)
 	case x < besselZeroTaylorMax:
-		return sign * besselPointTaylor(besselJ1Points[:], 1, x, false)
+		return sign * besselCellEval(besselJ1Cells[:], besselJ1CellsLUT[:], x)
 	}
 	j, _, _ := besselAsymJY(1, x, true, false)
 	return sign * j
@@ -253,9 +232,9 @@ func J1(x float64) float64 {
 // Y0(x) = (2/pi)(log(x/2) + gamma) J0(x) + ..., defined for x > 0.
 // Y0(0) = -Inf, Y0(+Inf) = 0, Y0(x < 0) = NaN, Y0(NaN) = NaN.
 //
-// Algorithm: the series DLMF 10.8.2 for x <= 0.6; a Taylor series about the
-// zeros of Y0 and Y1 up to 100 (the point chosen by |x - z|/z, since the
-// logarithmic singularity at 0 bounds the radius of convergence); the
+// Algorithm: the series DLMF 10.8.2 for x <= 0.6; cell polynomials about
+// the zeros of Y0 and Y1 and the midpoints between them up to 100 (cells
+// split further near the logarithmic singularity at 0); the
 // modulus-phase Hankel expansion beyond.
 func Y0(x float64) float64 {
 	switch {
@@ -268,7 +247,7 @@ func Y0(x float64) float64 {
 	case x <= 0.6:
 		return besselY0Series(x)
 	case x < besselZeroTaylorMax:
-		return besselPointTaylor(besselY0Points[:], 0, x, true)
+		return besselCellEval(besselY0Cells[:], besselY0CellsLUT[:], x)
 	}
 	_, y, _ := besselAsymJY(0, x, false, true)
 	return y
@@ -290,7 +269,7 @@ func Y1(x float64) float64 {
 	case x <= 1.5:
 		return besselY1Series(x)
 	case x < besselZeroTaylorMax:
-		return besselPointTaylor(besselY1Points[:], 1, x, true)
+		return besselCellEval(besselY1Cells[:], besselY1CellsLUT[:], x)
 	}
 	_, y, _ := besselAsymJY(1, x, false, true)
 	return y

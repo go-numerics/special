@@ -24,6 +24,16 @@ import (
 // 1/π as a double-double (mpmath).
 var invPi = dd.DD{Hi: 0.3183098861837907, Lo: -1.9678676675182486e-17}
 
+// ellipOctIndex returns the piece of the octave tables (octPiece,
+// zz_ellipOct_coeffs.go) holding m, from p = 1 - m, or -1 when p is
+// outside [2^-10, 2^11) (m near 1 or m < -2047), where the double-double
+// path below takes over. p is rounded for m < -1; a piece is fitted
+// slightly beyond its edges, so a rounding into the neighbouring piece is
+// harmless. The tables are in m: s = m - c is exact (Sterbenz) wherever
+// the octave of p is below 1/2 or above 2, and its relative rounding
+// elsewhere is scaled down by |s q(s)|, below 2% of the value.
+func ellipOctIndex(m float64) int { return octIndex(1-m, -10, 10) }
+
 // ellipKE returns K and E at m = 1 - p for a double-double p in (0, 1/2]
 // (that is m in [1/2, 1)).
 func ellipKE(p dd.DD) (k, e dd.DD) {
@@ -36,12 +46,10 @@ func ellipKE(p dd.DD) (k, e dd.DD) {
 	return k, e
 }
 
-// ellipAt returns K(m) and E(m) for m < 1 given p = 1 - m exactly.
+// ellipAt returns K(m) and E(m) for m < 1 outside the octave tables (m
+// near 1 or m < -2047) given p = 1 - m exactly.
 func ellipAt(m float64, p dd.DD) (k, e dd.DD) {
-	switch {
-	case m <= 0.5 && m >= -1:
-		return evalPiecesDD(ellipKPieces[:], m), evalPiecesDD(ellipEPieces[:], m)
-	case m > 0.5:
+	if m > 0.5 {
 		return ellipKE(p)
 	}
 	// m < -1: m/(m-1) = 1 - 1/(1-m), so the transformed p is 1/(1-m).
@@ -65,6 +73,9 @@ func EllipK(m float64) float64 {
 	case math.IsInf(m, -1):
 		return 0
 	}
+	if i := ellipOctIndex(m); i >= 0 {
+		return octEval(&ellipKOct[i], m-ellipKOct[i].c)
+	}
 	k, _ := ellipAt(m, sumDD(1, -m))
 	return k.Float()
 }
@@ -79,6 +90,12 @@ func EllipKm1(p float64) float64 {
 		return math.Inf(1)
 	case math.IsInf(p, 1):
 		return 0
+	}
+	if i := octIndex(p, -10, 10); i >= 0 {
+		// s = m - c = (1 - c) - p: 1 - c is the piece centre in p (exact)
+		// and the difference is exact within the octave (Sterbenz).
+		q := &ellipKOct[i]
+		return octEval(q, (1-q.c)-p)
 	}
 	k, _ := ellipAt(1-p, dd.F(p))
 	return k.Float()
@@ -96,6 +113,9 @@ func EllipE(m float64) float64 {
 		return 1
 	case math.IsInf(m, -1):
 		return math.Inf(1)
+	}
+	if i := ellipOctIndex(m); i >= 0 {
+		return octEval(&ellipEOct[i], m-ellipEOct[i].c)
 	}
 	_, e := ellipAt(m, sumDD(1, -m))
 	return e.Float()

@@ -113,20 +113,20 @@ func igamPQ(a, x float64) (p, q float64) {
 	}
 	switch {
 	case usePSeries:
-		p = igamSeriesP(a, x)
-		return p, 1 - p
+		return igamPair(igamSeriesPMant(a, x))
 	case x < 1.1:
-		q = igamSmallQ(a, x)
+		q, p = igamPair(igamSmallQDD(a, x), 0)
 	default:
-		q = igamFractionQ(a, x)
+		q, p = igamPair(igamFractionQMant(a, x))
 	}
-	return 1 - q, q
+	return p, q
 }
 
 // igamLog returns log(x) for x > 0, subnormal x included (math.Log is
-// wrong for subnormal arguments on some platforms; dd.Log normalises).
+// wrong for subnormal arguments on some platforms; logf normalises). Its
+// uses are branch decisions and starting values.
 func igamLog(x float64) float64 {
-	return dd.LogAccurate(x).Hi
+	return logf(x)
 }
 
 // igamLogPrefix returns log(x^a e^(-x) / Γ(a)) as a double-double, for
@@ -141,28 +141,27 @@ func igamLog(x float64) float64 {
 // a log x - x - log Γ(a) cancels to the last bits of terms of size a log a.
 func igamLogPrefix(a, x float64) dd.DD {
 	if a >= 10 && x > 0x1p-20*a {
-		d := dd.DivF(sumDD(x, -a), a) // x-a exact, then one DD division
-		l := dd.MulF(igamLog1pmxDD(d), a)
-		l = dd.Add(l, dd.MulF(dd.LogAccurate(a), 0.5))
+		d := igamDivF(sumDD(x, -a), a) // x-a exact, then one division
+		l := dd.MulF(igamLog1pmxDDScaled(d, a), a)
+		l = dd.Add(l, dd.MulF(igamLogScaled(a, 0.5), 0.5))
 		l = dd.Sub(l, lnSqrt2Pi)
 		return dd.AddF(l, -stirlingSeries(a))
 	}
-	l := dd.MulF(dd.LogAccurate(x), a)
+	l := dd.MulF(igamLogScaled(x, a), a)
 	l = dd.AddF(l, -x)
 	return dd.Sub(l, logGammaPos(a))
 }
 
-// igamSeriesP returns P(a, x) by the series
+// igamSeriesPMant returns P(a, x) by the series
 // P = x^a e^(-x)/Γ(a+1) Σ_{n>=0} x^n / ((a+1)(a+2)...(a+n)) (DLMF 8.7.1),
-// whose terms are all positive.
-func igamSeriesP(a, x float64) float64 {
+// whose terms are all positive, as v 2^k.
+func igamSeriesPMant(a, x float64) (v dd.DD, k int) {
 	m, k := dd.ExpMant(igamLogPrefix(a, x))
 	if m.Hi == 0 {
-		return 0
+		return dd.DD{}, 0
 	}
 	s := igamLowerSeries(a, x)
-	v := dd.DivF(dd.Mul(m, s), a)
-	return math.Ldexp(v.Hi+v.Lo, k)
+	return igamDivF(dd.Mul(m, s), a), k
 }
 
 // igamLowerSeries returns S = Σ_{n>=0} x^n / ((a+1)...(a+n)) as a
@@ -172,95 +171,145 @@ func igamLowerSeries(a, x float64) dd.DD {
 }
 
 // igamLowerSeriesRest returns S - 1 = Σ_{n>=1} x^n / ((a+1)...(a+n)) as a
-// double-double: the terms are formed in float64 (their relative errors
-// grow slowly with n, and they decrease geometrically wherever this series
-// is used) and summed with Neumaier's compensation.
+// double-double. The terms are positive. While they are above 2^-16 of
+// the sum each is carried as an unrenormalised pair (the factor x/(a+n) to
+// about 2^-104 from one division and its FMA remainder, a+n from TwoSum,
+// the product with TwoProd's error, the sum with TwoSum's): their float64
+// recurrence accumulated about two roundings per term, an ulp or two of S
+// once a few terms count, and P near 1/2 passed that on to Q = 1 - P. The
+// rest is summed in float64 (its weight keeps its error below 2^-60 of S).
 func igamLowerSeriesRest(a, x float64) dd.DD {
-	t := 1.0
-	s := 0.0
-	c := 0.0
-	for n := 1.0; n < 10000; n++ {
-		t *= x / (a + n)
-		y := s + t
-		c += (s - y) + t
-		s = y
-		if t <= 0x1p-60*s {
+	th, tl := 1.0, 0.0
+	sh, sl := 0.0, 0.0
+	n := 1.0
+	for ; n < 10000; n++ {
+		dh, de := dd.TwoSum(a, n)
+		r := 1 / dh
+		fh := x * r
+		fl := (math.FMA(-fh, dh, x) - fh*de) * r
+		ph := float64(th * fh) // rounded: it feeds the TwoSum below
+		tl = math.FMA(th, fh, -ph) + (th*fl + tl*fh)
+		th = ph
+		var e float64
+		sh, e = dd.TwoSum(sh, th)
+		sl += e + tl
+		if th <= 0x1p-16*sh {
+			n++
 			break
 		}
 	}
-	h, l := dd.FastTwoSum(s, c)
+	tail := 0.0
+	for ; n < 10000 && th > 0x1p-60*sh; n++ {
+		th *= x / (a + n)
+		tail += th
+	}
+	h, l := dd.FastTwoSum(sh, sl+tail)
 	return dd.DD{Hi: h, Lo: l}
 }
 
-// igamFractionQ returns Q(a, x) by Legendre's continued fraction
-// Γ(a,x) = x^a e^(-x) / (x+1-a- 1(1-a)/(x+3-a- 2(2-a)/(x+5-a- ...)))
-// (DLMF 8.9.2), evaluated by the modified Lentz method as Boost's
-// upper_gamma_fraction does.
-func igamFractionQ(a, x float64) float64 {
+// igamFractionQMant returns Q(a, x) = v 2^k by Legendre's continued
+// fraction Γ(a,x) = x^a e^(-x) / (x+1-a- 1(1-a)/(x+3-a- 2(2-a)/(x+5-a-
+// ...))) (DLMF 8.9.2; igamFractionDenDD).
+func igamFractionQMant(a, x float64) (v dd.DD, k int) {
 	m, k := dd.ExpMant(igamLogPrefix(a, x))
 	if m.Hi == 0 {
-		return 0
+		return dd.DD{}, 0
 	}
-	v := dd.DivF(m, igamFractionDen(a, x))
-	return math.Ldexp(v.Hi+v.Lo, k)
+	return dd.Div(m, igamFractionDenDD(a, x)), k
 }
 
 // igamFractionDen returns the denominator x+1-a - 1(1-a)/(x+3-a - ...) of
-// igamFractionQ, for x >= 1.1 and x - 1/(3x) >= a.
+// igamFractionQMant, for x >= 1.1 and x - 1/(3x) >= a: b_0 + a_1/(b_1 + a_2/(b_2
+// + ...)) with b_k = x - a + 1 + 2k and a_k = k(a - k).
 //
-// The modified Lentz method (Boost's continued_fraction_a) only serves to
-// find how many terms are needed: its running product accumulates one
-// rounding per step, which near the transition x ~ a (50 and more steps)
-// costs several ulp. The value is then summed backwards from that depth,
-// which is stable for this fraction.
-func igamFractionDen(a, x float64) float64 {
+// Two passes, neither with a division per step. The forward pass runs the
+// three-term recurrences of the convergents A_k/B_k (Wallis) only to find
+// the depth: the step |A_k/B_k - A_(k-1)/B_(k-1)| = |D_k|/|B_k B_(k-1)|,
+// D_k = Π a_j, is exact up to a few roundings (it does not come from a
+// difference), and it is compared with the value every fourth step, the
+// tolerance scaled by the observed rate of decrease (when the steps shrink
+// by a ratio close to 1, what remains is many times the last one). The
+// value is then summed backwards from beyond that depth, t_k = a_k/(b_k +
+// t_(k+1)), which is stable for this fraction (forward products accumulate
+// one rounding per step, several ulp near the transition x ~ a); t is
+// carried as P/Q with P_k = a_k Q_(k+1), Q_k = b_k Q_(k+1) + P_(k+1), so the
+// common rounding of Q cancels in the ratio and one division remains; the
+// last step, whose rounding reaches the result undamped, is done with the
+// partial denominator in double-double.
+// Both passes rescale by powers of two (exact) to stay in range.
+func igamFractionDen(a, x float64) float64 { return igamFractionDenDD(a, x).Float() }
+
+// igamFractionDenDD is igamFractionDen as a double-double.
+func igamFractionDenDD(a, x float64) dd.DD {
 	z0 := dd.AddF(sumDD(x, -a), 1)
-	const tiny = 0x1p-1000
-	b := z0.Hi
-	f := b
-	c := f
-	d := 0.0
+	// The equivalence transformation b_k -> b_k/s, a_k -> a_k/s², s = 2^e
+	// the binade of b_0, keeps every term near 1 whatever the size of x and
+	// a (exactly: s is a power of two), so the recurrences below grow by a
+	// bounded factor per step.
+	_, e := math.Frexp(z0.Hi)
+	sc := math.Ldexp(1, -e)
+	b0 := z0.Hi * sc
+	a2, a1 := 1.0, b0 // A_(k-2), A_(k-1)
+	b2, b1 := 0.0, 1.0
+	dk := 1.0
 	prev := 1.0
 	n := 0.0
-	for k := 1.0; k < 10000; k++ {
-		n = k
-		ak := k * (a - k)
-		if ak == 0 {
-			break // integer a: the fraction terminates exactly
+	sc2 := sc * sc
+	step := func(k float64) {
+		ak := k * (a - k) * sc2
+		bk := b0 + 2*k*sc
+		a2, a1 = a1, bk*a1+ak*a2
+		b2, b1 = b1, bk*b1+ak*b2
+		dk *= ak
+	}
+	// Four steps between checks. An integer a ends the fraction (a_k = 0 at
+	// k = a): D_k is 0 from there on and the test below stops.
+	for k := 1.0; k < 10000; k += 4 {
+		step(k)
+		step(k + 1)
+		step(k + 2)
+		step(k + 3)
+		n = k + 3
+		if m := math.Abs(b1); m > 0x1p256 || m < 0x1p-256 {
+			f := igamUnscale(m)
+			a1, a2, b1, b2, dk = a1*f, a2*f, b1*f, b2*f, dk*f*f
 		}
-		b += 2
-		d = b + ak*d
-		if d == 0 {
-			d = tiny
-		}
-		c = b + ak/c
-		if c == 0 {
-			c = tiny
-		}
-		d = 1 / d
-		delta := c * d
-		f *= delta
-		// Near the transition x ~ a the fraction converges slowly and the
-		// corrections shrink by a ratio rho close to 1: what remains is
-		// about |delta-1|·rho/(1-rho), so the test scales with 1-rho.
-		cur := math.Abs(delta - 1)
+		cur := math.Abs(dk / (a1 * b2))
 		rho := cur / prev
 		prev = cur
-		if cur <= 0x1p-56*math.Max(1-rho, 1.0/64) {
+		// remaining <= cur/(1 - rho^(1/4)) <= 4 cur/(1 - rho)
+		if lim := 1 - rho; cur <= 0x1p-58*max(lim*0.25, 1.0/256) {
 			break
 		}
 	}
-	// backward: t = a_k/(b_k + t), k = N..1, with a margin beyond the
-	// Lentz depth (the terms vanish exactly past an integer a)
-	t := 0.0
-	for k := math.Ceil(n*1.25) + 4; k >= 1; k-- {
-		ak := k * (a - k)
-		t = ak / (z0.Hi + 2*k + t)
+	// Summed backwards from beyond that depth (the truncated fraction is
+	// exactly the convergent there), two steps between range checks.
+	p, q := 0.0, 1.0
+	for k := n + 3; k >= 3; k -= 2 {
+		p, q = k*(a-k)*sc2*q, (b0+2*k*sc)*q+p
+		k1 := k - 1
+		p, q = k1*(a-k1)*sc2*q, (b0+2*k1*sc)*q+p
+		if m := math.Abs(q); m > 0x1p256 || m < 0x1p-256 {
+			f := igamUnscale(m)
+			p, q = p*f, q*f
+		}
 	}
-	return dd.AddF(z0, t).Float()
+	// The first step, which the result feels undamped, in double-double:
+	// den = z0 + (a-1)/(z0 + 2 + t2).
+	w := dd.AddF(dd.AddF(z0, 2), p/q/sc)
+	t1 := (a - 1) / w.Hi
+	t1 += (math.FMA(-t1, w.Hi, a-1) - t1*w.Lo) / w.Hi
+	return dd.AddF(z0, t1)
 }
 
-// igamSmallQ returns Q(a, x) for x < 1.1 and the a below DiDonato &
+// igamUnscale returns the power of two that brings m > 0 into [1/2, 1)
+// (an exact rescaling of a recurrence).
+func igamUnscale(m float64) float64 {
+	_, e := math.Frexp(m)
+	return math.Ldexp(1, -e)
+}
+
+// igamSmallQDD returns Q(a, x) for x < 1.1 and the a below DiDonato &
 // Morris' changeover (a < 0.83), from
 //
 //	Γ(a, x) = (Γ(1+a) - x^a)/a - x^a Σ_{n>=1} (-x)^n / (n! (a+n))
@@ -270,14 +319,9 @@ func igamFractionDen(a, x float64) float64 {
 //	Q = [ (Γ(1+a)-1) - (x^a-1) - a x^a Σ ] / Γ(1+a).
 //
 // Γ(1+a)-1 and x^a-1 are double-doubles, so their difference does not
-// cancel and nothing overflows for tiny a.
-func igamSmallQ(a, x float64) float64 {
-	return igamSmallQDD(a, x).Float()
-}
-
-// igamSmallQDD is igamSmallQ as a double-double (accurate to a few units
-// of 2^-53 times the alternating sum's share of the result, which is
-// small: the leading difference is exact).
+// cancel and nothing overflows for tiny a. The result is a double-double
+// accurate to a few units of 2^-53 times the alternating sum's share of
+// the result, which is small: the leading difference is exact.
 func igamSmallQDD(a, x float64) dd.DD {
 	gm1 := gamma1pm1(a)
 	pm1 := igamExpm1DD(dd.MulF(dd.LogAccurate(x), a)) // x^a - 1
@@ -286,7 +330,7 @@ func igamSmallQDD(a, x float64) dd.DD {
 	s := dd.F(0)
 	t := dd.F(1)
 	for n := 1.0; n < 200; n++ {
-		t = dd.DivF(dd.MulF(t, -x), n)
+		t = igamDivF(dd.MulF(t, -x), n)
 		term := dd.Div(t, sumDD(a, n))
 		s = dd.Add(s, term)
 		if math.Abs(term.Hi) <= 0x1p-106*math.Abs(s.Hi) {
@@ -303,8 +347,10 @@ func igamSmallQDD(a, x float64) dd.DD {
 // as a double-double: expm1(u.Hi) + u.Lo·exp(u.Hi) with expm1(u.Hi) itself
 // refined by one Newton step on log1p (relative error about 2^-100).
 func igamExpm1DD(u dd.DD) dd.DD {
-	if u.Hi < -40 {
-		return dd.AddF(dd.F(-1), math.Exp(u.Hi))
+	if u.Hi < -30 {
+		// e^u < 2^-43: -1 + e^u directly. (Below about -36.7, expm1 rounds
+		// to -1 exactly and the Newton step below would take log1p(-1).)
+		return dd.AddF(dd.F(-1), math.Exp(u.Hi)*(1+u.Lo))
 	}
 	e := math.Expm1(u.Hi)
 	if e == 0 {
@@ -324,47 +370,24 @@ func igamExpm1DD(u dd.DD) dd.DD {
 //	R = exp(-z²)/sqrt(2πa) Σ_k C_k(η) a^(-k),
 //
 // with the C_k(η) from their Taylor coefficients in η (Cephes'
-// asymptotic_series in igam.h; table igamTemmeCoef). The smaller of P and Q
+// asymptotic_series in igam.h; table igamTemmeCoef), summed by the
+// generated straight-line igamTemmeSum. The smaller of P and Q
 // is computed directly. z² = -a·log1pmx((x-a)/a) is a double-double, and
 // for |z| >= 1/2 the result is exp(-z²)·(erfcx(|z|)/2 ± R'), so the
 // Gaussian factor is applied once from the exact exponent.
 func igamTemme(a, x float64) (p, q float64) {
-	d := dd.DivF(sumDD(x, -a), a)
-	lpm := igamLog1pmxDD(d) // <= 0
+	d := igamDivF(sumDD(x, -a), a)
+	lpm := igamLog1pmxDDScaled(d, a) // <= 0
 	z2 := dd.Neg(dd.MulF(lpm, a))
 	eta := math.Sqrt(-2 * lpm.Hi)
 	upper := x > a // compute Q directly; else P
 	if !upper {
 		eta = -eta
 	}
-	// Σ_k C_k(η) a^-k, stopping when the asymptotic terms stop decreasing.
-	sum := 0.0
-	afac := 1.0
-	old := math.Inf(1)
-	for k := range igamTemmeCoef {
-		row := &igamTemmeCoef[k]
-		ck := row[0]
-		ep := 1.0
-		for n := 1; n < len(row); n++ {
-			ep *= eta
-			term := row[n] * ep
-			ck += term
-			if math.Abs(term) < 0x1p-56*math.Abs(ck) {
-				break
-			}
-		}
-		term := ck * afac
-		at := math.Abs(term)
-		if at > old {
-			break
-		}
-		sum += term
-		if at < 0x1p-56*math.Abs(sum) {
-			break
-		}
-		old = at
-		afac /= a
-	}
+	// Σ_k C_k(η) a^-k (zz_igamTemmeSum_gen.go: each row cut where |η| <=
+	// 0.34 and a >= 20 allow, to 2^-56 of the sum: R is at most ~7% of the
+	// result).
+	sum := igamTemmeSum(eta, 1/a)
 	// Q = erfc(z)/2 + R (η > 0); P = erfc(|z|)/2 - R (η < 0), where
 	// R = exp(-z²) sum/sqrt(2πa) with sum computed at the signed η.
 	r := sum / math.Sqrt(2*math.Pi*a)
@@ -372,20 +395,77 @@ func igamTemme(a, x float64) (p, q float64) {
 		r = -r
 	}
 	z := dd.Sqrt(z2)
-	var v float64
+	var w dd.DD
+	k := 0
 	if z.Hi >= 0.5 {
-		m, k := dd.ExpMant(dd.Neg(z2))
+		var m dd.DD
+		m, k = dd.ExpMant(dd.Neg(z2))
 		base := dd.AddF(dd.MulF(erfcxCorrected(z), 0.5), r)
-		w := dd.Mul(m, base)
-		v = math.Ldexp(w.Hi+w.Lo, k)
+		w = dd.Mul(m, base)
 	} else {
 		e := dd.MulF(erfcDD(z), 0.5)
-		v = dd.AddF(e, r*math.Exp(-z2.Hi)).Float()
+		w = dd.AddF(e, r*math.Exp(-z2.Hi))
 	}
+	v, c := igamPair(w, k)
 	if upper {
-		return 1 - v, v
+		return c, v
 	}
-	return v, 1 - v
+	return v, c
+}
+
+// igamPair returns v = w 2^k rounded and its complement 1 - v formed from
+// the double-double (so the complement does not inherit the rounding of v,
+// which is up to an ulp of the complement when v is above 1/2).
+func igamPair(w dd.DD, k int) (v, c float64) {
+	v = math.Ldexp(w.Hi+w.Lo, k)
+	if k < -60 {
+		return v, 1 - v
+	}
+	h := math.Ldexp(w.Hi, k)
+	return v, (1 - h) - math.Ldexp(w.Lo, k)
+}
+
+// igamDivF returns x/b for a double-double x and a float64 b, to about
+// 2^-104 relative (Joldes, Muller & Popescu's DWDivFP with the remainder
+// x.Hi - q·b taken exactly by an FMA): a quarter of dd.DivF, which runs the
+// general double-double division.
+func igamDivF(x dd.DD, b float64) dd.DD {
+	q := x.Hi / b
+	l := (math.FMA(-q, b, x.Hi) + x.Lo) / b
+	h, e := dd.FastTwoSum(q, l)
+	return dd.DD{Hi: h, Lo: e}
+}
+
+// igamLogScaled returns log(x) for x > 0 as a double-double whose absolute
+// error, once multiplied by scale, stays below about 2^-64: dd.Log (2^-72
+// relative, about five times cheaper) where scale·|log x| < 180, read off
+// the exponent of x, and dd.LogAccurate (2^-104) beyond or for subnormal x.
+func igamLogScaled(x, scale float64) dd.DD {
+	if e := int(math.Float64bits(x)>>52) - 1023; e > -1023 && scale*float64(max(e, -e)+1) < 256 {
+		return dd.Log(x)
+	}
+	return dd.LogAccurate(x)
+}
+
+// igamLog1pDDScaled is igamLog1pDD with the precision chosen as in
+// igamLogScaled: dd.Log where scale·|u| < 128 and u > -1/2, so that
+// scale·|log1p(u)| < 180.
+func igamLog1pDDScaled(u dd.DD, scale float64) dd.DD {
+	if math.Abs(u.Hi) < 0x1p-20 || !(u.Hi > -0.5 && scale*math.Abs(u.Hi) < 128) {
+		return igamLog1pDD(u)
+	}
+	h, l := dd.TwoSum(1, u.Hi)
+	g := dd.AddF(dd.DD{Hi: h, Lo: l}, u.Lo)
+	return dd.AddF(dd.Log(g.Hi), g.Lo/g.Hi)
+}
+
+// igamLog1pmxDDScaled is igamLog1pmxDD with the logarithm from
+// igamLog1pDDScaled: the error of log1p(x) - x is that of log1p(x).
+func igamLog1pmxDDScaled(x dd.DD, scale float64) dd.DD {
+	if math.Abs(x.Hi) >= 0x1p-10 {
+		return dd.Sub(igamLog1pDDScaled(x, scale), x)
+	}
+	return igamLog1pmxDD(x)
 }
 
 // igamLog1pDD returns log(1 + u) for a double-double u > -1, as log1pDD
@@ -414,7 +494,7 @@ func igamLog1pmxDD(x dd.DD) dd.DD {
 		return dd.Sub(igamLog1pDD(x), x)
 	}
 	x2 := dd.Mul(x, x)
-	r := dd.Add(dd.MulF(x2, -0.5), dd.DivF(dd.Mul(x2, x), 3))
+	r := dd.Add(dd.MulF(x2, -0.5), igamDivF(dd.Mul(x2, x), 3))
 	xh := x.Hi
 	t := 0.0
 	for k := 11.0; k >= 4; k-- {
