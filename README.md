@@ -123,6 +123,13 @@ The four without a pairing, and why:
 - **`LogGammaSign`** — no scipy counterpart in any spelling; scipy splits the
   two results across `gammaln` and `gammasgn`.
 
+The 20 `…To` slice kernels — `GammaTo`, `ErfTo`, `XlogyTo` and the rest — are the
+batch form of the function they are named after and compute the same thing, so
+they share its scipy equivalent rather than earning rows here. One exception is
+worth knowing: **`TrigammaTo` is exported while `Trigamma` is not**, so that
+kernel has no scalar form in the public API. It is psi'(x), which scipy spells
+`polygamma(1, x)` — the same function `Polygamma` already provides.
+
 `Zeta` and `HurwitzZeta` share one scipy name, `zeta(x, q=None)`, which takes
 the second argument optionally. `LogFactorial` is bracketed as a call rather
 than a name because the function is `gammaln` with its argument shifted, which

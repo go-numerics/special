@@ -146,6 +146,17 @@ func harnessPairs(t *testing.T) map[string]string {
 		mentioned[m[1]] = true
 	}
 	for _, g := range exported {
+		// A *To kernel inherits its base's pairing: it is the same function.
+		if b := baseOf(g); b != "" {
+			if s, ok := pairs[b]; ok {
+				pairs[g] = s
+				continue
+			}
+			if s, ok := kernelWithoutABase[g]; ok {
+				pairs[g] = s
+				continue
+			}
+		}
 		if _, ok := pairs[g]; ok {
 			continue
 		}
@@ -222,6 +233,19 @@ func TestReadmeNamesEveryScipyEquivalent(t *testing.T) {
 				continue
 			}
 			want = w
+		}
+		// A kernel shares its base's row rather than having one; assert the base
+		// EXISTS, so a FooTo whose Foo is private shows up here instead of being
+		// waved through.
+		if b := baseOf(g); b != "" {
+			if !contains(exported, b) {
+				if _, allowed := kernelWithoutABase[g]; !allowed {
+					t.Errorf("%s is exported but %s is not, and kernelWithoutABase does not "+
+						"say why -- a batch form with no scalar form is an API decision, not "+
+						"a documentation one", g, b)
+				}
+			}
+			continue
 		}
 		switch g2, ok := got[g]; {
 		case !ok:
@@ -422,4 +446,26 @@ func readOptional(t *testing.T, path string, optional bool) (string, bool) {
 		t.Fatalf("%s: %v", path, err)
 	}
 	return strings.ReplaceAll(string(b), "\r\n", "\n"), true
+}
+
+// baseOf strips the slice-kernel suffix: GammaTo is the batch form of Gamma
+// and computes the same function, so it shares Gamma's scipy equivalent and
+// does not earn a row of its own in a table about mathematical functions.
+// Returns "" when the name is not a kernel.
+func baseOf(name string) string {
+	if strings.HasSuffix(name, "To") && len(name) > 2 {
+		return name[:len(name)-2]
+	}
+	return ""
+}
+
+// kernelWithoutABase names a *To kernel that has no exported scalar form, with
+// why that is allowed. One entry today, and it is an observation about the
+// package rather than about this table: TrigammaTo is public while Trigamma is
+// not, so the suffix convention has an exception and the exception is written
+// down instead of being absorbed by a wildcard.
+var kernelWithoutABase = map[string]string{
+	// psi'(x), which scipy spells polygamma(1, x) -- the same function
+	// Polygamma already covers, so the table says nothing new about it.
+	"TrigammaTo": "polygamma",
 }
