@@ -97,16 +97,21 @@ func BetaIncCInv(a, b, q float64) float64 {
 // p + q = 1 and the smaller of the two is exact: the iteration, then the
 // rounding step (ibetaInvRound).
 func ibetaInv(a, b, p, q float64) float64 {
-	return ibetaInvRound(a, b, p, q, ibetaInvIterate(a, b, p, q))
-}
-
-// ibetaInvIterate is the iteration of ibetaInv on the float64 forward
-// function.
-func ibetaInvIterate(a, b, p, q float64) float64 {
 	if a == b && p == q {
 		return 0.5 // symmetry
 	}
-	lb := ibetaLogBeta(a, b)
+	// log B(a, b): the accurate one of the rounding step serves the
+	// iteration too (ibetaLogBeta, to about 2^-62, where it declines)
+	lbAcc, ok := logBetaAcc(a, b)
+	if !ok {
+		return ibetaInvIterate(a, b, p, q, ibetaLogBeta(a, b))
+	}
+	return ibetaInvRound(a, b, p, q, ibetaInvIterate(a, b, p, q, lbAcc), lbAcc)
+}
+
+// ibetaInvIterate is the iteration of ibetaInv on the float64 forward
+// function, given lb = log B(a, b).
+func ibetaInvIterate(a, b, p, q float64, lb dd.DD) float64 {
 	if a < 1e-3 || b < 1e-3 {
 		// Which side of 1/2: the sign of the x-side residual at 1/2, from
 		// the same (double-double where needed) evaluation as the
@@ -263,11 +268,18 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 	}
 	// The last step: below the resolution of u where the tail comes from
 	// the double-double series (a < 1), so the root is found to its full
-	// accuracy; below 2^-50 elsewhere, where a step that small is the
-	// noise of the float64 forward function (a few ulps) and the next
-	// evaluation could only move u within it.
+	// accuracy; below 2^-26 elsewhere: the step just taken (Halley's,
+	// cubic, or Newton's, quadratic) has then brought u to within the noise
+	// of the float64 forward function, which a further evaluation could
+	// only move u within, and the rounding step (ibetaInvRound) makes the
+	// last correction from a double-double evaluation. (Beyond a + b =
+	// roundMaxParam, where the rounding step mostly declines, the
+	// iteration runs on to 2^-50.)
 	stop := 0x1p-52
-	if a >= 1 {
+	switch {
+	case a >= 1 && a+b <= roundMaxParam:
+		stop = 0x1p-26
+	case a >= 1:
 		stop = 0x1p-50
 	}
 	lo, hi := 0.0, 0.75

@@ -211,12 +211,18 @@ func igamInvIterate(a, t float64, upper bool, x0 float64) float64 {
 	}
 	// The last step: below the resolution of x where the tail comes from
 	// the double-double series (a < 1, x < 1.1), so the root is found to
-	// its full accuracy; below 2^-50 elsewhere, where a step that small is
-	// the noise of the float64 forward function and the next evaluation
-	// could only move x within it.
+	// its full accuracy; below 2^-26 elsewhere: the step just taken
+	// (Halley's, cubic, or Newton's, quadratic) has then brought x to
+	// within the noise of the float64 forward function, and the rounding
+	// step (igamInvRound) makes the last correction from a double-double
+	// evaluation. (Beyond x = roundMaxParam, where the rounding step
+	// declines, the iteration runs on to 2^-50.)
 	stop := func(x float64) float64 {
-		if a < 1 && x < 1.1 {
+		switch {
+		case a < 1 && x < 1.1:
 			return 0x1p-52
+		case x <= roundMaxParam:
+			return 0x1p-26
 		}
 		return 0x1p-50
 	}

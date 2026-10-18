@@ -94,6 +94,9 @@ const stirlingAccMin = 30
 // double-double, the rest (below 1/(1260x⁵), so its float64 error is
 // below 2^-88) in float64.
 func stirlingSeriesDD(x float64) dd.DD {
+	if x > 1e10 {
+		return dd.DivF(stirlingC1, x) // the rest is below 1/(30x²) of it
+	}
 	zd := dd.Div(dd.F(1), dd.MulFF(x, x))
 	z := zd.Hi
 	r := z * z * (stirC3 + z*(stirC4+z*(stirC5+z*(stirC6+z*(stirC7+z*(stirC8+z*stirC9))))))
@@ -107,18 +110,36 @@ func stirlingSeriesDD(x float64) dd.DD {
 // x+n >= stirlingAccMin (the product in double-double, x+n as a pair whose
 // low part enters through ψ to first order).
 func logGammaAcc(x float64) dd.DD {
+	l, p := logGammaParts(x)
+	if p.Hi == 1 && p.Lo == 0 {
+		return l
+	}
+	return dd.Sub(l, igamLogDD(p))
+}
+
+// logGammaParts returns L and P with log Γ(x) = L - log P: Stirling's
+// form and P = 1 from stirlingAccMin on; below, L = log Γ(x+n) with
+// x+n >= stirlingAccMin (its low part through ψ) and P = x(x+1)...(x+n-1)
+// in light pairs (each factor's error from TwoSum and TwoProd, one
+// renormalisation at the end: about 2^-100 for the 30 factors at most).
+// A caller combining several log Γ takes one logarithm for all their P.
+func logGammaParts(x float64) (l, p dd.DD) {
 	if x >= stirlingAccMin {
 		t := dd.Mul(sumDD(x, -0.5), dd.LogAccurate(x))
 		t = dd.AddF(t, -x)
 		t = dd.Add(t, lnSqrt2Pi)
-		return dd.Add(t, stirlingSeriesDD(x))
+		return dd.Add(t, stirlingSeriesDD(x)), dd.F(1)
 	}
 	n := math.Ceil(stirlingAccMin - x)
-	prod := dd.F(x)
+	ph, pl := x, 0.0
 	for k := 1.0; k < n; k++ {
-		prod = dd.Mul(prod, sumDD(x, k))
+		sh, sl := dd.TwoSum(x, k)
+		h := ph * sh
+		pl = math.FMA(ph, sh, -h) + ph*sl + pl*sh
+		ph = h
 	}
-	return dd.Sub(logGammaAccDD(sumDD(x, n)), igamLogDD(prod))
+	ph, pl = dd.FastTwoSum(ph, pl)
+	return logGammaAccDD(sumDD(x, n)), dd.DD{Hi: ph, Lo: pl}
 }
 
 // logGammaAccDD is logGammaAcc of a double-double argument, its low part
@@ -143,7 +164,20 @@ func logBetaAcc(a, b float64) (dd.DD, bool) {
 		a, b = b, a
 	}
 	if a+b <= roundMaxParam {
-		return dd.Sub(dd.Add(logGammaAcc(a), logGammaAcc(b)), logGammaAccDD(sumDD(a, b))), true
+		// two logarithms for the three shift products: log(Pa/Ps) + log Pb
+		// (Pa/Ps is of order 1 for a <= b; Pa·Pb would underflow for tiny
+		// a and b)
+		la, pa := logGammaParts(a)
+		lb, pb := logGammaParts(b)
+		s := sumDD(a, b)
+		ls, ps := logGammaParts(s.Hi)
+		ls = dd.AddF(ls, Digamma(s.Hi)*s.Lo)
+		l := dd.Sub(dd.Add(la, lb), ls)
+		l = dd.Sub(l, igamLogDD(dd.Div(pa, ps)))
+		if pb.Hi != 1 || pb.Lo != 0 {
+			l = dd.Sub(l, igamLogDD(pb))
+		}
+		return l, true
 	}
 	xh := a / b
 	if !(a*xh*xh*xh <= 0x1p-30) || math.IsInf(b, 0) {
@@ -223,20 +257,39 @@ func ibetaTailAcc(a, b, u float64, upper bool, lb dd.DD) (dd.DD, float64, bool) 
 	// own: the series whose sum is T; other: the one whose sum is 1 - T
 	own := func() (dd.DD, bool) { return ibetaLowerAcc(a, b, xd, lx, ly, lb) }
 	other := func() (dd.DD, bool) { return ibetaLowerAcc(b, a, yd, ly, lx, lb) }
-	ownVar := u
+	ownVar, nOwn, nOther := u, ibetaSeriesTerms(a, b, u), ibetaSeriesTerms(b, a, yd.Hi)
 	if upper {
-		own, other, ownVar = other, own, yd.Hi
+		own, other, ownVar, nOwn, nOther = other, own, yd.Hi, nOther, nOwn
 	}
-	if ownVar <= 0.95 {
+	// the tail's own series first, unless it would take many more terms
+	// than the complement's (a series that runs to roundMaxTerms without
+	// converging costs as much as dozens of evaluations)
+	ownFirst := ownVar <= 0.95 && nOwn <= max(2000, 4*nOther)
+	if ownFirst {
 		if v, ok := own(); ok {
 			return v, roundDirectErr, true
 		}
 	}
-	v, ok := other()
-	if !ok {
-		return dd.DD{}, 0, false
+	if v, ok := other(); ok {
+		if c, err, ok := complementAcc(v); ok {
+			return c, err, true
+		}
 	}
-	return complementAcc(v)
+	if !ownFirst && ownVar <= 0.95 {
+		if v, ok := own(); ok {
+			return v, roundDirectErr, true
+		}
+	}
+	return dd.DD{}, 0, false
+}
+
+// ibetaSeriesTerms estimates the terms ibetaLowerAcc sums for I_x(a, b):
+// up to the largest, k0 = ((a+b-1)x - a)/(1-x), then the decrease, about
+// 12 sqrt((a+1)/(1-x)) near the mean and 70/log(1/x) for the geometric
+// tail (to 2^-100). It only orders the two series of ibetaTailAcc.
+func ibetaSeriesTerms(a, b, x float64) float64 {
+	k0 := max(0, ((a+b-1)*x-a)/(1-x))
+	return k0 + 12*math.Sqrt((a+1)/(1-x)) + 70/-math.Log(x)
 }
 
 // igamTailAcc returns P(a, x) (Q(a, x) if upper) as a double-double for
@@ -277,8 +330,9 @@ func igamTailAcc(a, x float64, upper bool) (dd.DD, float64, bool) {
 }
 
 // ibetaInvRound returns the float nearest the x with I_x(a, b) = p
-// (1 - I_x = q), from the iterate x (see the comment at the top).
-func ibetaInvRound(a, b, p, q, x float64) float64 {
+// (1 - I_x = q), from the iterate x, given lb = logBetaAcc(a, b) (see the
+// comment at the top).
+func ibetaInvRound(a, b, p, q, x float64, lb dd.DD) float64 {
 	if !(x > 0 && x < 1) {
 		return x
 	}
@@ -286,10 +340,6 @@ func ibetaInvRound(a, b, p, q, x float64) float64 {
 	t, sg := p, 1.0
 	if upper {
 		t, sg = q, -1
-	}
-	lb, ok := logBetaAcc(a, b)
-	if !ok {
-		return x
 	}
 	tx, err, ok := ibetaTailAcc(a, b, x, upper, lb)
 	if !ok {
