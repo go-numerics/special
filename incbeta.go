@@ -53,8 +53,30 @@ func BetaInc(a, b, x float64) float64 {
 	if w, _, done := ibetaEdges(a, b, x); done {
 		return w
 	}
+	if w, _, done := ibetaHugeParam(a, b, x); done {
+		return w
+	}
 	w, _ := ibetaRatio(a, b, ibetaNewXY(x, a+b))
 	return w
+}
+
+// ibetaHugeParam returns I_x(a, b) and its complement where one parameter
+// is beyond 1e300 and the other below 1e250, from the incomplete gamma
+// limit I_x(a, b) = P(a, (b + (a-1)/2)(-log(1-x))) (DLMF 8.18.1-8.18.2;
+// Temme, "Special functions", 11.3.3), whose correction is of relative
+// order (a/b)² <= 1e-100, nothing in float64; the other way round by
+// I_x(a, b) = 1 - I_(1-x)(b, a). TOMS 708's sums overflowed to NaN there
+// (BetaInc(30.5, MaxFloat64, 0.97) was NaN; it is 1).
+func ibetaHugeParam(a, b, x float64) (w, w1 float64, done bool) {
+	switch {
+	case b > 1e300 && a < 1e250:
+		y := (b + (a-1)/2) * -math.Log1p(-x)
+		return GammaP(a, y), GammaQ(a, y), true
+	case a > 1e300 && b < 1e250:
+		y := (a + (b-1)/2) * -math.Log(x)
+		return GammaQ(b, y), GammaP(b, y), true
+	}
+	return 0, 0, false
 }
 
 // BetaIncC returns the complement of the regularised incomplete beta
@@ -67,6 +89,9 @@ func BetaInc(a, b, x float64) float64 {
 // Algorithm: as BetaInc.
 func BetaIncC(a, b, x float64) float64 {
 	if _, w1, done := ibetaEdges(a, b, x); done {
+		return w1
+	}
+	if _, w1, done := ibetaHugeParam(a, b, x); done {
 		return w1
 	}
 	_, w1 := ibetaRatio(a, b, ibetaNewXY(x, a+b))

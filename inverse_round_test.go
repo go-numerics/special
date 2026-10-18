@@ -69,6 +69,34 @@ func TestRoundingStepLimits(t *testing.T) {
 	}
 }
 
+// TestHugeParameters holds the incomplete gamma and beta functions at
+// parameters near MaxFloat64, where their prefixes overflowed to NaN, and
+// checks the large-parameter beta limit against the gamma function it
+// reduces to.
+func TestHugeParameters(t *testing.T) {
+	m := math.MaxFloat64
+	for _, c := range []struct {
+		name      string
+		got, want float64
+	}{
+		{"GammaP(Max, 3.5)", GammaP(m, 3.5), 0},
+		{"GammaQ(Max, 3.5)", GammaQ(m, 3.5), 1},
+		{"BetaInc(30.5, Max, 0.97)", BetaInc(30.5, m, 0.97), 1},
+		{"BetaIncC(30.5, Max, 0.97)", BetaIncC(30.5, m, 0.97), 0},
+		{"BetaInc(Max, 30.5, 0.03)", BetaInc(m, 30.5, 0.03), 0},
+		{"BetaIncC(Max, 30.5, 0.03)", BetaIncC(m, 30.5, 0.03), 1},
+		// y = (b + (a-1)/2)(-log1p(-x)) = 1
+		{"BetaInc(2, 1e301, 1e-301)", BetaInc(2, 1e301, 1e-301), GammaP(2, 1)},
+		// 1 - I_x(a, b) = P(b, (a + (b-1)/2)(-log x)), y = 1.1e285 here
+		{"BetaIncC(1e301, 2, 1-2^-53)", BetaIncC(1e301, 2, 1-0x1p-53), 1},
+	} {
+		// 1e-15: y itself is two roundings from (b + (a-1)/2)(-log1p(-x))
+		if !(math.Abs(c.got-c.want) <= 1e-15*math.Abs(c.want)) {
+			t.Errorf("%s = %v, want %v", c.name, c.got, c.want)
+		}
+	}
+}
+
 // TestLogGammaAccAgainstLogGamma checks logGammaAcc against the float64
 // LogGamma (itself within an ulp) across the shift to Stirling's series.
 func TestLogGammaAccAgainstLogGamma(t *testing.T) {

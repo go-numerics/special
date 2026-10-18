@@ -99,6 +99,12 @@ func igamEdges(a, x float64) (p, q float64, done bool) {
 
 // igamPQ returns P(a, x) and Q(a, x) for finite a > 0, x > 0.
 func igamPQ(a, x float64) (p, q float64) {
+	if a >= 1000 && x <= a*0x1p-3 {
+		// log P <= a log x - x - log Γ(a+1) - log(1 - x/(a+1)) <= -1.2a:
+		// P is below e^-1200, 0 in float64. (The prefix a log x - log Γ(a)
+		// overflowed to Inf - Inf = NaN at a = MaxFloat64.)
+		return 0, 1
+	}
 	if a > 20 && math.Abs(x-a) < 0.3*a {
 		return igamTemme(a, x)
 	}
