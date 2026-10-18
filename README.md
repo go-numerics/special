@@ -66,9 +66,10 @@ exception, K1 at small x, is a tie at 1.05 ulp). Typical maxima:
 | Digamma near its negative zeros | 31 ulp | 2.5e17 ulp |
 | Erfc to the subnormal range | 0.5 ulp | 2e13 ulp |
 | Ndtr lower tail, x in [-38.5, -10) | 0.5 ulp | 1.8e12 ulp |
-| Ndtri, ErfInv, ErfcInv | 0.5–0.6 ulp | 1.4–4.4 ulp (wrong at subnormals) |
+| Ndtri, ErfInv, ErfcInv | 0.5 ulp | 1.4–4.4 ulp (wrong at subnormals) |
 | GammaP / GammaQ, a in [1e4, 1e15] | 0.6 ulp | 8.9e15 ulp |
-| BetaInc, a and b in [100, 1e4) | 9 ulp | 3487 ulp |
+| BetaInc, a and b in [100, 1e4) | 2.3 ulp | 3487 ulp |
+| BetaIncInv, GammaPInv and complements, a, b in [1e-3, 3000) | 0.5 ulp (correctly rounded) | 9–8271 ulp |
 | J0 / Y0 next to their zeros | 0.5 ulp | 3e10 / 2e12 ulp |
 | Jv at x in [1e4, 1e300] | 1.7 ulp | 5e18 ulp |
 
