@@ -34,10 +34,7 @@ func TestInlinedLoopsBitIdentical(t *testing.T) {
 	for name, f := range unary {
 		var x []float64
 		for _, v := range pts {
-			// Polygamma's negative-x path sums ceil(-x) terms: keep it short.
-			if name != "polygamma" || v > -1e4 {
-				x = append(x, v)
-			}
+			x = append(x, v)
 		}
 		if name != "polygamma" {
 			for _, row := range loadFixture(t, name) {

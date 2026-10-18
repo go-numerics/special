@@ -508,6 +508,9 @@ func Polygamma(n int, x float64) float64 {
 	if x <= 0 && x == math.Trunc(x) {
 		return sign * math.Inf(1)
 	}
+	if n == 1 && x < -10 {
+		return trigammaReflect(x)
+	}
 	h := hurwitzAny(float64(n)+1, x)
 	var f scaled
 	if n <= 170 {
@@ -571,6 +574,26 @@ func trigamma(x float64) float64 {
 	bb = v - sh
 	ve := (sh - (v - bb)) + (ah - bb)
 	return v + (ve + (sl + al))
+}
+
+// trigammaReflect returns ψ'(x) for non-integer x < -10 by the reflection
+// formula ψ'(x) = π²/sin²(πx) - ψ'(1 - x) (DLMF 5.15.6), with sin(πx)
+// reduced exactly (sinPiDD), the quotient in double-double, and ψ'(1-x)
+// from the asymptotic series at 1 - x = yh + yl (> 11) corrected to first
+// order in yl. The Hurwitz sum it replaces needs ceil(-x) terms, which
+// does not terminate in practice for large |x|. No cancellation: the first
+// term is at least π², the second below 0.1.
+func trigammaReflect(x float64) float64 {
+	sn := sinPiDD(x)
+	q := dd.Div(dd.Mul(piDD, piDD), dd.Mul(sn, sn))
+	yh := 1 - x // TwoSum
+	bb := yh - 1
+	yl := (1 - (yh - bb)) + (-x - bb)
+	ah, al := trigammaAsym(yh)
+	iy := 1 / yh
+	al -= yl * iy * iy * (1 + iy*(1+0.5*iy)) // ψ''(y) yl
+	v := q.Hi - ah                           // Fast2Sum: q > 9.8 > ψ'(1-x)
+	return v + (((q.Hi - v) - ah) + (q.Lo - al))
 }
 
 // trigammaAsym returns ψ'(x) as hi + lo for x >= 10 (see trigamma).

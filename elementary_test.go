@@ -86,3 +86,24 @@ func TestXlogySubnormal(t *testing.T) {
 		t.Errorf("logf(2) = %v", got)
 	}
 }
+
+// TestTrigammaReflect: Polygamma(1, x) for very negative x terminates and
+// is accurate (references from mpmath through the same identity, since
+// mpmath's own polygamma does not finish there either).
+func TestTrigammaReflect(t *testing.T) {
+	for _, c := range [][3]float64{
+		{-10.3, 14.986887065722637, 4.1783692782957777e-16},
+		{-25.7, 15.041250395072113, -5.901354151027581e-16},
+		{-999999.75, 19.739207802178967, 3.8365126877686833e-17},
+		{-4503599627370495.5, 9.869604401089358, 4.044849459489399e-16},
+		{-12345.678, 13.735213862761746, 7.811952760737891e-17},
+	} {
+		got := Polygamma(1, c[0])
+		if e := math.Abs((got-c[1])-c[2]) / ulp(c[1]); e > 1 {
+			t.Errorf("Polygamma(1, %v) = %v, want %v (%.2f ulp)", c[0], got, c[1], e)
+		}
+	}
+	if v := Polygamma(1, -1e6); !math.IsInf(v, 1) {
+		t.Errorf("Polygamma(1, -1e6) = %v, want +Inf (pole)", v)
+	}
+}
