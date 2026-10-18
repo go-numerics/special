@@ -117,16 +117,12 @@ func harnessPairs(t *testing.T) map[string]string {
 
 	var all strings.Builder
 	for _, f := range files {
-		b, err := os.ReadFile(f)
-		if err != nil {
-			if f == "bench/scipy_server.py" {
-				continue // optional
-			}
-			t.Fatalf("%s: %v", f, err)
+		src, ok := readOptional(t, f, f == "bench/scipy_server.py")
+		if !ok {
+			continue // only bench/scipy_server.py may be absent
 		}
-		all.Write(b)
+		all.WriteString(src)
 		all.WriteString("\n")
-		src := string(b)
 
 		// Rule 1: each entry, windowed to the next one.
 		locs := entryStart.FindAllStringSubmatchIndex(src, -1)
@@ -199,12 +195,9 @@ func TestReadmeNamesEveryScipyEquivalent(t *testing.T) {
 	exported := exportedFuncs(t)
 	pairs := harnessPairs(t)
 
-	b, err := os.ReadFile("README.md")
-	if err != nil {
-		t.Fatal(err)
-	}
+	doc := readNormalised(t, "README.md")
 	got := map[string]string{}
-	for _, row := range readmeRow.FindAllStringSubmatch(string(b), -1) {
+	for _, row := range readmeRow.FindAllStringSubmatch(doc, -1) {
 		for _, e := range readmeEntry.FindAllStringSubmatch(row[2], -1) {
 			if e[3] != "" {
 				got[e[1]] = "—"
@@ -361,4 +354,72 @@ func TestHarnessPairingsAreReadable(t *testing.T) {
 	}
 	t.Logf("%d exported, %d measured against scipy, %d unpaired",
 		len(exported), len(pairs), len(missing))
+}
+
+// readNormalised reads a file with CRLF folded to LF.
+//
+// Why: on Windows the checkout carries CRLF, and every pattern here is
+// line-anchored with (?m), where `$` matches before the \n and so sits AFTER a
+// \r. The README table then parses as nothing and this test refused -- which
+// is the right behaviour and exactly what it did on the windows-latest lane,
+// but the refusal was about the checkout's line endings and not about the
+// README, so the fix belongs in the reader. The bytes compared are the same
+// either way.
+func readNormalised(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	return strings.ReplaceAll(string(b), "\r\n", "\n")
+}
+
+// TestPatternsSurviveCRLF is the regression for the windows-latest failure: the
+// extraction must read a CRLF document exactly as it reads an LF one. It feeds
+// the patterns directly rather than writing a file, so it runs the same on
+// every platform -- the point is the pattern, not the checkout.
+func TestPatternsSurviveCRLF(t *testing.T) {
+	const lf = "| gamma | `Gamma` (`gamma`), `LogGamma` (`gammaln`) |\n" +
+		"| Bessel | `In` (—) |\n"
+	crlf := strings.ReplaceAll(lf, "\n", "\r\n")
+
+	count := func(doc string) (rows, entries int) {
+		for _, row := range readmeRow.FindAllStringSubmatch(doc, -1) {
+			rows++
+			entries += len(readmeEntry.FindAllStringSubmatch(row[2], -1))
+		}
+		return rows, entries
+	}
+	lr, le := count(lf)
+	if lr != 2 || le != 3 {
+		t.Fatalf("LF: %d row(s), %d entr(ies); want 2 and 3 -- the fixture no longer "+
+			"matches the README's shape, so this test is not about CRLF any more", lr, le)
+	}
+	cr, ce := count(strings.ReplaceAll(crlf, "\r\n", "\n"))
+	if cr != lr || ce != le {
+		t.Errorf("CRLF folded: %d row(s), %d entr(ies); LF gives %d and %d", cr, ce, lr, le)
+	}
+	// And the control: WITHOUT folding, CRLF must break -- otherwise this test
+	// would pass whether or not the reader normalises, and prove nothing.
+	if rawRows, _ := count(crlf); rawRows != 0 {
+		t.Errorf("raw CRLF parsed %d row(s); it has to parse none, or folding is not what "+
+			"fixed the windows lane and the real cause is still unknown", rawRows)
+	}
+}
+
+// readOptional reads a file with CRLF folded to LF. When optional is true a
+// missing file is not an error, which is how bench/scipy_server.py is treated:
+// the generators are the authority and the bench server only adds to them.
+// Anything else missing IS an error, so a renamed generator cannot quietly
+// shrink what this test reads.
+func readOptional(t *testing.T, path string, optional bool) (string, bool) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if optional {
+			return "", false
+		}
+		t.Fatalf("%s: %v", path, err)
+	}
+	return strings.ReplaceAll(string(b), "\r\n", "\n"), true
 }
