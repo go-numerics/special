@@ -165,6 +165,30 @@ func TestExpMant(t *testing.T) {
 	}
 }
 
+func TestExpMantAccurate(t *testing.T) {
+	worst := 0.0
+	for i := 0; i < 2000; i++ {
+		hi := -700 + 1400*float64(i)/2000 + 1e-4*float64(i%13)
+		a := AddF(DD{hi, hi * 0x1p-58 * float64(i%5-2)}, 0)
+		m, k := ExpMantAccurate(a)
+		got := new(big.Float).SetPrec(400).SetMantExp(bf(m), k)
+		want := bigExp(bf(a))
+		d := new(big.Float).SetPrec(400).Sub(got, want)
+		r, _ := new(big.Float).Quo(d, want).Float64()
+		worst = math.Max(worst, math.Abs(r))
+	}
+	t.Logf("ExpMantAccurate worst relative error 2^%.1f", math.Log2(worst))
+	if worst > 0x1p-88 {
+		t.Errorf("ExpMantAccurate relative error %g", worst)
+	}
+	for _, x := range []float64{math.NaN(), 2e7, -2e7} {
+		m, _ := ExpMantAccurate(DD{x, 0})
+		if !(m.Hi != m.Hi || math.IsInf(m.Hi, 1) || m.Hi == 0) {
+			t.Errorf("ExpMantAccurate(%v) = %v", x, m)
+		}
+	}
+}
+
 func TestSpecials(t *testing.T) {
 	if s := Sqrt(DD{0, 0}); s.Hi != 0 {
 		t.Errorf("Sqrt(0) = %v", s)

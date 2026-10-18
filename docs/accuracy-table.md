@@ -7,8 +7,8 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | function | points | regions | ours max | SciPy max | regions where ours <= SciPy |
 |---|--:|--:|--:|--:|--:|
 | **beta** | 5006 | 6 | 1.00 | 1.9e+07 | 6/6 |
-| **betainc** | 9811 | 11 | 8.99 | wrong | 11/11 |
-| **betaincc** | 9812 | 11 | 7.32 | wrong | 11/11 |
+| **betainc** | 9811 | 11 | 2.91 | wrong | 11/11 |
+| **betaincc** | 9812 | 11 | 4.80 | wrong | 11/11 |
 | **betainccinv** | 7180 | 10 | wrong | wrong | 10/10 |
 | **betaincinv** | 7138 | 10 | 6.8e+15 | wrong | 10/10 |
 | **binom** | 3000 | 3 | 0.50 | 1.9e+06 | 3/3 |
@@ -16,22 +16,22 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **digamma** | 7852 | 8 | 31 | 2.5e+17 | 8/8 |
 | **ellipe** | 3921 | 5 | 0.51 | 3.30 | 5/5 |
 | **ellipk** | 3897 | 5 | 0.52 | 1.83 | 5/5 |
-| **ellipkm1** | 3006 | 4 | 0.53 | 1.73 | 4/4 |
+| **ellipkm1** | 3006 | 4 | 0.51 | 1.73 | 4/4 |
 | **erf** | 3110 | 5 | 0.53 | 2.00 | 5/5 |
 | **erfc** | 4260 | 7 | 1.00 | 2.1e+13 | 7/7 |
-| **erfcinv** | 4201 | 6 | 0.54 | wrong | 6/6 |
-| **erfcx** | 5010 | 6 | 0.59 | 481 | 6/6 |
-| **erfinv** | 3928 | 5 | 0.57 | 1.72 | 5/5 |
+| **erfcinv** | 4201 | 6 | 0.51 | wrong | 6/6 |
+| **erfcx** | 5010 | 6 | 0.54 | 481 | 6/6 |
+| **erfinv** | 3928 | 5 | 0.51 | 1.72 | 5/5 |
 | **expit** | 4010 | 5 | 1.00 | 9.5e+13 | 5/5 |
 | **factorial** | 2181 | 4 | 0.50 | 620 | 4/4 |
 | **factorial2** | 326 | 1 | 0.50 | 4.5e+15 | 1/1 |
 | **gamma** | 8143 | 10 | 0.50 | 3.3e+15 | 10/10 |
-| **gammainc** | 7520 | 10 | 2.08 | 8.9e+15 | 10/10 |
-| **gammaincc** | 7520 | 10 | 1.81 | 1.1e+10 | 10/10 |
-| **gammainccinv** | 6260 | 8 | 1.13 | wrong | 8/8 |
-| **gammaincinv** | 5791 | 8 | 1.19 | wrong | 8/8 |
-| **i0** | 6013 | 7 | 2.51 | wrong | 7/7 |
-| **i0e** | 5013 | 6 | 2.04 | 4.77 | 6/6 |
+| **gammainc** | 7520 | 10 | 0.89 | 8.9e+15 | 10/10 |
+| **gammaincc** | 7520 | 10 | 1.00 | 1.1e+10 | 10/10 |
+| **gammainccinv** | 6260 | 8 | 0.54 | wrong | 8/8 |
+| **gammaincinv** | 5791 | 8 | 0.63 | wrong | 8/8 |
+| **i0** | 6013 | 7 | 1.41 | wrong | 7/7 |
+| **i0e** | 5013 | 6 | 0.51 | 4.77 | 6/6 |
 | **i1** | 6013 | 7 | 3.45 | wrong | 7/7 |
 | **i1e** | 5013 | 6 | 2.47 | 6.34 | 6/6 |
 | **iv** | 7687 | 9 | 2.87 | wrong | 9/9 |
@@ -41,8 +41,8 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **jn** | 8077 | 10 | 5.19 | wrong | 10/10 |
 | **jn_zeros** | 690 | 2 | 0.50 | 0.85 | 2/2 |
 | **jv** | 8687 | 10 | 7.22 | wrong | 10/10 |
-| **k0** | 5013 | 6 | 2.91 | wrong | 6/6 |
-| **k0e** | 4013 | 5 | 1.52 | wrong | 5/5 |
+| **k0** | 5013 | 6 | 2.00 | wrong | 6/6 |
+| **k0e** | 4013 | 5 | 1.47 | wrong | 5/5 |
 | k1 | 5013 | 6 | 2.49 | wrong | 5/6 |
 | **k1e** | 4013 | 5 | 2.44 | wrong | 5/5 |
 | **kv** | 7687 | 9 | 3.82 | wrong | 9/9 |
@@ -56,8 +56,8 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **loggamma** | 9907 | 10 | 0.86 | wrong | 10/10 |
 | **logit** | 3913 | 5 | 0.50 | 1.74 | 5/5 |
 | **logsumexp4** | 5005 | 6 | 0.50 | 3.20 | 6/6 |
-| **ndtr** | 4060 | 6 | 0.60 | 1.8e+12 | 6/6 |
-| **ndtri** | 4080 | 6 | 0.62 | 2.62 | 6/6 |
+| **ndtr** | 4060 | 6 | 0.52 | 1.8e+12 | 6/6 |
+| **ndtri** | 4080 | 6 | 0.50 | 2.62 | 6/6 |
 | **perm** | 3633 | 4 | 0.50 | 9.41 | 4/4 |
 | **polygamma** | 4014 | 5 | 0.50 | wrong | 5/5 |
 | **softmax4** | 5005 | 6 | 1.00 | 437 | 6/6 |
@@ -84,44 +84,44 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | betainc | a,b<1e-3 | 1000 | **0.93** | 0.83 | 8.9e+15 | 8.8e+15 |
 | betainc | a<1e-3<=b | 1000 | **0.49** | 0.47 | 3.06 | 1.92 |
 | betainc | b<1e-3<=a | 1000 | **2.91** | 2.34 | 1.7e+13 | 7.1e+12 |
-| betainc | a,b in [1e-3,1) | 1000 | **1.93** | 1.65 | 12 | 9.54 |
-| betainc | a,b in [1,100) | 1000 | **4.84** | 3.70 | 447 | 417 |
-| betainc | a,b in [100,1e4), x near mean | 1000 | **8.99** | 6.93 | 3487 | 2603 |
-| betainc | a,b in [1e4,1e15], x near mean | 300 | **6.35** | 6.35 | 8.8e+11 | 8.8e+11 |
-| betainc | a small, b large | 999 | **5.21** | 5.21 | 935 | 935 |
-| betainc | x tiny (I to subnormal) | 1000 | **3.25** | 0.96 | 5.7e+10 | 2.1e+10 |
+| betainc | a,b in [1e-3,1) | 1000 | **1.65** | 1.16 | 12 | 9.54 |
+| betainc | a,b in [1,100) | 1000 | **1.01** | 0.72 | 447 | 417 |
+| betainc | a,b in [100,1e4), x near mean | 1000 | **2.26** | 2.20 | 3487 | 2603 |
+| betainc | a,b in [1e4,1e15], x near mean | 300 | **2.30** | 2.30 | 8.8e+11 | 8.8e+11 |
+| betainc | a small, b large | 999 | **1.74** | 1.74 | 935 | 935 |
+| betainc | x tiny (I to subnormal) | 1000 | **0.50** | 0.50 | 5.7e+10 | 2.1e+10 |
 | betainc | x near 1 (I^c to subnormal) | 1000 | **0.50** | 0.48 | 0.69 | 0.59 |
 | betaincc | special | 512 | **0.67** | 0.67 | wrong | wrong |
 | betaincc | a,b<1e-3 | 1000 | **1.28** | 0.98 | 9.0e+15 | 9.0e+15 |
 | betaincc | a<1e-3<=b | 1000 | **4.80** | 3.27 | 5.0e+13 | 7.4e+12 |
 | betaincc | b<1e-3<=a | 1000 | **0.50** | 0.49 | 4.59 | 3.13 |
-| betaincc | a,b in [1e-3,1) | 1000 | **3.79** | 1.93 | 22 | 14 |
-| betaincc | a,b in [1,100) | 1000 | **3.25** | 2.49 | 235 | 142 |
-| betaincc | a,b in [100,1e4), x near mean | 1000 | **6.16** | 5.99 | 2997 | 2442 |
-| betaincc | a,b in [1e4,1e15], x near mean | 300 | **6.75** | 6.75 | 1.9e+14 | 1.9e+14 |
-| betaincc | a small, b large | 1000 | **7.32** | 3.33 | 725 | 598 |
+| betaincc | a,b in [1e-3,1) | 1000 | **1.87** | 1.49 | 22 | 14 |
+| betaincc | a,b in [1,100) | 1000 | **0.82** | 0.75 | 235 | 142 |
+| betaincc | a,b in [100,1e4), x near mean | 1000 | **2.47** | 2.30 | 2997 | 2442 |
+| betaincc | a,b in [1e4,1e15], x near mean | 300 | **2.87** | 2.87 | 1.9e+14 | 1.9e+14 |
+| betaincc | a small, b large | 1000 | **1.90** | 1.85 | 725 | 598 |
 | betaincc | x tiny (I to subnormal) | 1000 | **0.43** | 0.12 | 0.43 | 0.12 |
-| betaincc | x near 1 (I^c to subnormal) | 1000 | **3.04** | 1.96 | 1.4e+14 | 1.3e+13 |
+| betaincc | x near 1 (I^c to subnormal) | 1000 | **0.50** | 0.50 | 1.4e+14 | 1.3e+13 |
 | betainccinv | special | 507 | **0.50** | 0.50 | wrong | wrong |
 | betainccinv | a,b<1e-3 | 594 | **wrong** | wrong | wrong | wrong |
 | betainccinv | a<1e-3<=b or b<1e-3<=a | 629 | **8.1e+15** | 8.1e+15 | wrong | wrong |
-| betainccinv | a,b in [1e-3,1) | 1000 | **20** | 12 | 4.5e+15 | 4.5e+15 |
-| betainccinv | a,b in [1,100) | 1000 | **3.16** | 2.31 | 35 | 29 |
-| betainccinv | a,b in [100,3000) | 1000 | **0.86** | 0.79 | 17 | 9.55 |
+| betainccinv | a,b in [1e-3,1) | 1000 | **0.50** | 0.50 | 4.5e+15 | 4.5e+15 |
+| betainccinv | a,b in [1,100) | 1000 | **0.50** | 0.50 | 35 | 29 |
+| betainccinv | a,b in [100,3000) | 1000 | **0.50** | 0.50 | 17 | 9.55 |
 | betainccinv | a,b in [3000,1e15] | 150 | **0.50** | 0.50 | 4.9e+06 | 4.9e+06 |
-| betainccinv | a small, b large | 300 | **2.03** | 2.03 | 4.5e+15 | 4.5e+15 |
-| betainccinv | p tiny | 1000 | **0.72** | 0.53 | wrong | wrong |
-| betainccinv | p near 1 | 1000 | **1.51** | 1.48 | 332 | 179 |
+| betainccinv | a small, b large | 300 | **0.50** | 0.50 | 4.5e+15 | 4.5e+15 |
+| betainccinv | p tiny | 1000 | **0.50** | 0.49 | wrong | wrong |
+| betainccinv | p near 1 | 1000 | **0.50** | 0.50 | 332 | 179 |
 | betaincinv | special | 506 | **0.43** | 0.43 | wrong | wrong |
 | betaincinv | a,b<1e-3 | 613 | **5.3e+09** | 5.3e+09 | wrong | wrong |
 | betaincinv | a<1e-3<=b or b<1e-3<=a | 569 | **6.8e+15** | 6.8e+15 | wrong | wrong |
-| betaincinv | a,b in [1e-3,1) | 1000 | **7.78** | 6.96 | 4.5e+15 | 4.5e+15 |
-| betaincinv | a,b in [1,100) | 1000 | **2.81** | 2.74 | 33 | 21 |
-| betaincinv | a,b in [100,3000) | 1000 | **0.94** | 0.77 | 323 | 194 |
+| betaincinv | a,b in [1e-3,1) | 1000 | **1.00** | 0.50 | 4.5e+15 | 4.5e+15 |
+| betaincinv | a,b in [1,100) | 1000 | **0.50** | 0.50 | 33 | 21 |
+| betaincinv | a,b in [100,3000) | 1000 | **0.50** | 0.50 | 323 | 194 |
 | betaincinv | a,b in [3000,1e15] | 150 | **0.73** | 0.73 | 1.4e+07 | 1.4e+07 |
-| betaincinv | a small, b large | 300 | **1.93** | 1.93 | 4.5e+15 | 4.5e+15 |
-| betaincinv | p tiny | 1000 | **2.10** | 1.91 | wrong | wrong |
-| betaincinv | p near 1 | 1000 | **0.73** | 0.70 | 153 | 14 |
+| betaincinv | a small, b large | 300 | **0.50** | 0.50 | 4.5e+15 | 4.5e+15 |
+| betaincinv | p tiny | 1000 | **0.59** | 0.51 | wrong | wrong |
+| betaincinv | p near 1 | 1000 | **0.50** | 0.50 | 153 | 14 |
 | binom | k integer <=64, n real | 1000 | **0.50** | 0.50 | 1375 | 1312 |
 | binom | n,k > 0 real | 1000 | **0.50** | 0.50 | 49612 | 32816 |
 | binom | n>0, k real small | 1000 | **0.50** | 0.50 | 1.9e+06 | 1.3e+06 |
@@ -131,7 +131,7 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | comb | huge n, large k | 1000 | **0.49** | 0.48 | 339196 | 44193 |
 | digamma | special | 14 | **0.21** | 0.21 | 0.21 | 0.21 |
 | digamma | tiny | 2000 | **0.50** | 0.50 | 1.42 | 1.21 |
-| digamma | (0,10) | 1000 | **0.51** | 0.51 | 1.97 | 1.84 |
+| digamma | (0,10) | 1000 | **0.51** | 0.50 | 1.97 | 1.84 |
 | digamma | near positive root | 917 | **0.53** | 0.53 | 1.28 | 1.28 |
 | digamma | [10,1e300] | 1000 | **0.50** | 0.49 | 0.89 | 0.61 |
 | digamma | (-40,0) | 1000 | **0.66** | 0.54 | 996 | 649 |
@@ -139,17 +139,17 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | digamma | (-1e15,-40] | 1000 | **0.50** | 0.50 | 3192 | 2176 |
 | ellipe | special | 7 | **0.28** | 0.28 | 0.73 | 0.73 |
 | ellipe | m<-1 | 1000 | **0.51** | 0.51 | 3.30 | 2.88 |
-| ellipe | [-1,0.5) | 1000 | **0.51** | 0.51 | 2.03 | 1.92 |
+| ellipe | [-1,0.5) | 1000 | **0.51** | 0.50 | 2.03 | 1.92 |
 | ellipe | [0.5,1-1e-3) | 1000 | **0.50** | 0.50 | 1.00 | 0.95 |
 | ellipe | near 1 | 914 | **0.51** | 0.51 | 0.97 | 0.97 |
 | ellipk | special | 7 | **0.43** | 0.43 | 0.43 | 0.43 |
 | ellipk | m<-1 | 1000 | **0.51** | 0.51 | 1.59 | 1.47 |
-| ellipk | [-1,0.5) | 1000 | **0.51** | 0.51 | 1.83 | 1.80 |
+| ellipk | [-1,0.5) | 1000 | **0.50** | 0.50 | 1.83 | 1.80 |
 | ellipk | [0.5,1-1e-3) | 1000 | **0.50** | 0.50 | 1.31 | 1.21 |
 | ellipk | near 1 | 890 | **0.52** | 0.52 | 1.44 | 1.44 |
 | ellipkm1 | special | 6 | **0.32** | 0.32 | 0.32 | 0.32 |
 | ellipkm1 | p tiny | 1000 | **0.48** | 0.48 | 1.23 | 0.97 |
-| ellipkm1 | (1e-3,1] | 1000 | **0.53** | 0.51 | 1.35 | 1.21 |
+| ellipkm1 | (1e-3,1] | 1000 | **0.50** | 0.50 | 1.35 | 1.21 |
 | ellipkm1 | p>1 | 1000 | **0.51** | 0.51 | 1.73 | 1.52 |
 | erf | special | 10 | **0** | 0 | 0 | 0 |
 | erf | tiny | 1000 | **0.51** | 0.51 | 1.35 | 1.35 |
@@ -158,27 +158,27 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | erf | |x|>=6 | 100 | **0** | 0 | 0 | 0 |
 | erfc | special | 10 | **0** | 0 | 0 | 0 |
 | erfc | [-6,0.5) | 1000 | **0.50** | 0.50 | 1.70 | 1.55 |
-| erfc | [0.5,5) | 1000 | **0.61** | 0.58 | 15 | 15 |
-| erfc | [5,26.5) tail | 1000 | **0.53** | 0.52 | 436 | 433 |
+| erfc | [0.5,5) | 1000 | **0.51** | 0.50 | 15 | 15 |
+| erfc | [5,26.5) tail | 1000 | **0.50** | 0.50 | 436 | 433 |
 | erfc | [26.5,27.3] subnormal | 200 | **1.00** | 1.00 | 2.1e+13 | 2.1e+13 |
 | erfc | x<-6 | 50 | **0** | 0 | 0 | 0 |
 | erfc | tiny | 1000 | **0.46** | 0.44 | 0.46 | 0.44 |
 | erfcinv | special | 8 | **0.39** | 0.39 | wrong | wrong |
 | erfcinv | subnormal | 193 | **0.49** | 0.49 | wrong | wrong |
 | erfcinv | [1e-300,1e-10) | 1000 | **0.50** | 0.50 | 2.49 | 2.43 |
-| erfcinv | [1e-10,0.5) | 1000 | **0.53** | 0.50 | 2.66 | 2.56 |
-| erfcinv | [0.5,1.5] | 1000 | **0.52** | 0.51 | 3.04 | 2.76 |
-| erfcinv | (1.5,2) | 1000 | **0.54** | 0.51 | 4.39 | 4.15 |
+| erfcinv | [1e-10,0.5) | 1000 | **0.50** | 0.50 | 2.66 | 2.56 |
+| erfcinv | [0.5,1.5] | 1000 | **0.51** | 0.50 | 3.04 | 2.76 |
+| erfcinv | (1.5,2) | 1000 | **0.50** | 0.50 | 4.39 | 4.15 |
 | erfcx | special | 10 | **0** | 0 | 0 | 0 |
 | erfcx | [-26.6,-0.5) | 1000 | **0.50** | 0.50 | 481 | 464 |
 | erfcx | [-0.5,0.5) | 1000 | **0.54** | 0.50 | 6.87 | 6.19 |
-| erfcx | [0.5,8) | 1000 | **0.59** | 0.52 | 4.19 | 4.15 |
+| erfcx | [0.5,8) | 1000 | **0.51** | 0.50 | 4.19 | 4.15 |
 | erfcx | [8,1e5) | 1000 | **0.50** | 0.50 | 2.23 | 2.22 |
 | erfcx | [1e5,1e300] | 1000 | **0.50** | 0.50 | 1.05 | 0.77 |
 | erfinv | special | 9 | **0.08** | 0.08 | 0.08 | 0.08 |
-| erfinv | tiny | 1000 | **0.51** | 0.51 | 1.50 | 1.50 |
-| erfinv | |y|<=0.5 | 1000 | **0.54** | 0.54 | 1.70 | 1.70 |
-| erfinv | 0.5<|y|<0.999 | 1000 | **0.57** | 0.57 | 1.72 | 1.72 |
+| erfinv | tiny | 1000 | **0.50** | 0.50 | 1.50 | 1.50 |
+| erfinv | |y|<=0.5 | 1000 | **0.51** | 0.51 | 1.70 | 1.70 |
+| erfinv | 0.5<|y|<0.999 | 1000 | **0.50** | 0.50 | 1.72 | 1.72 |
 | erfinv | near ±1 | 919 | **0.50** | 0.50 | 1.50 | 1.50 |
 | expit | special | 10 | **0** | 0 | 0 | 0 |
 | expit | [-746,-30) | 1000 | **1.00** | 0.50 | 9.5e+13 | 3.8e+13 |
@@ -203,52 +203,52 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | gammainc | special | 120 | **0.45** | 0.45 | 4.5e+15 | 4.5e+15 |
 | gammainc | a<1e-3 | 1000 | **0.49** | 0.48 | 252 | 229 |
 | gammainc | a in [1e-3,1) | 1000 | **0.70** | 0.70 | 36 | 29 |
-| gammainc | a in [1,30) | 1000 | **2.08** | 1.63 | 150 | 119 |
-| gammainc | integer, half-integer a | 1000 | **0.90** | 0.89 | 251 | 164 |
-| gammainc | a in [30,1e4), x near a | 1000 | **0.88** | 0.74 | 3476 | 3446 |
+| gammainc | a in [1,30) | 1000 | **0.71** | 0.70 | 150 | 119 |
+| gammainc | integer, half-integer a | 1000 | **0.89** | 0.64 | 251 | 164 |
+| gammainc | a in [30,1e4), x near a | 1000 | **0.74** | 0.73 | 3476 | 3446 |
 | gammainc | a in [1e4,1e15], x near a | 300 | **0.56** | 0.56 | 8.9e+15 | 8.9e+15 |
 | gammainc | x tiny (P to subnormal) | 1000 | **0.70** | 0.66 | 1.6e+14 | 3.1e+12 |
 | gammainc | x large (Q to subnormal) | 1000 | **0.48** | 0.48 | 1.10 | 0.85 |
 | gammainc | x huge | 100 | **0** | 0 | 0 | 0 |
 | gammaincc | special | 120 | **1.00** | 1.00 | 461 | 461 |
-| gammaincc | a<1e-3 | 1000 | **0.87** | 0.69 | 315 | 238 |
-| gammaincc | a in [1e-3,1) | 1000 | **1.14** | 1.07 | 54 | 39 |
-| gammaincc | a in [1,30) | 1000 | **1.81** | 1.42 | 141 | 106 |
-| gammaincc | integer, half-integer a | 1000 | **1.27** | 1.10 | 153 | 137 |
-| gammaincc | a in [30,1e4), x near a | 1000 | **1.05** | 1.02 | 3875 | 3533 |
+| gammaincc | a<1e-3 | 1000 | **0.50** | 0.50 | 315 | 238 |
+| gammaincc | a in [1e-3,1) | 1000 | **0.75** | 0.75 | 54 | 39 |
+| gammaincc | a in [1,30) | 1000 | **0.71** | 0.70 | 141 | 106 |
+| gammaincc | integer, half-integer a | 1000 | **0.77** | 0.71 | 153 | 137 |
+| gammaincc | a in [30,1e4), x near a | 1000 | **0.69** | 0.61 | 3875 | 3533 |
 | gammaincc | a in [1e4,1e15], x near a | 300 | **0.54** | 0.54 | 4.5e+09 | 4.5e+09 |
-| gammaincc | x tiny (P to subnormal) | 1000 | **0.98** | 0.92 | 12 | 9.59 |
-| gammaincc | x large (Q to subnormal) | 1000 | **1.31** | 1.14 | 1.1e+10 | 9.9e+09 |
+| gammaincc | x tiny (P to subnormal) | 1000 | **0.74** | 0.74 | 12 | 9.59 |
+| gammaincc | x large (Q to subnormal) | 1000 | **1.00** | 1.00 | 1.1e+10 | 9.9e+09 |
 | gammaincc | x huge | 100 | **0** | 0 | 0 | 0 |
-| gammainccinv | special | 110 | **0.53** | 0.53 | wrong | wrong |
+| gammainccinv | special | 110 | **0.49** | 0.49 | wrong | wrong |
 | gammainccinv | a<1e-3 | 1000 | **0.54** | 0.51 | 941 | 848 |
-| gammainccinv | a in [1e-3,1) | 1000 | **0.76** | 0.72 | 7062 | 4585 |
-| gammainccinv | a in [1,100) | 1000 | **1.09** | 1.09 | 19 | 18 |
-| gammainccinv | a in [100,1e4) | 1000 | **0.53** | 0.51 | 0.86 | 0.67 |
+| gammainccinv | a in [1e-3,1) | 1000 | **0.50** | 0.50 | 7062 | 4585 |
+| gammainccinv | a in [1,100) | 1000 | **0.50** | 0.50 | 19 | 18 |
+| gammainccinv | a in [100,1e4) | 1000 | **0.50** | 0.50 | 0.86 | 0.67 |
 | gammainccinv | a in [1e4,1e15] | 150 | **0.50** | 0.50 | 0.50 | 0.50 |
 | gammainccinv | p tiny | 1000 | **0.50** | 0.50 | 12 | 11 |
-| gammainccinv | p near 1 | 1000 | **1.13** | 0.69 | 1004 | 792 |
-| gammaincinv | special | 110 | **0.53** | 0.53 | wrong | wrong |
+| gammainccinv | p near 1 | 1000 | **0.50** | 0.50 | 1004 | 792 |
+| gammaincinv | special | 110 | **0.50** | 0.50 | wrong | wrong |
 | gammaincinv | a<1e-3 | 531 | **0.43** | 0.43 | 1312 | 1312 |
-| gammaincinv | a in [1e-3,1) | 1000 | **0.94** | 0.73 | 8271 | 4953 |
-| gammaincinv | a in [1,100) | 1000 | **1.19** | 1.15 | 13 | 9.99 |
-| gammaincinv | a in [100,1e4) | 1000 | **0.52** | 0.52 | 0.78 | 0.76 |
+| gammaincinv | a in [1e-3,1) | 1000 | **0.50** | 0.50 | 8271 | 4953 |
+| gammaincinv | a in [1,100) | 1000 | **0.50** | 0.50 | 13 | 9.99 |
+| gammaincinv | a in [100,1e4) | 1000 | **0.50** | 0.50 | 0.78 | 0.76 |
 | gammaincinv | a in [1e4,1e15] | 150 | **0.49** | 0.49 | 0.49 | 0.49 |
-| gammaincinv | p tiny | 1000 | **0.69** | 0.68 | 495 | 448 |
-| gammaincinv | p near 1 | 1000 | **0.55** | 0.54 | 20 | 12 |
-| i0 | special | 13 | **0.80** | 0.80 | wrong | wrong |
+| gammaincinv | p tiny | 1000 | **0.63** | 0.50 | 495 | 448 |
+| gammaincinv | p near 1 | 1000 | **0.51** | 0.51 | 20 | 12 |
+| i0 | special | 13 | **0.32** | 0.32 | wrong | wrong |
 | i0 | small x | 1000 | **0.50** | 0.48 | 2.50 | 2.39 |
-| i0 | moderate | 1000 | **2.51** | 2.47 | 2.89 | 2.62 |
-| i0 | large x | 1000 | **1.66** | 1.61 | 2.54 | 2.43 |
+| i0 | moderate | 1000 | **0.53** | 0.53 | 2.89 | 2.62 |
+| i0 | large x | 1000 | **1.39** | 1.39 | 2.54 | 2.43 |
 | i0 | over/underflow edge | 1000 | **1.41** | 1.24 | wrong | wrong |
 | i0 | huge x | 1000 | **0** | 0 | 0 | 0 |
-| i0 | negative x | 1000 | **1.77** | 1.76 | wrong | 2.86 |
-| i0e | special | 13 | **0.96** | 0.96 | 1.05 | 1.05 |
-| i0e | small x | 1000 | **1.47** | 1.30 | 3.98 | 3.55 |
-| i0e | moderate | 1000 | **1.98** | 1.91 | 2.34 | 2.13 |
-| i0e | large x | 1000 | **0.50** | 0.50 | 2.26 | 2.10 |
+| i0 | negative x | 1000 | **1.23** | 0.89 | wrong | 2.86 |
+| i0e | special | 13 | **0.37** | 0.37 | 1.05 | 1.05 |
+| i0e | small x | 1000 | **0.49** | 0.49 | 3.98 | 3.55 |
+| i0e | moderate | 1000 | **0.51** | 0.51 | 2.34 | 2.13 |
+| i0e | large x | 1000 | **0.51** | 0.51 | 2.26 | 2.10 |
 | i0e | huge x | 1000 | **0.50** | 0.50 | 1.59 | 1.46 |
-| i0e | negative x | 1000 | **2.04** | 1.73 | 4.77 | 4.63 |
+| i0e | negative x | 1000 | **0.51** | 0.51 | 4.77 | 4.63 |
 | i1 | special | 13 | **0.12** | 0.12 | wrong | wrong |
 | i1 | small x | 1000 | **0.48** | 0.45 | 4.66 | 4.00 |
 | i1 | moderate | 1000 | **3.45** | 3.25 | 7.65 | 7.16 |
@@ -283,18 +283,18 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | ive | integer v | 1000 | **1.57** | 1.51 | 310 | 297 |
 | j0 | special | 13 | **0.49** | 0.49 | wrong | wrong |
 | j0 | small x | 1000 | **0.50** | 0.48 | 2.50 | 1.58 |
-| j0 | moderate | 1000 | **1.07** | 1.06 | 304 | 206 |
+| j0 | moderate | 1000 | **0.55** | 0.51 | 304 | 206 |
 | j0 | large x | 1000 | **1.58** | 1.49 | 549 | 55 |
 | j0 | huge x | 1000 | **1.86** | 1.73 | 340 | 151 |
 | j0 | near zeros | 1000 | **0.50** | 0.50 | 3.1e+10 | 2.6e+10 |
-| j0 | negative x | 1000 | **1.35** | 1.18 | 460 | 302 |
-| j1 | special | 13 | **0.83** | 0.83 | wrong | wrong |
-| j1 | small x | 1000 | **0.59** | 0.57 | 2.00 | 2.00 |
-| j1 | moderate | 1000 | **1.22** | 1.15 | 1114 | 872 |
+| j0 | negative x | 1000 | **1.35** | 1.14 | 460 | 302 |
+| j1 | special | 13 | **0.33** | 0.33 | wrong | wrong |
+| j1 | small x | 1000 | **0.46** | 0.43 | 2.00 | 2.00 |
+| j1 | moderate | 1000 | **0.60** | 0.52 | 1114 | 872 |
 | j1 | large x | 1000 | **1.57** | 1.47 | 486 | 140 |
 | j1 | huge x | 1000 | **1.77** | 1.67 | 66 | 60 |
 | j1 | near zeros | 1000 | **0.50** | 0.50 | 3.7e+10 | 3.1e+10 |
-| j1 | negative x | 1000 | **1.52** | 1.37 | 147 | 88 |
+| j1 | negative x | 1000 | **1.37** | 1.36 | 147 | 88 |
 | jn | special | 77 | **1.84** | 1.84 | wrong | wrong |
 | jn | small x | 1000 | **0.80** | 0.50 | 7.1e+15 | 5.9e+15 |
 | jn | moderate | 1000 | **1.41** | 1.09 | 1286 | 571 |
@@ -319,14 +319,14 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | jv | integer v | 1000 | **1.21** | 1.21 | 1063 | 823 |
 | k0 | special | 13 | **0.35** | 0.35 | wrong | wrong |
 | k0 | small x | 1000 | **1.14** | 1.07 | 3.70 | 2.64 |
-| k0 | moderate | 1000 | **2.91** | 2.34 | 5.78 | 4.32 |
-| k0 | large x | 1000 | **1.54** | 1.49 | 2.69 | 2.60 |
+| k0 | moderate | 1000 | **1.48** | 1.24 | 5.78 | 4.32 |
+| k0 | large x | 1000 | **1.49** | 1.48 | 2.69 | 2.60 |
 | k0 | over/underflow edge | 1000 | **2.00** | 1.05 | 3.00 | 1.75 |
 | k0 | huge x | 1000 | **0** | 0 | 0 | 0 |
 | k0e | special | 13 | **0.61** | 0.61 | wrong | wrong |
 | k0e | small x | 1000 | **1.47** | 1.46 | 3.23 | 3.23 |
-| k0e | moderate | 1000 | **1.52** | 1.45 | 5.86 | 4.47 |
-| k0e | large x | 1000 | **0.50** | 0.50 | 2.14 | 2.11 |
+| k0e | moderate | 1000 | **1.07** | 0.98 | 5.86 | 4.47 |
+| k0e | large x | 1000 | **0.53** | 0.52 | 2.14 | 2.11 |
 | k0e | huge x | 1000 | **0.50** | 0.50 | 1.93 | 1.71 |
 | k1 | special | 13 | **1.29** | 1.29 | wrong | wrong |
 | k1 | small x | 1000 | 1.05 | 0.96 | 1.05 | 1.04 |
@@ -375,9 +375,9 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | log_ndtr | special | 10 | **0.21** | 0.21 | 0.21 | 0.21 |
 | log_ndtr | x<-1e5 | 1000 | **0.50** | 0.50 | 2.97 | 2.81 |
 | log_ndtr | [-1e5,-40) | 1000 | **0.50** | 0.50 | 2.79 | 2.65 |
-| log_ndtr | [-40,-1) | 1000 | **0.52** | 0.50 | 2.78 | 2.75 |
-| log_ndtr | [-1,1) | 1000 | **0.61** | 0.59 | 4.16 | 3.33 |
-| log_ndtr | [1,10) | 1000 | **0.59** | 0.54 | 113 | 98 |
+| log_ndtr | [-40,-1) | 1000 | **0.50** | 0.50 | 2.78 | 2.75 |
+| log_ndtr | [-1,1) | 1000 | **0.51** | 0.51 | 4.16 | 3.33 |
+| log_ndtr | [1,10) | 1000 | **0.50** | 0.50 | 113 | 98 |
 | log_ndtr | [10,38) | 1000 | **1.00** | 0.50 | 3.6e+12 | 3.2e+12 |
 | log_softmax4 | special | 5 | **0.21** | 0.21 | 0.21 | 0.21 |
 | log_softmax4 | moderate | 1000 | **0.50** | 0.50 | 962930 | 342308 |
@@ -414,15 +414,15 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | logsumexp4 | near cancellation | 1000 | **0.50** | 0.50 | 1.72 | 1.65 |
 | ndtr | special | 10 | **0** | 0 | 0 | 0 |
 | ndtr | [-38.5,-10) | 1000 | **0.50** | 0.50 | 1.8e+12 | 1.8e+12 |
-| ndtr | [-10,-1) | 1000 | **0.60** | 0.53 | 110 | 109 |
-| ndtr | [-1,1) | 1000 | **0.52** | 0.52 | 2.64 | 2.58 |
+| ndtr | [-10,-1) | 1000 | **0.52** | 0.50 | 110 | 109 |
+| ndtr | [-1,1) | 1000 | **0.51** | 0.51 | 2.64 | 2.58 |
 | ndtr | [1,8.3) | 1000 | **0.50** | 0.50 | 1.04 | 0.94 |
 | ndtr | x>=8.3 | 50 | **0** | 0 | 0 | 0 |
 | ndtri | special | 7 | **0.33** | 0.33 | 0.33 | 0.33 |
 | ndtri | subnormal | 193 | **0.50** | 0.50 | 1.38 | 1.38 |
 | ndtri | [1e-300,1e-10) | 1000 | **0.50** | 0.50 | 2.28 | 1.38 |
-| ndtri | [1e-10,0.5) | 1000 | **0.53** | 0.51 | 2.48 | 2.42 |
-| ndtri | [0.5,1) | 1000 | **0.62** | 0.55 | 2.62 | 2.36 |
+| ndtri | [1e-10,0.5) | 1000 | **0.50** | 0.50 | 2.48 | 2.42 |
+| ndtri | [0.5,1) | 1000 | **0.50** | 0.50 | 2.62 | 2.36 |
 | ndtri | near 1 | 880 | **0.50** | 0.50 | 2.17 | 2.17 |
 | perm | n<=64 | 661 | **0.50** | 0.50 | 7.67 | 7.67 |
 | perm | n<=200 | 972 | **0.50** | 0.50 | 9.41 | 9.41 |
@@ -448,13 +448,13 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | xlogy | y near 1 | 1000 | **0.50** | 0.50 | 1.18 | 1.14 |
 | y0 | special | 13 | **0.43** | 0.43 | wrong | wrong |
 | y0 | small x | 1000 | **0.59** | 0.56 | 1.31 | 1.14 |
-| y0 | moderate | 1000 | **1.04** | 1.00 | 690 | 550 |
+| y0 | moderate | 1000 | **0.76** | 0.76 | 690 | 550 |
 | y0 | large x | 1000 | **1.73** | 1.57 | 339 | 92 |
 | y0 | huge x | 1000 | **1.49** | 1.46 | 242 | 73 |
 | y0 | near zeros | 1000 | **0.50** | 0.50 | 1.8e+12 | 1.3e+12 |
 | y1 | special | 13 | **0.75** | 0.75 | wrong | wrong |
 | y1 | small x | 1000 | **0.50** | 0.50 | 1.64 | 1.57 |
-| y1 | moderate | 1000 | **0.95** | 0.85 | 6079 | 1702 |
+| y1 | moderate | 1000 | **0.52** | 0.52 | 6079 | 1702 |
 | y1 | large x | 1000 | **1.64** | 1.55 | 129518 | 122550 |
 | y1 | huge x | 1000 | **1.70** | 1.60 | 1.0e+19 | 2.0e+18 |
 | y1 | near zeros | 1000 | **0.50** | 0.50 | 7.3e+11 | 5.6e+11 |

@@ -26,6 +26,19 @@ import (
 // power series (TOMS 708's BPSER), since the root then depends on log T to
 // within a factor 1/a.
 //
+// Rounding. The iteration's float64 forward function cannot tell two
+// neighbouring floats apart where the half-gap in p between them is below
+// its own error; the last step (ibetaInvRound, inverse_round.go) evaluates
+// the tail again in double-double to about 2^-80, from positive-term
+// series and an accurate log B, and takes one Newton step rounded once.
+// The root is then correctly rounded except within err/r of a midpoint
+// (r = d log T/d log x), where the step applies: in a + b up to 1e5, and
+// beyond for b >> a; not for a complement tail below 2^-30 nor where
+// err/r > 2^-60 (there the iterate stands). Measured on 1000 random points
+// per function (a, b in [e^-1, e^6], p in [0.01, 0.99], tools/rootcheck):
+// all within 0.5 ulp of mpmath's root, against 11% above (max 1.21 ulp)
+// before.
+//
 // Limitation: when a parameter is far below 1e-3 (a or b ~ 1e-20 down to
 // 1e-300), I_x(a, b) is flat to within 2^-100 over most of (0, 1) — it is
 // b/(a+b) up to factors x^a and (1-x)^b — and the float64 root can depend
@@ -81,12 +94,24 @@ func BetaIncCInv(a, b, q float64) float64 {
 }
 
 // ibetaInv returns the x with I_x(a, b) = p, 1 - I_x(a, b) = q, where
-// p + q = 1 and the smaller of the two is exact.
+// p + q = 1 and the smaller of the two is exact: the iteration, then the
+// rounding step (ibetaInvRound).
 func ibetaInv(a, b, p, q float64) float64 {
 	if a == b && p == q {
 		return 0.5 // symmetry
 	}
-	lb := ibetaLogBeta(a, b)
+	// log B(a, b): the accurate one of the rounding step serves the
+	// iteration too (ibetaLogBeta, to about 2^-62, where it declines)
+	lbAcc, ok := logBetaAcc(a, b)
+	if !ok {
+		return ibetaInvIterate(a, b, p, q, ibetaLogBeta(a, b))
+	}
+	return ibetaInvRound(a, b, p, q, ibetaInvIterate(a, b, p, q, lbAcc), lbAcc)
+}
+
+// ibetaInvIterate is the iteration of ibetaInv on the float64 forward
+// function, given lb = log B(a, b).
+func ibetaInvIterate(a, b, p, q float64, lb dd.DD) float64 {
 	if a < 1e-3 || b < 1e-3 {
 		// Which side of 1/2: the sign of the x-side residual at 1/2, from
 		// the same (double-double where needed) evaluation as the
@@ -243,11 +268,18 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 	}
 	// The last step: below the resolution of u where the tail comes from
 	// the double-double series (a < 1), so the root is found to its full
-	// accuracy; below 2^-50 elsewhere, where a step that small is the
-	// noise of the float64 forward function (a few ulps) and the next
-	// evaluation could only move u within it.
+	// accuracy; below 2^-26 elsewhere: the step just taken (Halley's,
+	// cubic, or Newton's, quadratic) has then brought u to within the noise
+	// of the float64 forward function, which a further evaluation could
+	// only move u within, and the rounding step (ibetaInvRound) makes the
+	// last correction from a double-double evaluation. (Beyond a + b =
+	// roundMaxParam, where the rounding step mostly declines, the
+	// iteration runs on to 2^-50.)
 	stop := 0x1p-52
-	if a >= 1 {
+	switch {
+	case a >= 1 && a+b <= roundMaxParam:
+		stop = 0x1p-26
+	case a >= 1:
 		stop = 0x1p-50
 	}
 	lo, hi := 0.0, 0.75

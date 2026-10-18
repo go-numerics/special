@@ -198,6 +198,36 @@ func ExpMant(a DD) (m DD, k int) {
 	return Mul(e, expTable[j]), k
 }
 
+// ExpMantAccurate is ExpMant to about 2^-90 relative: the terms r³/6 and
+// r⁴/24 of exp(r) are carried in double-double too, the rest (r⁵/120 and
+// beyond, below 2^-44) in float64. It costs about twice ExpMant, for the
+// few places that need a result beyond ExpMant's 2^-76 (the rounding step
+// of the incomplete beta and gamma inverses).
+func ExpMantAccurate(a DD) (m DD, k int) {
+	x := a.Hi
+	switch {
+	case x != x:
+		return DD{x, 0}, 0
+	case x > 1e7:
+		return DD{math.Inf(1), 0}, 0
+	case x < -1e7:
+		return DD{}, 0
+	}
+	n := math.Floor(x*(1/ln2o64Hi) + 0.5)
+	r := Sub(a, MulFF(n, ln2o64Hi))
+	r = Sub(r, Add(MulFF(n, ln2o64Mid), MulFF(n, ln2o64Lo)))
+	ni := int(n)
+	j := ni & 63
+	k = (ni - j) / 64
+	s := r.Hi
+	r2 := Mul(r, r)
+	r3 := Mul(r2, r)
+	r4 := Mul(r2, r2)
+	p := s * s * s * s * s * (1.0/120 + s*(1.0/720+s*(1.0/5040+s*(1.0/40320+s*(1.0/362880)))))
+	e := Add(AddF(r, 1), Add(MulF(r2, 0.5), Add(Div(r3, DD{6, 0}), Div(r4, DD{24, 0}))))
+	return Mul(AddF(e, p), expTable[j]), k
+}
+
 // Ldexp returns a * 2^k for a double-double (both parts scaled).
 func Ldexp(a DD, k int) DD {
 	return DD{math.Ldexp(a.Hi, k), math.Ldexp(a.Lo, k)}

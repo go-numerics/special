@@ -59,22 +59,27 @@ func gamma1pm1(t float64) dd.DD {
 	return dd.Mul(p, evalPiecesDD(gamma1pPieces[:], t))
 }
 
+// The coefficients B_2k/(2k(2k-1)), k = 1..9, of Stirling's series.
+const (
+	stirC1 = 1.0 / 12
+	stirC2 = -1.0 / 360
+	stirC3 = 1.0 / 1260
+	stirC4 = -1.0 / 1680
+	stirC5 = 1.0 / 1188
+	stirC6 = -691.0 / 360360
+	stirC7 = 1.0 / 156
+	stirC8 = -3617.0 / 122400
+	stirC9 = 43867.0 / 244188
+)
+
 // stirlingSeries returns the asymptotic correction
 // log Γ(x) - [(x-1/2) log x - x + log sqrt(2π)] = Σ B_2k / (2k(2k-1) x^(2k-1))
 // for x >= 10, summed to a truncation error below 2^-60 relative to log Γ(x)
 // (DLMF 5.11.1).
 func stirlingSeries(x float64) float64 {
-	// B_2k/(2k(2k-1)), k = 1..9
 	const (
-		c1 = 1.0 / 12
-		c2 = -1.0 / 360
-		c3 = 1.0 / 1260
-		c4 = -1.0 / 1680
-		c5 = 1.0 / 1188
-		c6 = -691.0 / 360360
-		c7 = 1.0 / 156
-		c8 = -3617.0 / 122400
-		c9 = 43867.0 / 244188
+		c1, c2, c3, c4, c5 = stirC1, stirC2, stirC3, stirC4, stirC5
+		c6, c7, c8, c9     = stirC6, stirC7, stirC8, stirC9
 	)
 	if x > 1e10 {
 		return c1 / x

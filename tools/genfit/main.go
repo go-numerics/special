@@ -1,7 +1,13 @@
-// Command genfit writes the piecewise polynomial tables listed in jobs
-// (../zz_<name>_coeffs.go), fitted to mpmath:
+// Command genfit writes the polynomial tables of the library fitted to
+// mpmath, every one through the same oracle (tools/internal/mporacle):
+// the piecewise tables listed in jobs (../zz_<name>_coeffs.go),
 //
 //	go -C tools run ./genfit [name ...]
+//
+// and the octave, Bessel-cell and Temme-sum tables (oct.go; formerly the
+// separate command testdata/gen/fitgo with its own mpmath server),
+//
+//	go -C tools run ./genfit ellip-oct | octaves NAME | bessel-cells | temme-sum
 //
 // Method (that of testdata/gen/fit.py, which generates the older tables):
 // on each piece [a, b] the function is interpolated at the n+1 Chebyshev
@@ -242,6 +248,9 @@ func fit(j job, a, b float64) (*big.Float, []*big.Float, int, *big.Float) {
 }
 
 func main() {
+	if len(os.Args) > 1 && octJob(os.Args[1:]) {
+		return
+	}
 	var err error
 	if o, err = mporacle.Start(); err != nil {
 		log.Fatal(err)

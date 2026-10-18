@@ -53,8 +53,30 @@ func BetaInc(a, b, x float64) float64 {
 	if w, _, done := ibetaEdges(a, b, x); done {
 		return w
 	}
+	if w, _, done := ibetaHugeParam(a, b, x); done {
+		return w
+	}
 	w, _ := ibetaRatio(a, b, ibetaNewXY(x, a+b))
 	return w
+}
+
+// ibetaHugeParam returns I_x(a, b) and its complement where one parameter
+// is beyond 1e300 and the other below 1e250, from the incomplete gamma
+// limit I_x(a, b) = P(a, (b + (a-1)/2)(-log(1-x))) (DLMF 8.18.1-8.18.2;
+// Temme, "Special functions", 11.3.3), whose correction is of relative
+// order (a/b)² <= 1e-100, nothing in float64; the other way round by
+// I_x(a, b) = 1 - I_(1-x)(b, a). TOMS 708's sums overflowed to NaN there
+// (BetaInc(30.5, MaxFloat64, 0.97) was NaN; it is 1).
+func ibetaHugeParam(a, b, x float64) (w, w1 float64, done bool) {
+	switch {
+	case b > 1e300 && a < 1e250:
+		y := (b + (a-1)/2) * -math.Log1p(-x)
+		return GammaP(a, y), GammaQ(a, y), true
+	case a > 1e300 && b < 1e250:
+		y := (a + (b-1)/2) * -math.Log(x)
+		return GammaQ(b, y), GammaP(b, y), true
+	}
+	return 0, 0, false
 }
 
 // BetaIncC returns the complement of the regularised incomplete beta
@@ -67,6 +89,9 @@ func BetaInc(a, b, x float64) float64 {
 // Algorithm: as BetaInc.
 func BetaIncC(a, b, x float64) float64 {
 	if _, w1, done := ibetaEdges(a, b, x); done {
+		return w1
+	}
+	if _, w1, done := ibetaHugeParam(a, b, x); done {
 		return w1
 	}
 	_, w1 := ibetaRatio(a, b, ibetaNewXY(x, a+b))
@@ -402,6 +427,15 @@ func ibetaBupDD(a, b float64, v ibetaXY, n int, eps float64) dd.DD {
 // package, which renormalises after each one. Once the terms fall below
 // 2^-16 of the sum the rest is summed in float64.
 func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
+	s, _ := ibetaPosSumSplit(a, b, x, k0, n, eps, 0x1p-16)
+	return s
+}
+
+// ibetaPosSumSplit is ibetaPosSum with the terms carried in pairs until
+// they fall below split of the sum (2^-16 there; the rounding step of the
+// inverses, which needs the sum to 2^-100, takes 2^-50), and reports
+// whether the terms fell below the tolerance within n terms.
+func ibetaPosSumSplit(a, b float64, x dd.DD, k0, n int, eps, split float64) (dd.DD, bool) {
 	abh, abl := dd.TwoSum(a, b)
 	a1h, a1l := dd.TwoSum(a, 1)
 	xh, xl := x.Hi, x.Lo
@@ -426,7 +460,7 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 		var e float64
 		sh, e = dd.TwoSum(sh, dh)
 		sl += e + dl
-		if i >= k0 && dh <= 0x1p-16*sh {
+		if i >= k0 && dh <= split*sh {
 			i++
 			break
 		}
@@ -443,7 +477,7 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	}
 	sl += tail
 	h, l := dd.FastTwoSum(sh, sl)
-	return dd.DD{Hi: h, Lo: l}
+	return dd.DD{Hi: h, Lo: l}, dh <= tol*sh
 }
 
 // ibetaBfrac returns I_x(a, b) by the continued fraction of TOMS 708's
