@@ -92,21 +92,48 @@ Method and full table: [docs/perf.md](docs/perf.md).
 
 ## Functions
 
-| family | functions |
-|---|---|
-| gamma | `Gamma`, `LogGamma`, `LogGammaSign`, `GammaSign`, `Digamma`, `Polygamma`, `Beta`, `LogBeta` |
-| incomplete gamma / beta | `GammaP`, `GammaQ`, `GammaPInv`, `GammaQInv`, `BetaInc`, `BetaIncC`, `BetaIncInv`, `BetaIncCInv` |
-| error function, normal | `Erf`, `Erfc`, `Erfcx`, `ErfInv`, `ErfcInv`, `Ndtr`, `Ndtri`, `LogNdtr` |
-| combinatorics | `Comb`, `Perm`, `Binom`, `Factorial`, `Factorial2`, `LogFactorial` |
-| logistic, log helpers | `Expit`, `LogExpit`, `Logit`, `Log1pExp`, `Xlogy`, `Xlog1py`, `LogSumExp`, `Softmax`, `LogSoftmax` |
-| zeta | `Zeta`, `HurwitzZeta` |
-| Bessel | `J0`, `J1`, `Jn`, `Jv`, `Y0`, `Y1`, `Yn`, `Yv`, `I0`, `I1`, `In`, `Iv`, `K0`, `K1`, `Kn`, `Kv`, `I0e`, `I1e`, `Ive`, `K0e`, `K1e`, `Kve`, `JnZeros` |
-| elliptic | `EllipK`, `EllipKm1`, `EllipE` |
+Each row gives the Go function and, in brackets, the `scipy.special` function it
+is **measured against** — the pairing comes from the harness
+(`bench/scipy_server.py` and `testdata/gen/fam_*.py`), not from transliterating
+a name, which is why `Log1pExp` is scipy's `softplus` and `LogGamma` is
+`gammaln`. 63 of the 67 carry such a pairing; `—` marks the four that do not,
+and the notes under the table say what they are. `readme_scipy_test.go` reads
+the harness and fails if this column drifts from it.
 
-Conventions: functions return NaN outside their domain and ±Inf at poles,
-as the IEEE 754 operations do; nothing panics on a float argument. Edge
-values follow SciPy's where SciPy's are mathematically sound; the exceptions
-are documented at each function.
+| family | functions (scipy equivalent) |
+|---|---|
+| gamma | `Gamma` (`gamma`), `LogGamma` (`gammaln`), `LogGammaSign` (—), `GammaSign` (`gammasgn`), `Digamma` (`digamma`), `Polygamma` (`polygamma`), `Beta` (`beta`), `LogBeta` (`betaln`) |
+| incomplete gamma / beta | `GammaP` (`gammainc`), `GammaQ` (`gammaincc`), `GammaPInv` (`gammaincinv`), `GammaQInv` (`gammainccinv`), `BetaInc` (`betainc`), `BetaIncC` (`betaincc`), `BetaIncInv` (`betaincinv`), `BetaIncCInv` (`betainccinv`) |
+| error function, normal | `Erf` (`erf`), `Erfc` (`erfc`), `Erfcx` (`erfcx`), `ErfInv` (`erfinv`), `ErfcInv` (`erfcinv`), `Ndtr` (`ndtr`), `Ndtri` (`ndtri`), `LogNdtr` (`log_ndtr`) |
+| combinatorics | `Comb` (`comb`), `Perm` (`perm`), `Binom` (`binom`), `Factorial` (`factorial`), `Factorial2` (`factorial2`), `LogFactorial` (`gammaln(n+1)`) |
+| logistic, log helpers | `Expit` (`expit`), `LogExpit` (`log_expit`), `Logit` (`logit`), `Log1pExp` (`softplus`), `Xlogy` (`xlogy`), `Xlog1py` (`xlog1py`), `LogSumExp` (`logsumexp`), `Softmax` (`softmax`), `LogSoftmax` (`log_softmax`) |
+| zeta | `Zeta` (`zeta`), `HurwitzZeta` (`zeta`) |
+| Bessel | `J0` (`j0`), `J1` (`j1`), `Jn` (`jv`), `Jv` (`jv`), `Y0` (`y0`), `Y1` (`y1`), `Yn` (`yn`), `Yv` (`yv`), `I0` (`i0`), `I1` (`i1`), `In` (—), `Iv` (`iv`), `K0` (`k0`), `K1` (`k1`), `Kn` (`kn`), `Kv` (`kv`), `I0e` (`i0e`), `I1e` (`i1e`), `Ive` (`ive`), `K0e` (`k0e`), `K1e` (`k1e`), `Kve` (`kve`), `JnZeros` (`jn_zeros`) |
+| elliptic | `EllipK` (`ellipk`), `EllipKm1` (`ellipkm1`), `EllipE` (`ellipe`) |
+
+The four without a pairing, and why:
+
+- **`GammaSign`** and **`Kn`** — scipy does have `gammasgn` and `kn`; this
+  package simply measures neither against them. The bracketed name is scipy's,
+  not a measurement.
+- **`In`** — scipy has no `in`, and cannot: it is a Python keyword. `Iv` at
+  integer order is the equivalent, and `In(n, x)` is `Iv(float64(n), x)`.
+  `Kn`/`Kv` and `Jn`/`Jv` stand in the same relation, which is why `Jn` is
+  bracketed `jv`: scipy's `jn` is a deprecated alias of `jv`.
+- **`LogGammaSign`** — no scipy counterpart in any spelling; scipy splits the
+  two results across `gammaln` and `gammasgn`.
+
+The 20 `…To` slice kernels — `GammaTo`, `ErfTo`, `XlogyTo` and the rest — are the
+batch form of the function they are named after and compute the same thing, so
+they share its scipy equivalent rather than earning rows here. One exception is
+worth knowing: **`TrigammaTo` is exported while `Trigamma` is not**, so that
+kernel has no scalar form in the public API. It is psi'(x), which scipy spells
+`polygamma(1, x)` — the same function `Polygamma` already provides.
+
+`Zeta` and `HurwitzZeta` share one scipy name, `zeta(x, q=None)`, which takes
+the second argument optionally. `LogFactorial` is bracketed as a call rather
+than a name because the function is `gammaln` with its argument shifted, which
+is what the harness measures it against.
 
 ## Portability
 
