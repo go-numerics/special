@@ -13,7 +13,7 @@ import (
 //
 // Below x = 100 (from 0 for J, from the end of the series for Y) the
 // function is one polynomial per cell (zz_besselCells_coeffs.go,
-// testdata/gen/fitgo bessel-cells): the cells are centred on the zeros of
+// go -C tools run ./genfit bessel-cells): the cells are centred on the zeros of
 // the function and of its derivative (the points of J. Harrison, "Fast and
 // accurate Bessel function computation", ARITH 19, 2009) and on the
 // midpoints between them, and on each f(z + h) = a0 + a1 h + h² R(h) with
