@@ -179,6 +179,15 @@ func igamLowerSeries(a, x float64) dd.DD {
 // once a few terms count, and P near 1/2 passed that on to Q = 1 - P. The
 // rest is summed in float64 (its weight keeps its error below 2^-60 of S).
 func igamLowerSeriesRest(a, x float64) dd.DD {
+	s, _ := igamLowerSeriesRestTol(a, x, 0x1p-16, 0x1p-60)
+	return s
+}
+
+// igamLowerSeriesRestTol is igamLowerSeriesRest with the terms carried in
+// pairs until they fall below split of the sum, and the float64 tail
+// summed until they fall below tol; it reports whether they did within
+// its 10000 terms.
+func igamLowerSeriesRestTol(a, x, split, tol float64) (dd.DD, bool) {
 	th, tl := 1.0, 0.0
 	sh, sl := 0.0, 0.0
 	n := 1.0
@@ -193,18 +202,18 @@ func igamLowerSeriesRest(a, x float64) dd.DD {
 		var e float64
 		sh, e = dd.TwoSum(sh, th)
 		sl += e + tl
-		if th <= 0x1p-16*sh {
+		if th <= split*sh {
 			n++
 			break
 		}
 	}
 	tail := 0.0
-	for ; n < 10000 && th > 0x1p-60*sh; n++ {
+	for ; n < 10000 && th > tol*sh; n++ {
 		th *= x / (a + n)
 		tail += th
 	}
 	h, l := dd.FastTwoSum(sh, sl+tail)
-	return dd.DD{Hi: h, Lo: l}
+	return dd.DD{Hi: h, Lo: l}, th <= tol*sh
 }
 
 // igamFractionQMant returns Q(a, x) = v 2^k by Legendre's continued

@@ -402,6 +402,15 @@ func ibetaBupDD(a, b float64, v ibetaXY, n int, eps float64) dd.DD {
 // package, which renormalises after each one. Once the terms fall below
 // 2^-16 of the sum the rest is summed in float64.
 func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
+	s, _ := ibetaPosSumSplit(a, b, x, k0, n, eps, 0x1p-16)
+	return s
+}
+
+// ibetaPosSumSplit is ibetaPosSum with the terms carried in pairs until
+// they fall below split of the sum (2^-16 there; the rounding step of the
+// inverses, which needs the sum to 2^-100, takes 2^-50), and reports
+// whether the terms fell below the tolerance within n terms.
+func ibetaPosSumSplit(a, b float64, x dd.DD, k0, n int, eps, split float64) (dd.DD, bool) {
 	abh, abl := dd.TwoSum(a, b)
 	a1h, a1l := dd.TwoSum(a, 1)
 	xh, xl := x.Hi, x.Lo
@@ -426,7 +435,7 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 		var e float64
 		sh, e = dd.TwoSum(sh, dh)
 		sl += e + dl
-		if i >= k0 && dh <= 0x1p-16*sh {
+		if i >= k0 && dh <= split*sh {
 			i++
 			break
 		}
@@ -443,7 +452,7 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	}
 	sl += tail
 	h, l := dd.FastTwoSum(sh, sl)
-	return dd.DD{Hi: h, Lo: l}
+	return dd.DD{Hi: h, Lo: l}, dh <= tol*sh
 }
 
 // ibetaBfrac returns I_x(a, b) by the continued fraction of TOMS 708's
