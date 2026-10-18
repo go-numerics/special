@@ -129,38 +129,67 @@ func besselCF1IK(v, x float64) dd.DD {
 func besselCF2IK(u, x float64) (ku, ku1 float64) {
 	// The recurrences in double-double: the float64 version of this sum
 	// costs several ulps (the sum S of Steed's algorithm accumulates one
-	// rounding per term).
-	a := dd.AddF(dd.MulFF(u, u), -0.25)
+	// rounding per term). The terms are summed until they fall below 2^-64
+	// of S (the result needs no more), and the divisions are reciprocals
+	// with their FMA remainder (besselRecipDD) or divisions by a float64.
+	a := besselAddFS(dd.MulFF(u, u), -0.25)
 	b := dd.F(2 * (x + 1))
-	D := dd.Div(dd.F(1), b)
+	D := besselRecipDD(b)
 	f, delta := D, D
 	prev, cur := dd.F(0), dd.F(1)
 	C := dd.Neg(a)
 	Q := C
-	S := dd.Add(dd.F(1), dd.Mul(Q, delta))
+	S := besselAddS(dd.F(1), dd.Mul(Q, delta))
 	for k := 2; k < besselMaxIter; k++ {
-		a = dd.AddF(a, -2*float64(k-1))
-		b = dd.AddF(b, 2)
-		D = dd.Div(dd.F(1), dd.Add(b, dd.Mul(a, D)))
-		delta = dd.Mul(delta, dd.AddF(dd.Mul(b, D), -1))
-		f = dd.Add(f, delta)
-		q := dd.Div(dd.Sub(prev, dd.Mul(dd.AddF(b, -2), cur)), a)
+		a = besselAddFS(a, -2*float64(k-1))
+		b = besselAddFS(b, 2)
+		D = besselRecipDD(besselAddS(b, dd.Mul(a, D)))
+		delta = dd.Mul(delta, besselAddFS(dd.Mul(b, D), -1))
+		f = besselAddS(f, delta)
+		q := dd.Mul(besselAddS(prev, dd.Neg(dd.Mul(besselAddFS(b, -2), cur))), besselRecipDD(a))
 		prev, cur = cur, q
-		C = dd.DivF(dd.Mul(C, dd.Neg(a)), float64(k))
-		Q = dd.Add(Q, dd.Mul(C, q))
-		S = dd.Add(S, dd.Mul(Q, delta))
+		C = igamDivF(dd.Mul(C, dd.Neg(a)), float64(k))
+		Q = besselAddS(Q, dd.Mul(C, q))
+		S = besselAddS(S, dd.Mul(Q, delta))
 		if q.Hi < 0x1p-52 { // rescale (Boost): C, prev, cur by q
 			C = dd.Mul(C, q)
-			prev = dd.Div(prev, q)
-			cur = dd.Div(cur, q)
+			r := besselRecipDD(q)
+			prev = dd.Mul(prev, r)
+			cur = dd.Mul(cur, r)
 		}
-		if math.Abs(Q.Hi*delta.Hi) < math.Abs(S.Hi)*0x1p-106 {
+		if math.Abs(Q.Hi*delta.Hi) < math.Abs(S.Hi)*0x1p-64 {
 			break
 		}
 	}
-	k := dd.Div(dd.Sqrt(dd.DivF(besselPiOver2DD, x)), S)
-	t := dd.AddF(dd.Add(dd.Mul(a0(u), f), dd.F(0.5+u)), x)
-	return k.Float(), dd.DivF(dd.Mul(k, t), x).Float()
+	k := dd.Mul(dd.Sqrt(igamDivF(besselPiOver2DD, x)), besselRecipDD(S))
+	t := besselAddFS(besselAddS(dd.Mul(a0(u), f), dd.F(0.5+u)), x)
+	return k.Float(), igamDivF(dd.Mul(k, t), x).Float()
+}
+
+// besselAddS returns a + b for double-doubles with the low parts added in
+// float64 (Dekker's "sloppy" addition, half the operations of dd.Add): its
+// error is a rounding of a.Lo + b.Lo, which is 2^-105 of the result unless
+// a.Hi and b.Hi cancel, and the recurrences that use it do not cancel by
+// more than a few bits.
+func besselAddS(a, b dd.DD) dd.DD {
+	s, e := dd.TwoSum(a.Hi, b.Hi)
+	h, l := dd.FastTwoSum(s, e+(a.Lo+b.Lo))
+	return dd.DD{Hi: h, Lo: l}
+}
+
+// besselAddFS returns a + b for a double-double a and a float64 b.
+func besselAddFS(a dd.DD, b float64) dd.DD {
+	s, e := dd.TwoSum(a.Hi, b)
+	h, l := dd.FastTwoSum(s, e+a.Lo)
+	return dd.DD{Hi: h, Lo: l}
+}
+
+// besselRecipDD returns 1/w for a double-double w to about 2^-104: the
+// float64 reciprocal corrected by its FMA remainder.
+func besselRecipDD(w dd.DD) dd.DD {
+	r := 1 / w.Hi
+	h, l := dd.FastTwoSum(r, (math.FMA(-r, w.Hi, 1)-r*w.Lo)*r)
+	return dd.DD{Hi: h, Lo: l}
 }
 
 // a0 returns u^2 - 1/4 as a double-double.
@@ -319,29 +348,45 @@ func besselIK(v, x float64, needI, needK, scaled bool) (I, K float64) {
 // I0(x) = sum (x^2/4)^k / (k!)^2, for real x (even). I0(0) = 1,
 // I0(±Inf) = +Inf, I0(NaN) = NaN; overflows to +Inf for |x| > ~713.99.
 //
-// Algorithm: Boost.Math bessel_i0.hpp double-precision minimax
-// approximations (polynomial in x^2/4 below 7.75, in 1/x above).
+// Algorithm: the power series below 1/8; up to 512, e^x times I0(x) e^-x
+// from degree-11 interpolants on 8 pieces per octave of x
+// (zz_besselI0eOct_coeffs.go, fitted to mpmath), with e^x from dd.ExpMant
+// and the product rounded once; DLMF 10.40.1 beyond.
 func I0(x float64) float64 {
 	x = math.Abs(x)
 	switch {
 	case math.IsNaN(x) || math.IsInf(x, 1):
 		return x
-	case x < 7.75:
-		return besselI0Small(x)
+	case x < 0.125:
+		return besselI0Tiny(x)
+	}
+	if i := octIndex(x, besselI0eOctMin, besselI0eOctMax); i >= 0 {
+		q := &besselI0eOct[i]
+		return octExpMul(q, x-q.c, x)
 	}
 	return besselLdexpExp(besselI0eLarge(x), 0, x)
 }
 
-// besselI0eLarge is I0(x) e^-x for x >= 7.75: Boost's minimax polynomial in
-// 1/x up to 20, the asymptotic series DLMF 10.40.1 (summed to below 2^-64,
-// prefactor in double-double) beyond.
+// The octaves of besselI0eOct (zz_besselI0eOct_coeffs.go): x in [1/8, 512).
+const besselI0eOctMin, besselI0eOctMax = -3, 8
+
+// besselI0Tiny is I0(x) = sum q^k / (k!)^2, q = x^2/4 <= 1/256, for
+// x < 1/8: the terms to k = 5 (the next is below 2^-66 of the sum), all
+// positive, added to 1 once.
+func besselI0Tiny(x float64) float64 { return 1 + besselI0TinyTail(x) }
+
+// besselI0TinyTail is besselI0Tiny(x) - 1.
+func besselI0TinyTail(x float64) float64 {
+	q := x * x / 4
+	return q * (1 + q*(1.0/4+q*(1.0/36+q*(1.0/576+q*(1.0/14400)))))
+}
+
+// besselI0eLarge is I0(x) e^-x for x >= 512 by the asymptotic series DLMF
+// 10.40.1 (summed to below 2^-64, prefactor in double-double), which
+// converges there for order 0.
 func besselI0eLarge(x float64) float64 {
-	if x > 20 {
-		if r, ok := besselAsymIK(0, x, 'I'); ok {
-			return r
-		}
-	}
-	return besselPoly(besselI0Pm[:], 1/x) / math.Sqrt(x)
+	r, _ := besselAsymIK(0, x, 'I')
+	return r
 }
 
 // I0e returns I0(x) e^-|x|, defined for all real x; I0e(±Inf) = 0.
@@ -352,30 +397,16 @@ func I0e(x float64) float64 {
 		return x
 	case math.IsInf(x, 1):
 		return 0
-	case x < 7.75:
-		return besselLdexpExp(besselI0Small(x), 0, -x)
+	case x < 0.125:
+		// e^-x (1 + T): one rounding of m (1 + T), m = e^-x from dd.ExpMant
+		m, k := dd.ExpMant(dd.DD{Hi: -x})
+		return math.Ldexp(m.Hi+(m.Lo+m.Hi*besselI0TinyTail(x)), k)
+	}
+	if i := octIndex(x, besselI0eOctMin, besselI0eOctMax); i >= 0 {
+		q := &besselI0eOct[i]
+		return octEval(q, x-q.c)
 	}
 	return besselI0eLarge(x)
-}
-
-// Boost.Math bessel_i0.hpp (53-bit branch) coefficients.
-var (
-	besselI0Pm = [...]float64{3.98942280401425088e-01, 4.98677850604961985e-02, 2.80506233928312623e-02, 2.92211225166047873e-02, 4.44207299493659561e-02, 1.30970574605856719e-01, -3.35052280231727022e+00, 2.33025711583514727e+02, -1.13366350697172355e+04, 4.24057674317867331e+05, -1.23157028595698731e+07, 2.80231938155267516e+08, -5.01883999713777929e+09, 7.08029243015109113e+10, -7.84261082124811106e+11, 6.76825737854096565e+12, -4.49034849696138065e+13, 2.24155239966958995e+14, -8.13426467865659318e+14, 2.02391097391687777e+15, -3.08675715295370878e+15, 2.17587543863819074e+15}
-)
-
-func besselI0Small(x float64) float64 {
-	// sum (x^2/4)^k / (k!)^2 (DLMF 10.25.2) in double-double: all terms
-	// are positive, so the sum is as accurate as its terms.
-	q := dd.MulF(dd.MulFF(x, x), 0.25)
-	t, s := dd.F(1), dd.F(1)
-	for k := 1; k < 60; k++ {
-		t = dd.DivF(dd.Mul(t, q), float64(k*k))
-		s = dd.Add(s, t)
-		if t.Hi < 0x1p-60*s.Hi {
-			break
-		}
-	}
-	return s.Float()
 }
 
 // I1 returns the modified Bessel function of the first kind of order one,
@@ -449,8 +480,6 @@ var (
 	besselK0P1 = [...]float64{-1.372509002685546267e-01, 2.574916117833312855e-01, 1.395474602146869316e-02, 5.445476986653926759e-04, 7.125159422136622118e-06}
 	besselK0Q1 = [...]float64{1.000000000000000000e+00, -5.458333438017788530e-02, 1.291052816975251298e-03, -1.367653946978586591e-05}
 	besselK0P2 = [...]float64{1.159315156584124484e-01, 2.789828789146031732e-01, 2.524892993216121934e-02, 8.460350907213637784e-04, 1.491471924309617534e-05, 1.627106892422088488e-07, 1.208266102392756055e-09, 6.611686391749704310e-12}
-	besselK0P3 = [...]float64{2.533141373155002416e-01, 3.628342133984595192e+00, 1.868441889406606057e+01, 4.306243981063412784e+01, 4.424116209627428189e+01, 1.562095339356220468e+01, -1.810138978229410898e+00, -1.414237994269995877e+00, -9.369168119754924625e-02}
-	besselK0Q3 = [...]float64{1.000000000000000000e+00, 1.494194694879908328e+01, 8.265296455388554217e+01, 2.162779506621866970e+02, 2.845145155184222157e+02, 1.851714491916334995e+02, 5.486540717439723515e+01, 6.118075837628957015e+00, 1.586261269326235053e-01}
 )
 
 // besselK0Small is K0 on (0, 1].
@@ -461,20 +490,19 @@ func besselK0Small(x float64) float64 {
 	return besselPoly(besselK0P2[:], x*x) - besselLog(x)*a
 }
 
-// besselK0Large is K0(x) e^x sqrt(x) for x > 1.
-func besselK0Large(x float64) float64 {
-	return besselRational(besselK0P3[:], besselK0Q3[:], 1/x) + 1
-}
+// The octaves of besselK0eOct (zz_besselK0eOct_coeffs.go): x in [1, 512).
+const besselK0eOctMin, besselK0eOctMax = 0, 8
 
-// besselK0e is K0(x) e^x for x > 1: Boost's rational approximation up to
-// 20, the asymptotic series DLMF 10.40.2 beyond.
+// besselK0e is K0(x) e^x for x > 1: the octave interpolants below 512, the
+// asymptotic series DLMF 10.40.2 (which converges there for order 0)
+// beyond.
 func besselK0e(x float64) float64 {
-	if x > 20 {
-		if r, ok := besselAsymIK(0, x, 'K'); ok {
-			return r
-		}
+	if i := octIndex(x, besselK0eOctMin, besselK0eOctMax); i >= 0 {
+		q := &besselK0eOct[i]
+		return octEval(q, x-q.c)
 	}
-	return besselK0Large(x) / math.Sqrt(x)
+	r, _ := besselAsymIK(0, x, 'K')
+	return r
 }
 
 // K0 returns the modified Bessel function of the second kind of order
@@ -482,8 +510,10 @@ func besselK0e(x float64) float64 {
 // K0(+Inf) = 0, K0(x < 0) = NaN, K0(NaN) = NaN; underflows to 0 beyond
 // x ~ 745.
 //
-// Algorithm: Boost.Math bessel_k0.hpp double-precision minimax
-// approximations (log-term form on (0, 1], rational in 1/x above).
+// Algorithm: Boost.Math bessel_k0.hpp's log-term form on (0, 1]; up to
+// 512, e^-x times K0(x) e^x from degree-11 interpolants on 8 pieces per
+// octave (fitted to mpmath), the product rounded once; DLMF 10.40.2
+// beyond.
 func K0(x float64) float64 {
 	switch {
 	case math.IsNaN(x) || x < 0:
@@ -494,6 +524,10 @@ func K0(x float64) float64 {
 		return 0
 	case x <= 1:
 		return besselK0Small(x)
+	}
+	if i := octIndex(x, besselK0eOctMin, besselK0eOctMax); i >= 0 {
+		q := &besselK0eOct[i]
+		return octExpMul(q, x-q.c, -x)
 	}
 	return besselLdexpExp(besselK0e(x), 0, -x)
 }

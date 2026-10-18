@@ -153,9 +153,15 @@ func besselCF1JY(v, x float64) (fv dd.DD, s int) {
 }
 
 // besselCF1Tail evaluates 1/(b_1 + sg/(b_2 + sg/(b_3 + ...))) with
-// b_j = 2(v+j)/x down from level n, in double-double when n is moderate
-// (near the turning point x ~ v the levels neither damp nor amplify
-// rounding errors, and the ratio is then differenced against v/x).
+// b_j = 2(v+j)/x down from level n, to about double-double accuracy when n
+// is moderate (near the turning point x ~ v the levels neither damp nor
+// amplify rounding errors, and the ratio is then differenced against v/x).
+//
+// Each level is carried as an unrenormalised pair: b_j from TwoSum(v, j)
+// and the FMA remainder of 2(v+j)·(1/x), the denominator from TwoSum
+// (renormalised: it cancels next to a zero), and its reciprocal corrected
+// by its FMA remainder (one division per level, about a third of the dd
+// package's operations).
 func besselCF1Tail(v, x float64, n int, sg float64) dd.DD {
 	if n > 100000 {
 		r := 0.0
@@ -164,13 +170,22 @@ func besselCF1Tail(v, x float64, n int, sg float64) dd.DD {
 		}
 		return dd.F(r)
 	}
-	var r dd.DD
+	ix := 1 / x
+	ixl := math.FMA(-ix, x, 1) * ix // 1/x = ix + ixl to about 2^-104
+	rh, rl := 0.0, 0.0
 	for j := n; j >= 1; j-- {
 		h, l := dd.TwoSum(v, float64(j))
-		b := dd.DivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
-		r = dd.Div(dd.F(1), dd.Add(b, dd.MulF(r, sg)))
+		h, l = 2*h, 2*l
+		bh := float64(h * ix) // rounded: it feeds the TwoSum below
+		bl := math.FMA(h, ix, -bh) + (h*ixl + l*ix)
+		wh, we := dd.TwoSum(bh, sg*rh)
+		// renormalised: b_j and r cancel next to a zero of the function
+		wh, wl := dd.FastTwoSum(wh, we+bl+sg*rl)
+		rh = 1 / wh
+		rl = (math.FMA(-rh, wh, 1) - rh*wl) * rh
 	}
-	return r
+	h, l := dd.FastTwoSum(rh, rl)
+	return dd.DD{Hi: h, Lo: l}
 }
 
 // besselCF2JY evaluates p + iq = (J'_v + iY'_v)/(J_v + iY_v) for x > 1 by
@@ -207,26 +222,60 @@ func besselCF2JY(v, x float64) (p, q dd.DD) {
 			break
 		}
 	}
-	return besselCF2Tail(v, x, 4*k+40)
+	// Backwards from beyond Lentz's depth k: four times it below x = 8,
+	// where the fraction converges slowly and next to the zeros of Y the
+	// value is differenced to a fraction of itself; twice it above.
+	if x < 8 {
+		return besselCF2Tail(v, x, 4*k+40)
+	}
+	return besselCF2Tail(v, x, 2*k+20)
 }
 
-// besselCF2Tail evaluates the fraction of besselCF2JY from level n down in
-// double-double complex arithmetic: p + iq = -1/(2x) + i + (i/x) T with
-// T = a_1/(b_1 + a_2/(b_2 + ...)), a_k = (k-1/2)^2 - v^2, b_k = 2(x + ik).
+// besselCF2Tail evaluates the fraction of besselCF2JY from level n down:
+// p + iq = -1/(2x) + i + (i/x) T with T = a_1/(b_1 + a_2/(b_2 + ...)),
+// a_k = (k-1/2)^2 - v^2, b_k = 2(x + ik).
+//
+// Every level is carried as unrenormalised hi + lo pairs, as besselCF1Tail
+// does: a_k and the denominator's parts from TwoSum (renormalised), |d|²
+// from TwoProd, a·conj(d) likewise, and the quotient from one reciprocal
+// with its FMA remainder. That is double-double accuracy (the levels do not
+// damp each other's errors much for small x, where the fraction converges
+// slowly, so none can be left in float64) for a third of the dd package's
+// operations.
 func besselCF2Tail(v, x float64, n int) (p, q dd.DD) {
-	v2 := dd.MulFF(v, v)
-	var tr, ti dd.DD
+	v2h, v2l := dd.TwoProd(v, v)
+	x2 := 2 * x
+	trh, trl, tih, til := 0.0, 0.0, 0.0, 0.0
 	for k := n; k >= 1; k-- {
 		h := float64(k) - 0.5
-		a := dd.Sub(dd.F(h*h), v2)
-		dr := dd.AddF(tr, 2*x)
-		di := dd.AddF(ti, 2*float64(k))
-		m := dd.Add(dd.Mul(dr, dr), dd.Mul(di, di))
-		tr = dd.Div(dd.Mul(a, dr), m)
-		ti = dd.Neg(dd.Div(dd.Mul(a, di), m))
+		ah, ae := dd.TwoSum(h*h, -v2h) // h² exact for k < 2^26
+		al := ae - v2l
+		dr, dre := dd.TwoSum(trh, x2)
+		dr, drl := dd.FastTwoSum(dr, dre+trl)
+		di, die := dd.TwoSum(tih, 2*float64(k))
+		di, dil := dd.FastTwoSum(di, die+til)
+		// m = |d|²
+		m1, m1e := dd.TwoProd(dr, dr)
+		m2, m2e := dd.TwoProd(di, di)
+		mh, me := dd.TwoSum(m1, m2)
+		ml := me + m1e + m2e + 2*(dr*drl+di*dil)
+		rm := 1 / mh
+		// a·dr and a·di
+		nr, nre := dd.TwoProd(ah, dr)
+		nrl := nre + ah*drl + al*dr
+		ni, nie := dd.TwoProd(ah, di)
+		nim := nie + ah*dil + al*di
+		qr := float64(nr * rm)
+		qrl := (math.FMA(-qr, mh, nr) + nrl - qr*ml) * rm
+		qi := float64(ni * rm)
+		qil := (math.FMA(-qi, mh, ni) + nim - qi*ml) * rm
+		trh, trl = qr, qrl
+		tih, til = -qi, -qil
 	}
-	p = dd.Neg(dd.DivF(dd.AddF(ti, 0.5), x))
-	q = dd.AddF(dd.DivF(tr, x), 1)
+	tr := dd.DD{Hi: trh, Lo: trl}
+	ti := dd.DD{Hi: tih, Lo: til}
+	p = dd.Neg(igamDivF(dd.AddF(ti, 0.5), x))
+	q = dd.AddF(igamDivF(tr, x), 1)
 	return p, q
 }
 
@@ -458,13 +507,18 @@ func besselSteed(nu, x float64, fv dd.DD) (j, gamma, p, q dd.DD) {
 func besselRecur(u, x float64, n int, a, b dd.DD, sg float64) (fn, fn1 dd.DD, e int) {
 	for k := 1; k <= n; k++ {
 		h, l := dd.TwoSum(u, float64(k))
-		f := dd.DivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
+		f := igamDivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
 		if math.Abs(b.Hi)*f.Hi > 0x1p1000 || math.Abs(a.Hi) > 0x1p1000 {
 			ex := math.Ilogb(b.Hi)
 			a, b = besselScaleDD(a, -ex), besselScaleDD(b, -ex)
 			e += ex
 		}
-		a, b = b, dd.Add(dd.Mul(f, b), dd.MulF(a, sg))
+		if sg > 0 {
+			// K: every term positive, no cancellation for the sloppy sum
+			a, b = b, besselAddS(dd.Mul(f, b), a)
+		} else {
+			a, b = b, dd.Sub(dd.Mul(f, b), a)
+		}
 	}
 	return a, b, e
 }
@@ -475,7 +529,7 @@ func besselRecur(u, x float64, n int, a, b dd.DD, sg float64) (fn, fn1 dd.DD, e 
 func besselRecurDown(u, x float64, n int, a, b dd.DD) (ju1, ju dd.DD, e int) {
 	for k := n; k >= 1; k-- {
 		h, l := dd.TwoSum(u, float64(k))
-		f := dd.DivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
+		f := igamDivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
 		if math.Abs(b.Hi)*f.Hi > 0x1p1000 || math.Abs(a.Hi) > 0x1p1000 {
 			ex := math.Ilogb(b.Hi)
 			a, b = besselScaleDD(a, -ex), besselScaleDD(b, -ex)
