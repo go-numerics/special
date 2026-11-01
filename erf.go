@@ -3,7 +3,7 @@ package special
 import (
 	"math"
 
-	"github.com/go-numerics/special/internal/dd"
+	"github.com/go-numerics/special/dd"
 )
 
 // Double-double constants (mpmath, 300 bits).

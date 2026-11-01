@@ -3,7 +3,7 @@ package special
 import (
 	"math"
 
-	"github.com/go-numerics/special/internal/dd"
+	"github.com/go-numerics/special/dd"
 )
 
 // Modified Bessel functions I and K of real order, after Boost.Math

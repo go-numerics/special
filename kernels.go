@@ -4,7 +4,7 @@ import "math"
 
 // Float64 exp and log kernels returning an unevaluated sum hi + lo.
 //
-// The double-double functions of internal/dd carry about 2^-72 relative
+// The double-double functions of dd carry about 2^-72 relative
 // accuracy and cost 10–20 ns per call, most of it in renormalisations that
 // the error analysis of a final float64 result does not need. These kernels
 // keep only the error-free steps that matter: an exact argument reduction,

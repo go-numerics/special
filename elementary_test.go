@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/go-numerics/special/internal/dd"
+	"github.com/go-numerics/special/dd"
 )
 
 // Unit checks of the float64 fast paths (kernels.go, fastpoly.go) that the

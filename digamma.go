@@ -3,7 +3,7 @@ package special
 import (
 	"math"
 
-	"github.com/go-numerics/special/internal/dd"
+	"github.com/go-numerics/special/dd"
 )
 
 // r = x0 - 1 where x0 = 1.46163... is the positive zero of ψ, as a

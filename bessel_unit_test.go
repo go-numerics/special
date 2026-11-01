@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/go-numerics/special/internal/dd"
+	"github.com/go-numerics/special/dd"
 )
 
 // Special values and the branches the accuracy fixtures do not reach.

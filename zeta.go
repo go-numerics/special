@@ -3,7 +3,7 @@ package special
 import (
 	"math"
 
-	"github.com/go-numerics/special/internal/dd"
+	"github.com/go-numerics/special/dd"
 )
 
 // bernoulliOverFactorial[j-1] = B_2j / (2j)!, j = 1..15 (mpmath).
