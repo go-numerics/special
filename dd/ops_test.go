@@ -345,7 +345,12 @@ func TestElementaryEdges(t *testing.T) {
 	// Log of a subnormal and of arguments above sqrt2 within an octave.
 	for _, x := range []float64{5e-324, 1e-310, 1.5, 1.9, 0.75} {
 		got := Log(x)
-		if math.Abs(got.Float()-math.Log(x)) > 1e-15*math.Abs(math.Log(x)) {
+		// math.Log is wrong for subnormals on amd64: scale first.
+		want := math.Log(x*0x1p54) - 54*math.Ln2
+		if x > 1e-300 {
+			want = math.Log(x)
+		}
+		if math.Abs(got.Float()-want) > 1e-15*math.Abs(want) {
 			t.Fatalf("Log(%g)", x)
 		}
 	}
