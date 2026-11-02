@@ -82,7 +82,10 @@ at or below SciPy; where both are "wrong" the row is bold too.
 
 Two building blocks run through everything:
 
-- **Double-double arithmetic** (`internal/dd`): error-free transformations
+- **Double-double arithmetic** (`github.com/go-numerics/special/dd`, a
+  public package since v0.3.0; fuzzed against `math/big` with the error bounds
+  of the double-word algorithms: Add 3u², Mul 5u², Div 15u²+56u³, u = 2⁻⁵³):
+  error-free transformations
   (Knuth's TwoSum, Dekker's Fast2Sum, FMA-based TwoProd) and the double-word
   algorithms of Joldes, Muller & Popescu (ACM TOMS 44(2), 2017). `dd.Exp`
   and `dd.Log` are table-driven after Tang (ACM TOMS 15(2), 1989 and 16(4),
@@ -93,7 +96,7 @@ Two building blocks run through everything:
   reductions, 400-bit tables from `go -C tools run ./genkernel`)
   returning an unevaluated hi + lo — exp to about 2^-68 relative, log to
   2^-68 absolute — at a few floating-point operations; the elementary
-  families below use them instead of `internal/dd` on their main paths,
+  families below use them instead of `dd` on their main paths,
   which remains for the tails and for the incomplete gamma/beta functions.
 - **Fitted polynomials** (`testdata/gen/fit.py` and, for the tables added
   with the float64 kernels, the Go port `go -C tools run ./genfit`;

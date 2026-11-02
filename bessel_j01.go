@@ -3,7 +3,7 @@ package special
 import (
 	"math"
 
-	"github.com/go-numerics/special/internal/dd"
+	"github.com/go-numerics/special/dd"
 )
 
 // Bessel functions of order 0 and 1 of the first and second kind.

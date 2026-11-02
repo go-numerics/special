@@ -135,6 +135,19 @@ the second argument optionally. `LogFactorial` is bracketed as a call rather
 than a name because the function is `gammaln` with its argument shifted, which
 is what the harness measures it against.
 
+## Double-double arithmetic
+
+`github.com/go-numerics/special/dd` (public since v0.3.0) is the
+double-double type the functions above are built on: `dd.DD{Hi, Lo}` with
+`Add`, `Sub`, `Mul`, `Div`, `Sqrt`, `Exp`, `Log`, the exact accumulators
+`Dot`, `DotDD`, `Sum`, `AddProd` (every product exact, accumulation in
+double-double, so an ill-conditioned dot product keeps about 100 bits), and
+conversions `FromInt64`, `FromBig`, `Parse` (a decimal string to the nearest
+double-double), `(DD).Big`, `(DD).Float`. Relative errors, fuzzed against
+`math/big`: Add 3u², Mul 5u², Div 15u²+56u³ (u = 2⁻⁵³); `Sqrt` is measured
+(under 8u²). It is the arithmetic behind double-double QR with iterative
+refinement (the NIST StRD Filip and Wampler problems to 15 digits).
+
 ## Portability
 
 Pure Go; CI runs the full accuracy suite on amd64, arm64, 386, arm (32-bit),

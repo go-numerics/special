@@ -4,7 +4,7 @@ import (
 	"math"
 	"math/bits"
 
-	"github.com/go-numerics/special/internal/dd"
+	"github.com/go-numerics/special/dd"
 )
 
 // Double-double constants (hi + lo to about 107 bits).
