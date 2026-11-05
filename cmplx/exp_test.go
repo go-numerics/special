@@ -114,7 +114,7 @@ func TestExpDefects(t *testing.T) {
 	// Exp(710+1e-300i) = e^710 (cos + i sin 1e-300): the imaginary part is
 	// 2.23e8, finite; math/cmplx returns +Inf for both parts.
 	z := Exp(complex(710, 1e-300))
-	if want := math.Exp(355) * (math.Exp(355) * 1e-300);!math.IsInf(real(z), 1) || math.Abs(imag(z)/want-1) > 1e-13 {
+	if want := math.Exp(355) * (math.Exp(355) * 1e-300); !math.IsInf(real(z), 1) || math.Abs(imag(z)/want-1) > 1e-13 {
 		t.Errorf("Exp(710+1e-300i) = %v, want +Inf + 2.2339e8i", z)
 	}
 	if !math.IsInf(imag(std.Exp(complex(710, 1e-300))), 1) {
