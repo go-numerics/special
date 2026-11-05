@@ -38,6 +38,20 @@ func main() {
 		n.Mod(n, mod)
 		fmt.Fprintf(&b, "\t0x%016x,\n", n.Uint64())
 	}
+	b.WriteString("}\n\n// atanT[j] = atan(j/64) as {hi, lo}, j = 0..64.\nvar atanT = [65][2]float64{\n")
+	var reqs []mporacle.Req
+	for j := 0; j <= 64; j++ {
+		reqs = append(reqs, mporacle.Req{Expr: fmt.Sprintf("mp.atan(mpf(%d)/64)", j), Prec: 300})
+	}
+	vals, _, err := o.Batch(reqs)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, v := range vals {
+		hi := mporacle.Float64(v)
+		lo := mporacle.Float64(new(big.Float).SetPrec(400).Sub(v, new(big.Float).SetFloat64(hi)))
+		fmt.Fprintf(&b, "\t{%s, %s},\n", mporacle.Repr(hi), mporacle.Repr(lo))
+	}
 	b.WriteString("}\n")
 	src, err := format.Source(b.Bytes())
 	if err != nil {

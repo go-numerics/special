@@ -137,6 +137,24 @@ func tan(y float64) float64 {
 	return t
 }
 
+// atanDD returns atan q for a double-double q in [0, 1], to about 2^-65
+// relative: atan q = atan c + atan s with c = j/64 the nearest grid point
+// (atan c from a 300-bit mpmath table), s = (q - c)/(1 + qc) in
+// double-double, |s| ≤ 1/128, and atan s = s - s³/3 + s⁵/5 - s⁷/7 with the
+// part past s in float64 (below 2^-14 of s; truncation below 2^-63).
+// math.Atan (Cephes) is about 1.2 ulp, which a logarithm's imaginary part
+// would inherit.
+func atanDD(q dd.DD) dd.DD {
+	j := math.Round(q.Hi * 64)
+	c := j / 64
+	s := dd.Div(dd.AddF(q, -c), dd.AddF(dd.MulF(q, c), 1))
+	t := float64(s.Hi * s.Hi)
+	p := -1.0/3 + float64(t*(1.0/5-float64(t*(1.0/7))))
+	r := dd.AddF(s, float64(s.Hi*t)*p)
+	a := atanT[int(j)]
+	return dd.Add(dd.DD{Hi: a[0], Lo: a[1]}, r)
+}
+
 // tanSmall is math.Tan except for |y| < 2^-20, where math.Tan (Cephes)
 // returns y itself once y² < 1e-14, dropping y³/3: a relative error up to
 // 3.3e-15, 15 ulp, for 1e-8 < |y| < 1e-7. There the series to y^5 is used
