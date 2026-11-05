@@ -57,6 +57,10 @@ type fixture struct {
 	doc   string
 	regs  []region
 	swapX bool // exchange the two arguments after drawing (cos/sin/tan: f(z) = g(iz))
+	// precs overrides {prec1, prec2} for expressions that cancel at
+	// 192 bits (mpmath's atanh is a difference of logarithms: a
+	// subnormal argument needs about 3300 bits).
+	precs [2]uint
 }
 
 // lu draws a magnitude log-uniformly in [lo, hi] with a random sign.
@@ -208,6 +212,36 @@ func log1pRegions(expm1 bool) []region {
 		}})
 }
 
+// The inverse functions: near 0, the branch points ±1 and ±i, both sides
+// of the cuts on both axes, huge and subnormal arguments.
+func catrigRegions() []region {
+	return []region{
+		{"tiny", 150, polar(-1074, -26)},
+		{"moderate", 300, polar(-3, 3)},
+		{"branch", 300, func(r *rand.Rand) []float64 {
+			p := [][2]float64{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}[r.IntN(4)]
+			d, t := math.Abs(lu2(r, -52, -10)), uni(r, -math.Pi, math.Pi)
+			return []float64{p[0] + d*math.Cos(t), p[1] + d*math.Sin(t)}
+		}},
+		{"cut-real", 200, func(r *rand.Rand) []float64 {
+			return []float64{math.Copysign(1+math.Abs(lu(r, 1e-15, 1e15)), float64(r.IntN(2)*2-1)), cutYs[r.IntN(len(cutYs))]}
+		}},
+		{"cut-imag", 200, func(r *rand.Rand) []float64 {
+			return []float64{cutYs[r.IntN(len(cutYs))], math.Copysign(1+math.Abs(lu(r, 1e-15, 1e15)), float64(r.IntN(2)*2-1))}
+		}},
+		{"huge", 200, polar(500, 1023)},
+		{"large", 150, polar(40, 500)},
+		{"subnormal", 100, func(r *rand.Rand) []float64 {
+			a := []float64{lu2(r, -1074, -1023), lu2(r, -1074, 3)}
+			if r.IntN(2) == 0 {
+				a[0], a[1] = a[1], a[0]
+			}
+			return a
+		}},
+		{"axes", 100, axes},
+	}
+}
+
 // Products and quotients: four parts a, b, c, d.
 func arithRegions(div bool) []region {
 	four := func(f func(r *rand.Rand) float64) func(r *rand.Rand) []float64 {
@@ -253,10 +287,23 @@ func fixtures() []fixture {
 		{name: "sqrt", vars: xy, expr: "mp.sqrt(" + z + ")", doc: "sqrt(x+iy), principal branch", regs: logRegions()},
 		{name: "log1p", vars: xy, expr: "mp.log1p(" + z + ")", doc: "log(1+x+iy), principal branch", regs: log1pRegions(false)},
 		{name: "expm1", vars: xy, expr: "mp.expm1(" + z + ")", doc: "exp(x+iy) - 1", regs: log1pRegions(true)},
+		{name: "asinh", vars: xy, expr: "mp.asinh(" + z + ")", doc: "asinh(x+iy), principal branch", regs: catrigRegions()},
+		{name: "asin", vars: xy, expr: "mp.asin(" + z + ")", doc: "asin(x+iy), principal branch", regs: catrigRegions()},
+		{name: "acos", vars: xy, expr: "mp.acos(" + z + ")", doc: "acos(x+iy), principal branch", regs: catrigRegions()},
+		{name: "acosh", vars: xy, expr: "mp.acosh(" + z + ")", doc: "acosh(x+iy), principal branch", regs: catrigRegions()},
+		{name: "atanh", vars: xy, expr: "mp.atanh(" + z + ")", doc: "atanh(x+iy), principal branch", regs: catrigRegions(), precs: [2]uint{3700, 4000}},
+		{name: "atan", vars: xy, expr: "mp.atan(" + z + ")", doc: "atan(x+iy), principal branch", regs: catrigRegions(), precs: [2]uint{3700, 4000}},
 		{name: "tanh", vars: xy, expr: "mp.tanh(" + z + ")", doc: "tanh(x+iy)", regs: tanhRegions()},
 		{name: "tan", vars: xy, expr: "mp.tan(" + z + ")", doc: "tan(x+iy) (regions of tanh, arguments exchanged)", regs: tanhRegions(), swapX: true},
 		{name: "cot", vars: xy, expr: "mp.cot(" + z + ")", doc: "cot(x+iy) (regions of tanh, arguments exchanged)", regs: tanhRegions(), swapX: true},
 	}
+}
+
+func (f fixture) prec() []uint {
+	if f.precs[0] != 0 {
+		return f.precs[:]
+	}
+	return []uint{prec1, prec2}
 }
 
 // bind returns x exactly as a big.Float, a signed zero as ±2^-4000.
@@ -280,6 +327,13 @@ func split(v *big.Float) (float64, float64) {
 func agree(a, b *big.Float) bool {
 	if b.Sign() == 0 {
 		return a.Sign() == 0
+	}
+	// Both far below the smallest subnormal with the same sign: both round
+	// to the same signed zero, whatever their relative difference (a part
+	// of the order of the ±2^-4000 that binds a signed zero).
+	tiny := new(big.Float).SetMantExp(big.NewFloat(1), -1100)
+	if a.Sign() == b.Sign() && new(big.Float).Abs(a).Cmp(tiny) < 0 && new(big.Float).Abs(b).Cmp(tiny) < 0 {
+		return true
 	}
 	d := new(big.Float).SetPrec(prec2).Sub(a, b)
 	d.Abs(d)
@@ -329,7 +383,7 @@ func generate(f fixture) error {
 		for i, n := range f.vars {
 			vars[n] = bind(p.args[i])
 		}
-		for _, prec := range []uint{prec1, prec2} {
+		for _, prec := range f.prec() {
 			reqs = append(reqs,
 				mporacle.Req{Expr: "mp.re(" + f.expr + ")", Prec: prec, Vars: vars},
 				mporacle.Req{Expr: "mp.im(" + f.expr + ")", Prec: prec, Vars: vars})
@@ -362,7 +416,7 @@ func generate(f fixture) error {
 	gz, _ := gzip.NewWriterLevel(&out, gzip.BestCompression)
 	fmt.Fprintf(gz, "# c_%s: %s; %d argument(s); columns: region, args, re hi, re lo, im hi, im lo\n", f.name, f.doc, len(f.vars))
 	fmt.Fprintf(gz, "# oracle: mpmath %s at %d and %d bits (rows that disagree dropped: %d); signed zero arguments bound as +-2^-4000\n",
-		mporacle.MpmathVersion, prec1, prec2, dropped)
+		mporacle.MpmathVersion, f.prec()[0], f.prec()[1], dropped)
 	gz.Write(body.Bytes())
 	if err := gz.Close(); err != nil {
 		return err
