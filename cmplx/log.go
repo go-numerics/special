@@ -16,12 +16,17 @@ var (
 // atan2 returns arg(x + iy) in [-π, π] as a double-double, to about
 // 2^-64: the quotient of the smaller part by the larger in double-double,
 // its arctangent by atanDD, and the multiple of π/2 added in double-double,
-// so that the caller rounds once. It also repairs math.Atan2(y, x) for x < 0 and y/x below the
-// smallest subnormal: Go computes Atan(y/x) = Atan(+0) for y = -5e-324,
-// x = -1e130 and returns +π instead of -π (the sign of y is lost with the
-// underflowed quotient). Non-finite and zero arguments: math.Atan2 with
-// the sign of y restored (its special cases already follow Annex G).
-func atan2(y, x float64) dd.DD {
+// so that the caller rounds once. It also repairs math.Atan2(y, x) for
+// x < 0 and y/x below the smallest subnormal: Go computes Atan(y/x) =
+// Atan(+0) for y = -5e-324, x = -1e130 and returns +π instead of -π (the
+// sign of y is lost with the underflowed quotient). Non-finite and zero
+// arguments: math.Atan2 with the sign of y restored (its special cases
+// already follow Annex G).
+func atan2(y, x float64) dd.DD { return atan2X(y, dd.F(x)) }
+
+// atan2X is atan2 with x given as a double-double (Log1p's 1 + x).
+func atan2X(y float64, xd dd.DD) dd.DD {
+	x := xd.Hi
 	pi := dd.DD{Hi: 2 * pio2a, Lo: 2 * pio2b}
 	switch {
 	case !finite(x) || !finite(y):
@@ -35,12 +40,12 @@ func atan2(y, x float64) dd.DD {
 	case x == 0:
 		return dd.DD{Hi: math.Copysign(pio2a, y), Lo: math.Copysign(pio2b, y)}
 	}
-	ay, ax := math.Abs(y), math.Abs(x)
+	ay, ax := math.Abs(y), dd.Abs(xd)
 	var r dd.DD
-	if ay <= ax {
-		r = atanDD(dd.Div(dd.F(ay), dd.F(ax)))
+	if ay <= ax.Hi {
+		r = atanDD(dd.Div(dd.F(ay), ax))
 	} else {
-		r = dd.Sub(dd.DD{Hi: pio2a, Lo: pio2b}, atanDD(dd.Div(dd.F(ax), dd.F(ay))))
+		r = dd.Sub(dd.DD{Hi: pio2a, Lo: pio2b}, atanDD(dd.Div(ax, dd.F(ay))))
 	}
 	if x < 0 {
 		r = dd.Sub(pi, r)

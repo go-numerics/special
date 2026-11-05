@@ -178,6 +178,36 @@ func logRegions() []region {
 	}
 }
 
+// log1p and expm1: small arguments, where the subtraction of 1 cancels.
+func log1pRegions(expm1 bool) []region {
+	regs := []region{
+		{"tiny", 200, polar(-1074, -60)},
+		{"small", 300, polar(-60, -3)},
+		{"moderate", 300, polar(-3, 3)},
+		{"axes", 100, axes},
+	}
+	if expm1 {
+		return append(regs,
+			// Re = expm1(x) cos y - 2 sin²(y/2) cancels where x ≈ y²/2.
+			region{"cancel", 300, func(r *rand.Rand) []float64 {
+				y := lu(r, 1e-8, 1)
+				return []float64{y * y / 2 * (1 + lu(r, 1e-12, 1e-2)), y}
+			}},
+			region{"wide", 200, func(r *rand.Rand) []float64 { return []float64{uni(r, -745, 709), lu(r, 1e-3, 1e4)} }})
+	}
+	return append(regs,
+		// |1 + z|² = 2x + x² + y² cancels where x < 0 and y² ≈ -2x.
+		region{"cancel", 300, func(r *rand.Rand) []float64 {
+			x := -math.Abs(lu(r, 1e-16, 0.4))
+			return []float64{x, math.Copysign(math.Sqrt(-2*x-x*x)*(1+lu(r, 1e-12, 1e-2)), float64(r.IntN(2)*2-1))}
+		}},
+		region{"near-1", 200, func(r *rand.Rand) []float64 { return []float64{-1 + lu(r, 1e-16, 0.1), lu(r, 1e-300, 0.1)} }},
+		region{"huge", 200, polar(30, 1023)},
+		region{"cut", 200, func(r *rand.Rand) []float64 {
+			return []float64{-1 - math.Abs(lu(r, 1e-15, 1e300)), cutYs[r.IntN(len(cutYs))]}
+		}})
+}
+
 // Products and quotients: four parts a, b, c, d.
 func arithRegions(div bool) []region {
 	four := func(f func(r *rand.Rand) float64) func(r *rand.Rand) []float64 {
@@ -221,6 +251,8 @@ func fixtures() []fixture {
 		{name: "log10", vars: xy, expr: "mp.log(" + z + ")/mp.log(10)", doc: "log10(x+iy)", regs: logRegions()},
 		{name: "log2", vars: xy, expr: "mp.log(" + z + ")/mp.log(2)", doc: "log2(x+iy)", regs: logRegions()},
 		{name: "sqrt", vars: xy, expr: "mp.sqrt(" + z + ")", doc: "sqrt(x+iy), principal branch", regs: logRegions()},
+		{name: "log1p", vars: xy, expr: "mp.log1p(" + z + ")", doc: "log(1+x+iy), principal branch", regs: log1pRegions(false)},
+		{name: "expm1", vars: xy, expr: "mp.expm1(" + z + ")", doc: "exp(x+iy) - 1", regs: log1pRegions(true)},
 		{name: "tanh", vars: xy, expr: "mp.tanh(" + z + ")", doc: "tanh(x+iy)", regs: tanhRegions()},
 		{name: "tan", vars: xy, expr: "mp.tan(" + z + ")", doc: "tan(x+iy) (regions of tanh, arguments exchanged)", regs: tanhRegions(), swapX: true},
 		{name: "cot", vars: xy, expr: "mp.cot(" + z + ")", doc: "cot(x+iy) (regions of tanh, arguments exchanged)", regs: tanhRegions(), swapX: true},

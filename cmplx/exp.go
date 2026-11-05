@@ -73,6 +73,8 @@ func Exp(x complex128) complex128 {
 			s, c := sincos(i)
 			return complex(0*c, 0*s)
 		}
-		return complex(0, 0) // ±0 ± i0: signs unspecified
+		// ±0 ± i0: signs unspecified; the imaginary zero takes the sign of
+		// im so that Exp(conj z) = conj Exp(z) holds here too.
+		return complex(0, math.Copysign(0, i))
 	}
 }

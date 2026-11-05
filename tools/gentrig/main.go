@@ -52,6 +52,29 @@ func main() {
 		lo := mporacle.Float64(new(big.Float).SetPrec(400).Sub(v, new(big.Float).SetFloat64(hi)))
 		fmt.Fprintf(&b, "\t{%s, %s},\n", mporacle.Repr(hi), mporacle.Repr(lo))
 	}
+	b.WriteString("}\n\n// sinCosT[j] = {sin hi, sin lo, cos hi, cos lo} of j/64, j = 0..51.\nvar sinCosT = [52][4]float64{\n")
+	reqs = reqs[:0]
+	for j := 0; j <= 51; j++ {
+		reqs = append(reqs,
+			mporacle.Req{Expr: fmt.Sprintf("mp.sin(mpf(%d)/64)", j), Prec: 300},
+			mporacle.Req{Expr: fmt.Sprintf("mp.cos(mpf(%d)/64)", j), Prec: 300})
+	}
+	vals, _, err = o.Batch(reqs)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for j := 0; j <= 51; j++ {
+		b.WriteString("\t{")
+		for i, v := range vals[2*j : 2*j+2] {
+			hi := mporacle.Float64(v)
+			lo := mporacle.Float64(new(big.Float).SetPrec(400).Sub(v, new(big.Float).SetFloat64(hi)))
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(&b, "%s, %s", mporacle.Repr(hi), mporacle.Repr(lo))
+		}
+		b.WriteString("},\n")
+	}
 	b.WriteString("}\n")
 	src, err := format.Source(b.Bytes())
 	if err != nil {
