@@ -49,7 +49,7 @@ func Cosh(z complex128) complex128 {
 		if y == 0 {
 			return complex(mulRound(ch, k, 1), x*y)
 		}
-		s, c := math.Sincos(y)
+		s, c := sincos(y)
 		return complex(mulRound(ch, k, c), mulRound(sh, k, math.Copysign(1, x)*s))
 	}
 	switch {
@@ -67,7 +67,7 @@ func Cosh(z complex128) complex128 {
 			// cosh(±Inf ± i Inf) = +Inf + i NaN, cosh(±Inf + i NaN) = +Inf + i NaN.
 			return complex(x*x, x*(y-y))
 		}
-		s, c := math.Sincos(y)
+		s, c := sincos(y)
 		return complex((x*x)*c, x*s)
 	}
 	// cosh(NaN + i y) = NaN + i NaN for y ≠ 0.
@@ -89,7 +89,7 @@ func Sinh(z complex128) complex128 {
 		if y == 0 {
 			return complex(mulRound(sh, k, sx), y)
 		}
-		s, c := math.Sincos(y)
+		s, c := sincos(y)
 		return complex(mulRound(sh, k, sx*c), mulRound(ch, k, s))
 	}
 	switch {
@@ -110,7 +110,7 @@ func Sinh(z complex128) complex128 {
 			// unspecified), sinh(±Inf + i NaN) likewise.
 			return complex(x*x, x*(y-y))
 		}
-		s, c := math.Sincos(y)
+		s, c := sincos(y)
 		return complex(x*c, math.Inf(1)*s)
 	}
 	return complex((x*x)*(y-y), (x+x)*(y-y))

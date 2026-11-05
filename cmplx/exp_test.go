@@ -7,15 +7,15 @@ import (
 )
 
 func init() {
-	// Targets (design-complex.md): 2 ulp per part. Region bigy (|Im z| in
-	// 1e4..1e22) inherits the error of math.Sincos at large arguments,
-	// up to 439 ulp where cos or sin is near a zero: an open defect
-	// (go-numerics/special#21); the budget there is 1.5x the measurement.
-	implement("exp", z2(Exp), map[string]float64{"*": 2, "bigy": 15})
-	implement("cosh", z2(Cosh), map[string]float64{"*": 2, "bigy": 21})
-	implement("sinh", z2(Sinh), map[string]float64{"*": 2, "bigy": 660})
-	implement("cos", z2(Cos), map[string]float64{"*": 2, "bigy": 320})
-	implement("sin", z2(Sin), map[string]float64{"*": 2, "bigy": 17})
+	// Target (design-complex.md): 2 ulp per part, in every region including
+	// bigy (|Im z| in 1e4..1e22), where math.Sincos lost up to 439 ulp
+	// before the reduction of trig.go (go-numerics/special#21).
+	b := map[string]float64{"*": 2}
+	implement("exp", z2(Exp), b)
+	implement("cosh", z2(Cosh), b)
+	implement("sinh", z2(Sinh), b)
+	implement("cos", z2(Cos), b)
+	implement("sin", z2(Sin), b)
 }
 
 // The C11 Annex G special values (G.6.3.1 cexp, G.6.2.4 ccosh, G.6.2.5
