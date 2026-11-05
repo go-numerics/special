@@ -49,7 +49,7 @@ func Exp(x complex128) complex128 {
 			m, k := dd.ExpMant(dd.F(r))
 			return complex(mulRound(m, k, 1), i)
 		}
-		s, c := math.Sincos(i)
+		s, c := sincos(i)
 		re, im := scaledCis(r, c, s, 0)
 		return complex(re, im)
 	case math.IsNaN(r):
@@ -64,13 +64,13 @@ func Exp(x complex128) complex128 {
 		case i == 0:
 			return x
 		case finite(i):
-			s, c := math.Sincos(i)
+			s, c := sincos(i)
 			return complex(r*c, r*s)
 		}
 		return complex(r, math.NaN()) // ±Inf + iNaN: sign of the real part unspecified
 	default: // -Inf
 		if finite(i) {
-			s, c := math.Sincos(i)
+			s, c := sincos(i)
 			return complex(0*c, 0*s)
 		}
 		return complex(0, 0) // ±0 ± i0: signs unspecified

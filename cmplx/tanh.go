@@ -13,45 +13,6 @@ const (
 	pio2c = -1.4973849048591698e-33
 )
 
-// tan returns tan y. math.Tan reduces y by π/4 in three float64 parts
-// without exact products, so near a pole, where the reduced argument is
-// tiny, it keeps only its absolute accuracy: 1.5e4 ulp at y = 3π/2 in
-// float64. Here, for π/4 < |y| ≤ 2^20, y - kπ/2 is formed in
-// double-double (the product k·pio2a exact by TwoProd, y - fl(k·pio2a)
-// exact by Sterbenz's lemma), tan of the reduced argument r is math.Tan
-// on r.Hi corrected by r.Lo·(1 + tan²), and an odd k takes -1/tan r.
-// Larger |y| keep math.Tan (go-numerics/special#21).
-func tan(y float64) float64 {
-	ay := math.Abs(y)
-	if ay <= math.Pi/4 || ay > 0x1p20 {
-		return tanSmall(y)
-	}
-	k := math.Round(y * (2 / math.Pi))
-	p, e := dd.TwoProd(k, pio2a)
-	r := dd.AddF(dd.F(y-p), -e)
-	r = dd.Sub(r, dd.MulFF(k, pio2b))
-	r = dd.AddF(r, -k*pio2c)
-	th := tanSmall(r.Hi)
-	t := math.FMA(r.Lo, math.FMA(th, th, 1), th)
-	if math.Mod(k, 2) != 0 {
-		return -1 / t
-	}
-	return t
-}
-
-// tanSmall is math.Tan except for |y| < 2^-20, where math.Tan (Cephes)
-// returns y itself once y² < 1e-14, dropping y³/3: a relative error up to
-// 3.3e-15, 15 ulp, for 1e-8 < |y| < 1e-7. There the series to y^5 is used
-// (truncation y^6·17/315 relative, below 2^-120).
-func tanSmall(y float64) float64 {
-	if math.Abs(y) >= 0x1p-20 {
-		return math.Tan(y)
-	}
-	q := float64(y * y)
-	c := 1.0/3 + float64(q*(2.0/15))
-	return math.FMA(float64(y*q), c, y)
-}
-
 // kahan returns, for finite x, y with |x| < coshBig, the double-double
 // pieces of Kahan's form of tanh(x+iy): t = tan y, B = 1 + t², S = sinh x,
 // C = cosh x = sqrt(1 + S²). Then
@@ -79,11 +40,11 @@ func tanhBig(x, y float64) (float64, float64) {
 	m, k := dd.ExpMant(dd.F(-2 * math.Abs(x)))
 	var im float64
 	if math.Abs(y) < 0x1p1000 {
-		im = mulRound(m, k+1, math.Sin(2*y))
+		s, _ := sincos(2 * y)
+		im = mulRound(m, k+1, s)
 	} else {
-		// 2y would overflow: 4 sin y cos y, the product rounded once more
-		// (this range is beyond the accuracy of math.Sincos anyway, #21).
-		s, c := math.Sincos(y)
+		// 2y would overflow: 4 sin y cos y, the product rounded once more.
+		s, c := sincos(y)
 		im = mulRound(m, k+2, s*c)
 	}
 	return math.Copysign(1, x), im
