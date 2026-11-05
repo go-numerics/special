@@ -65,7 +65,9 @@ func TestLogAnnexG(t *testing.T) {
 		l, l10, l2 := Log(z), Log10(z), Log2(z)
 		for _, w := range []complex128{l10, l2} {
 			if math.IsInf(real(l), 0) && real(w) != real(l) || math.IsNaN(real(l)) != math.IsNaN(real(w)) ||
-				math.IsNaN(imag(l)) != math.IsNaN(imag(w)) || math.Signbit(imag(l)) != math.Signbit(imag(w)) {
+				math.IsNaN(imag(l)) != math.IsNaN(imag(w)) ||
+				// the sign bit of a NaN is not portable (riscv64 makes it canonical)
+				!math.IsNaN(imag(l)) && math.Signbit(imag(l)) != math.Signbit(imag(w)) {
 				t.Errorf("Log(%v) = %v but Log10/Log2 = %v", z, l, w)
 			}
 		}
