@@ -50,7 +50,7 @@ func sameZ(a, b complex128) bool {
 	return sameC(complex(z(real(a)), z(imag(a))), complex(z(real(b)), z(imag(b))))
 }
 
-var arithSeeds =[]float64{0, math.Copysign(0, -1), 1, -1, 0x1p-1074, -0x1p-1074, 0x1p-1022,
+var arithSeeds = []float64{0, math.Copysign(0, -1), 1, -1, 0x1p-1074, -0x1p-1074, 0x1p-1022,
 	math.MaxFloat64, -math.MaxFloat64, 1e300, 1e-300, math.Inf(1), math.Inf(-1), math.NaN(), 3, 0.1}
 
 func FuzzMul(f *testing.F) {
