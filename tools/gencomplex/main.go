@@ -143,6 +143,41 @@ func tanhRegions() []region {
 	}
 }
 
+// cutYs are the imaginary parts placed on and next to the negative real
+// axis, the branch cut of the logarithm and the square root, on both sides.
+var cutYs = []float64{0, math.Copysign(0, -1), 0x1p-1074, -0x1p-1074, 0x1p-50, -0x1p-50}
+
+// The logarithm family and the square root.
+func logRegions() []region {
+	return []region{
+		{"tiny", 200, polar(-1074, -26)},
+		{"subnormal", 100, func(r *rand.Rand) []float64 {
+			a := []float64{lu2(r, -1074, -1023), lu2(r, -1074, 10)}
+			if r.IntN(2) == 0 {
+				a[0], a[1] = a[1], a[0]
+			}
+			return a
+		}},
+		{"moderate", 300, polar(-3, 3)},
+		{"band", 300, func(r *rand.Rand) []float64 {
+			m, t := uni(r, 0.71, 1.73), uni(r, -math.Pi, math.Pi)
+			return []float64{m * math.Cos(t), m * math.Sin(t)}
+		}},
+		{"unit", 300, func(r *rand.Rand) []float64 {
+			if r.IntN(3) == 0 {
+				return []float64{math.Copysign(1, float64(r.IntN(2)*2-1)), lu(r, 1e-300, 1e-5)}
+			}
+			m, t := 1+lu2(r, -52, -20), uni(r, -math.Pi, math.Pi)
+			return []float64{m * math.Cos(t), m * math.Sin(t)}
+		}},
+		{"huge", 200, polar(500, 1023)},
+		{"cut", 300, func(r *rand.Rand) []float64 {
+			return []float64{-math.Abs(lu(r, 1e-300, 1e300)), cutYs[r.IntN(len(cutYs))]}
+		}},
+		{"axes", 100, axes},
+	}
+}
+
 // Products and quotients: four parts a, b, c, d.
 func arithRegions(div bool) []region {
 	four := func(f func(r *rand.Rand) float64) func(r *rand.Rand) []float64 {
@@ -182,6 +217,10 @@ func fixtures() []fixture {
 		{name: "sinh", vars: xy, expr: "mp.sinh(" + z + ")", doc: "sinh(x+iy)", regs: expRegions(true)},
 		{name: "cos", vars: xy, expr: "mp.cos(" + z + ")", doc: "cos(x+iy) (regions of cosh, arguments exchanged)", regs: expRegions(true), swapX: true},
 		{name: "sin", vars: xy, expr: "mp.sin(" + z + ")", doc: "sin(x+iy) (regions of sinh, arguments exchanged)", regs: expRegions(true), swapX: true},
+		{name: "log", vars: xy, expr: "mp.log(" + z + ")", doc: "log(x+iy), principal branch", regs: logRegions()},
+		{name: "log10", vars: xy, expr: "mp.log(" + z + ")/mp.log(10)", doc: "log10(x+iy)", regs: logRegions()},
+		{name: "log2", vars: xy, expr: "mp.log(" + z + ")/mp.log(2)", doc: "log2(x+iy)", regs: logRegions()},
+		{name: "sqrt", vars: xy, expr: "mp.sqrt(" + z + ")", doc: "sqrt(x+iy), principal branch", regs: logRegions()},
 		{name: "tanh", vars: xy, expr: "mp.tanh(" + z + ")", doc: "tanh(x+iy)", regs: tanhRegions()},
 		{name: "tan", vars: xy, expr: "mp.tan(" + z + ")", doc: "tan(x+iy) (regions of tanh, arguments exchanged)", regs: tanhRegions(), swapX: true},
 		{name: "cot", vars: xy, expr: "mp.cot(" + z + ")", doc: "cot(x+iy) (regions of tanh, arguments exchanged)", regs: tanhRegions(), swapX: true},

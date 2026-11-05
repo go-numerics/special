@@ -26,5 +26,10 @@
 // David Schultz and Bruce D. Evans; ctanh by Bruce D. Evans after Kahan;
 // BSD-2-Clause), in the form NumPy carries them in
 // numpy/_core/src/npymath/npy_math_complex.c.src, with the exponential of
-// the overflow range evaluated in double-double by special/dd.
+// the overflow range evaluated in double-double by special/dd. Log is
+// npymath's npy_clog (after CPython) and Sqrt CACM Algorithm 312 with
+// msun's special cases, both carried in double-double. The real sine,
+// cosine, tangent and arctangent underneath are this package's (trig.go):
+// math.Sincos and math.Tan lose up to 439 ulp near their zeros and poles,
+// math.Atan2 the sign of an underflowed quotient.
 package cmplx
