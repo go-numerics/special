@@ -31,5 +31,7 @@
 // msun's special cases, both carried in double-double. The real sine,
 // cosine, tangent and arctangent underneath are this package's (trig.go):
 // math.Sincos and math.Tan lose up to 439 ulp near their zeros and poles,
-// math.Atan2 the sign of an underflowed quotient.
+// math.Atan2 the sign of an underflowed quotient. Pow follows NumPy's
+// npy_cpow (integer powers by binary powering, here in double-double;
+// exp(y log x) otherwise, in double-double).
 package cmplx
