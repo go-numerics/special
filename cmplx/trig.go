@@ -92,30 +92,71 @@ func fracDD(w [4]uint64) dd.DD {
 	return dd.DD{Hi: hi, Lo: lo}
 }
 
-// sincos returns sin y and cos y for finite y, each to about 1 ulp
-// whatever |y| (math.Sincos where |y| ≤ π/4, which it does not reduce).
-func sincos(y float64) (s, c float64) {
-	ay := math.Abs(y)
-	if ay <= math.Pi/4 {
-		return math.Sincos(y)
+// sincosSmall returns sin r and cos r for a double-double |r| ≤ π/4 + 2^-10
+// to about 2^-66 relative: r = c + d with c = j/64 (sin c, cos c from a
+// 300-bit mpmath table), |d| ≤ 1/128, sin d = d(1 - d²/6 + d⁴/120 - d⁶/5040)
+// with the part past d in float64 (below 2^-15 of d), cos d = 1 - d²/2 in
+// double-double plus d⁴/24 - d⁶/720 in float64.
+func sincosSmall(r dd.DD) (s, c dd.DD) {
+	neg := r.Hi < 0
+	if neg {
+		r = dd.Neg(r)
 	}
-	k, r := reduce(ay)
-	sh, ch := math.Sincos(r.Hi)
-	// sin(h+l) = sin h + l cos h, cos(h+l) = cos h - l sin h (l² below 2^-100).
-	s = math.FMA(r.Lo, ch, sh)
-	c = math.FMA(-r.Lo, sh, ch)
-	switch k {
-	case 1:
-		s, c = c, -s
-	case 2:
-		s, c = -s, -c
-	case 3:
-		s, c = -c, s
-	}
-	if y < 0 {
-		s = -s
+	j := math.Round(r.Hi * 64)
+	d := dd.AddF(r, -j/64)
+	t := float64(d.Hi * d.Hi)
+	// d - d³/6 in double-double, d⁵/120 - d⁷/5040 (below 2^-30 of d) in float64.
+	d3 := dd.Mul(dd.Sqr(d), d)
+	ps := float64(float64(t*t)*(1.0/120)) - float64(float64(t*t)*float64(t*(1.0/5040)))
+	sd := dd.AddF(dd.Sub(d, dd.DivF(d3, 6)), float64(d.Hi*ps))
+	// cos d = 1 - d²/2 + d⁴/24 in double-double, - d⁶/720 in float64.
+	d2 := dd.Sqr(d)
+	cd := dd.Add(dd.Ldexp(dd.Neg(d2), -1), dd.DivF(dd.Sqr(d2), 24))
+	cd = dd.AddF(dd.AddF(cd, -float64(float64(t*t)*float64(t*(1.0/720)))), 1)
+	tab := sinCosT[int(j)]
+	sc, cc := dd.DD{Hi: tab[0], Lo: tab[1]}, dd.DD{Hi: tab[2], Lo: tab[3]}
+	s = dd.Add(dd.Mul(sc, cd), dd.Mul(cc, sd))
+	c = dd.Sub(dd.Mul(cc, cd), dd.Mul(sc, sd))
+	if neg {
+		s = dd.Neg(s)
 	}
 	return s, c
+}
+
+// sincosDD returns sin y and cos y as double-doubles for finite y, to
+// about 2^-66 relative whatever |y|: Payne–Hanek reduction (reduce), then
+// sincosSmall and the quadrant.
+func sincosDD(y float64) (s, c dd.DD) {
+	ay := math.Abs(y)
+	var k uint64
+	r := dd.F(ay)
+	if ay > math.Pi/4 {
+		k, r = reduce(ay)
+	}
+	s, c = sincosSmall(r)
+	switch k {
+	case 1:
+		s, c = c, dd.Neg(s)
+	case 2:
+		s, c = dd.Neg(s), dd.Neg(c)
+	case 3:
+		s, c = dd.Neg(c), s
+	}
+	if math.Signbit(y) {
+		s = dd.Neg(s)
+	}
+	return s, c
+}
+
+// sincos returns sin y and cos y for finite y, each correctly rounded but
+// in rare cases within 2^-66 of a rounding boundary (sincosDD rounded once;
+// the sign of a zero y is kept).
+func sincos(y float64) (s, c float64) {
+	if y == 0 {
+		return y, 1
+	}
+	sd, cd := sincosDD(y)
+	return sd.Hi + sd.Lo, cd.Hi + cd.Lo
 }
 
 // tan returns tan y to about 1 ulp for finite y: tanSmall on the reduced
