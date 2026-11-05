@@ -18,7 +18,7 @@ import (
 // as a double-double. The error of each part is measured in ulps of that
 // part's exact value; the maximum per region is gated by a budget.
 
-var tableOut = flag.String("cmplx.table", "", "write the per-region ULP table (markdown) to this file")
+var tableOut = flag.String("cmplx.table", "", "replace the per-region ULP table (markdown) in this page, after its marker line")
 
 type crow struct {
 	region string
@@ -40,6 +40,19 @@ type accCase struct {
 var accCases []accCase
 
 func register(c accCase) { accCases = append(accCases, c) }
+
+type impl struct {
+	fn     func(a []float64) complex128
+	budget map[string]float64
+}
+
+// impls holds the functions under test by fixture name (filled by the init
+// functions of the per-family test files, in any order).
+var impls = map[string]impl{}
+
+func implement(fixture string, fn func(a []float64) complex128, budget map[string]float64) {
+	impls[fixture] = impl{fn, budget}
+}
 
 func loadC(tb testing.TB, name string) []crow {
 	tb.Helper()
@@ -167,6 +180,9 @@ func TestAccuracy(t *testing.T) {
 		rows := loadC(t, c.fixture)
 		std, order := measure(rows, c.std)
 		var ours map[string]*stat
+		if im, ok := impls[c.fixture]; ok {
+			c.fn, c.budget = im.fn, im.budget
+		}
 		if c.fn != nil {
 			ours, _ = measure(rows, c.fn)
 		}
@@ -191,7 +207,17 @@ func TestAccuracy(t *testing.T) {
 	}
 	t.Log("\n" + tbl.String())
 	if *tableOut != "" {
-		if err := os.WriteFile(*tableOut, []byte(tbl.String()), 0o644); err != nil {
+		// The table replaces everything after the marker line of the page.
+		old, err := os.ReadFile(*tableOut)
+		if err != nil {
+			t.Fatal(err)
+		}
+		const marker = "<!-- table: go test -run TestAccuracy ./cmplx -args -cmplx.table=../docs/accuracy-complex.md -->\n"
+		head, _, ok := strings.Cut(string(old), marker)
+		if !ok {
+			t.Fatalf("%s: no marker line %q", *tableOut, marker)
+		}
+		if err := os.WriteFile(*tableOut, []byte(head+marker+"\n"+tbl.String()), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

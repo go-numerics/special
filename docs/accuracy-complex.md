@@ -8,28 +8,26 @@ dropped and counted in the fixture header). "wrong" is a NaN or an
 infinity where the exact part is finite, or the converse. The regions are
 those of [design-complex.md](design-complex.md), "Validation".
 
-Regenerate this table with
+The table below is rewritten by the command in its marker line. "-" in the
+Re/Im columns: the function is not implemented yet. The comparison column
+is `math/cmplx` of Go 1.27.3 for the functions, and the builtin operators
+`*` and `/` for `Mul` and `Div` (measured on darwin/arm64, where Go fuses
+the products of `*` into multiply-adds).
 
-```sh
-go test -run TestAccuracy ./cmplx -args -cmplx.table=table.md
-```
-
-The comparison column is `math/cmplx` of Go 1.27.3 for the functions, and
-the builtin operators `*` and `/` for `Mul` and `Div` (measured on
-darwin/arm64, where Go fuses the products of `*` into multiply-adds).
+<!-- table: go test -run TestAccuracy ./cmplx -args -cmplx.table=../docs/accuracy-complex.md -->
 
 | function | region | points | Re (ulp) | Im (ulp) | math/cmplx Re | math/cmplx Im |
 |---|---|---:|---:|---:|---:|---:|
-| mul | moderate | 400 | - | - | 21.51 | 14.22 |
-| mul | cancel | 400 | - | - | 7.9e+15 | 0.93 |
-| mul | wide | 400 | - | - | 0.71 | 0.87 |
-| mul | subnormal | 200 | - | - | 1.00 | 1.00 |
-| mul | huge | 200 | - | - | wrong | wrong |
-| div | moderate | 400 | - | - | 30.74 | 6.07 |
-| div | cancel | 400 | - | - | 1.2e+16 | 1.49 |
-| div | wide | 400 | - | - | 7606.91 | 2.4e+13 |
-| div | subnormal | 200 | - | - | 2.1e+12 | 3.2e+12 |
-| div | huge | 200 | - | - | 1.29 | 1.43 |
+| mul | moderate | 400 | 0.50 | 0.50 | 21.51 | 14.22 |
+| mul | cancel | 400 | 0.50 | 0.50 | 7.9e+15 | 0.93 |
+| mul | wide | 400 | 0.50 | 0.49 | 0.71 | 0.87 |
+| mul | subnormal | 200 | 0.50 | 0.49 | 1.00 | 1.00 |
+| mul | huge | 200 | 0.00 | 0.00 | wrong | wrong |
+| div | moderate | 400 | 0.50 | 0.49 | 30.74 | 6.07 |
+| div | cancel | 400 | 0.50 | 0.50 | 1.2e+16 | 1.49 |
+| div | wide | 400 | 0.50 | 0.50 | 7606.91 | 2.4e+13 |
+| div | subnormal | 200 | 0.50 | 0.50 | 2.1e+12 | 3.2e+12 |
+| div | huge | 200 | 0.50 | 0.50 | 1.29 | 1.43 |
 | exp | tiny | 200 | - | - | 0.26 | 0.33 |
 | exp | moderate | 300 | - | - | 1.96 | 1.72 |
 | exp | axes | 100 | - | - | 0.92 | 1.10 |
