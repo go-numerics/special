@@ -135,6 +135,62 @@ the second argument optionally. `LogFactorial` is bracketed as a call rather
 than a name because the function is `gammaln` with its argument shifted, which
 is what the harness measures it against.
 
+## Complex functions
+
+`github.com/go-numerics/special/cmplx` (new in v0.4.0) is a drop-in
+superset of the standard library's `math/cmplx`. Changing the import path
+is enough: the names and signatures are the same, with C11 Annex G
+special values.
+
+- **New functions:** `Mul` and `Div` (the Annex G product and quotient),
+  `Proj`, `Log2`, `Log1p` and `Expm1`.
+- **Unchanged from `math/cmplx`:** `Abs`, `Phase`, `Conj`, `Polar`,
+  `Rect`, `Inf`, `NaN`, `IsInf` and `IsNaN` are one call to a correctly
+  specified real function, and are re-exported as they are.
+- **Rewritten:** every other function. The algorithms are FreeBSD msun's
+  (as NumPy's npymath carries them), carried in double-double where
+  float64 loses accuracy.
+- **Underlying real functions:** `sin`, `cos` and `tan` use this
+  package's Payne–Hanek reduction, and `atan2` is table-driven
+  double-double.
+
+```go
+import "github.com/go-numerics/special/cmplx"
+
+cmplx.Tanh(400 + 1i)   // (1+0i); math/cmplx: NaN
+cmplx.Log(1 + 1e-10i)  // (5e-21+1e-10i); math/cmplx: real part 0
+cmplx.Pow(1i, 2)       // (-1+0i), exactly; math/cmplx: (-1+1.2e-16i)
+```
+
+Each part is measured in ulps against mpmath at 192 and 320 bits.
+The fixtures cover the tiny, subnormal, huge and near-overflow
+regions, the branch points, and both sides of every branch cut.
+Worst part per function:
+
+| function | this package | math/cmplx (Go 1.27.3) |
+|---|--:|--:|
+| Mul, Div | 0.5 ulp | 1.2e16 ulp (builtin `*`, `/`) |
+| Exp, Cosh, Sinh, Cos, Sin | 1.29 ulp | 439 ulp, Inf near Re z = 710 |
+| Tanh, Tan, Cot | 2.55 ulp | NaN for \|Re z\| > 355 |
+| Log, Log10, Log2, Sqrt | 1.03 ulp (0.5 outside subnormals) | 8.9e15 ulp near \|z\| = 1, wrong sign of π on the cut |
+| Log1p, Expm1 | 0.53 ulp | 2.5e27 ulp (naive formula) |
+| Atanh, Atan | 1.44 ulp | 1.4e16 ulp |
+| Asinh, Asin, Acos, Acosh | 2.82 ulp ([#26](https://github.com/go-numerics/special/issues/26)) | 1e9 ulp, wrong quadrant above 1e154 |
+| Pow | 0.51 ulp; up to 2937 ulp where \|y log x\| reaches 3e5 ([#27](https://github.com/go-numerics/special/issues/27)) | 3.4e20 ulp |
+
+Each region has a CI budget of 1.5 times its measured maximum, and at
+least the design's target. Two budgets sit above the target, and both
+are open issues:
+
+- **Asinh, Asin, Acos and Acosh:** 3 ulp (#26).
+- **Pow, region `unit`:** 4500 ulp (#27), inside the design's
+  (2 + |y log x|) ulp bound.
+
+Every region is listed in
+[docs/accuracy-complex.md](docs/accuracy-complex.md), and the design is
+[docs/design-complex.md](docs/design-complex.md). Timing against NumPy's
+complex ufuncs has not been measured yet.
+
 ## Double-double arithmetic
 
 `github.com/go-numerics/special/dd` (public since v0.3.0) is the
@@ -161,5 +217,6 @@ this package never calls it on a value that can be subnormal.
 ## License
 
 BSD 3-Clause. Ported algorithms keep their attribution in place: Cephes
-(Stephen L. Moshier, distributed under BSD by SciPy) and Boost.Math (Boost
-Software License 1.0).
+(Stephen L. Moshier, distributed under BSD by SciPy), Boost.Math (Boost
+Software License 1.0), FreeBSD msun (BSD-2-Clause) as carried by NumPy's
+npymath (BSD-3-Clause), and Go's `math` trigReduce (BSD-3-Clause).
