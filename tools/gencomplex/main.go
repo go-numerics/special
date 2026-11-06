@@ -242,6 +242,39 @@ func catrigRegions() []region {
 	}
 }
 
+// Powers a^b, four parts: a = a+ib, b = c+id.
+func powRegions() []region {
+	base := func(r *rand.Rand) (float64, float64) {
+		p := polar(-3, 3)(r)
+		return p[0], p[1]
+	}
+	return []region{
+		{"int", 400, func(r *rand.Rand) []float64 {
+			a, b := base(r)
+			return []float64{a, b, float64(r.IntN(199) - 99), 0}
+		}},
+		{"real", 300, func(r *rand.Rand) []float64 {
+			a, b := base(r)
+			return []float64{a, b, uni(r, -20, 20), 0}
+		}},
+		{"complex", 300, func(r *rand.Rand) []float64 {
+			a, b := base(r)
+			return []float64{a, b, uni(r, -10, 10), uni(r, -10, 10)}
+		}},
+		{"unit", 200, func(r *rand.Rand) []float64 {
+			m, t := 1+lu2(r, -52, -10), uni(r, -math.Pi, math.Pi)
+			return []float64{m * math.Cos(t), m * math.Sin(t), lu(r, 1, 1e8), uni(r, -1, 1)}
+		}},
+		{"wide", 200, func(r *rand.Rand) []float64 {
+			p := polar(-200, 200)(r)
+			return []float64{p[0], p[1], uni(r, -5, 5), uni(r, -5, 5)}
+		}},
+		{"cut", 100, func(r *rand.Rand) []float64 {
+			return []float64{-math.Abs(lu(r, 1e-3, 1e3)), cutYs[r.IntN(len(cutYs))], uni(r, -5, 5), uni(r, -2, 2)}
+		}},
+	}
+}
+
 // Products and quotients: four parts a, b, c, d.
 func arithRegions(div bool) []region {
 	four := func(f func(r *rand.Rand) float64) func(r *rand.Rand) []float64 {
@@ -293,6 +326,7 @@ func fixtures() []fixture {
 		{name: "acosh", vars: xy, expr: "mp.acosh(" + z + ")", doc: "acosh(x+iy), principal branch", regs: catrigRegions()},
 		{name: "atanh", vars: xy, expr: "mp.atanh(" + z + ")", doc: "atanh(x+iy), principal branch", regs: catrigRegions(), precs: [2]uint{3700, 4000}},
 		{name: "atan", vars: xy, expr: "mp.atan(" + z + ")", doc: "atan(x+iy), principal branch", regs: catrigRegions(), precs: [2]uint{3700, 4000}},
+		{name: "pow", vars: abcd, expr: "mp.power(mp.mpc(a, b), mp.mpc(c, d))", doc: "(a+ib)^(c+id), principal branch", regs: powRegions()},
 		{name: "tanh", vars: xy, expr: "mp.tanh(" + z + ")", doc: "tanh(x+iy)", regs: tanhRegions()},
 		{name: "tan", vars: xy, expr: "mp.tan(" + z + ")", doc: "tan(x+iy) (regions of tanh, arguments exchanged)", regs: tanhRegions(), swapX: true},
 		{name: "cot", vars: xy, expr: "mp.cot(" + z + ")", doc: "cot(x+iy) (regions of tanh, arguments exchanged)", regs: tanhRegions(), swapX: true},

@@ -126,12 +126,21 @@ func sincosSmall(r dd.DD) (s, c dd.DD) {
 // sincosDD returns sin y and cos y as double-doubles for finite y, to
 // about 2^-66 relative whatever |y|: Payne–Hanek reduction (reduce), then
 // sincosSmall and the quadrant.
-func sincosDD(y float64) (s, c dd.DD) {
-	ay := math.Abs(y)
+func sincosDD(y float64) (s, c dd.DD) { return sincosW(dd.F(y)) }
+
+// sincosW is sincosDD for a double-double argument (Pow's b·log a): the
+// high part is reduced, the low part added to the reduced argument.
+func sincosW(w dd.DD) (s, c dd.DD) {
+	y := w.Hi
+	aw := w
+	if math.Signbit(y) {
+		aw = dd.Neg(w)
+	}
 	var k uint64
-	r := dd.F(ay)
-	if ay > math.Pi/4 {
-		k, r = reduce(ay)
+	r := aw
+	if aw.Hi > math.Pi/4 {
+		k, r = reduce(aw.Hi)
+		r = dd.AddF(r, aw.Lo)
 	}
 	s, c = sincosSmall(r)
 	switch k {
