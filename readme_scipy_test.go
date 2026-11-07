@@ -43,7 +43,9 @@ import (
 // first occurrence is the right one in both shapes.
 var scipyRef = regexp.MustCompile(`\bsc\.([a-z_0-9]+)`)
 
-var entryStart = regexp.MustCompile(`(?m)^[[:space:]]+"([A-Za-z_0-9]+)": (?:lambda:|\()`)
+var perfPair = regexp.MustCompile(`u[123]\("([A-Za-z_0-9]+)", "sp\.([a-z_0-9]+)"`)
+
+var entryStart =regexp.MustCompile(`(?m)^[[:space:]]+"([A-Za-z_0-9]+)": (?:lambda:|\()`)
 
 // fixtureGo maps a harness fixture name to the Go function it exercises, for
 // the names that differ by more than case and underscores. Anything not here
@@ -75,7 +77,6 @@ var expression = map[string]struct{ fn, spelling string }{
 // with what the README may say instead. A name here is NOT evidence about
 // scipy; it is a statement that this package has not measured one.
 var unpaired = map[string]string{
-	"GammaSign":    "gammasgn", // scipy has it; nothing here pairs them
 	"Kn":           "kn",       // scipy has it; nothing here pairs them
 	"In":           "—",        // scipy has no `in`: it is a Python keyword
 	"LogGammaSign": "—",        // scipy splits it across gammaln and gammasgn
@@ -138,6 +139,18 @@ func harnessPairs(t *testing.T) map[string]string {
 				}
 			}
 		}
+	}
+
+	// Rule 1b: the refbench registry (bench/perf_test.go) states the pairing
+	// as u1("GoName", "sp.NAME", ...); it replaced bench/scipy_server.py.
+	if src, ok := readOptional(t, "bench/perf_test.go", false); ok {
+		for _, m := range perfPair.FindAllStringSubmatch(src, -1) {
+			if g := goNameOf(exported, m[1]); g != "" {
+				pairs[g] = m[2]
+			}
+		}
+		all.WriteString(strings.ReplaceAll(src, `"sp.`, `"sc.`))
+		all.WriteString("\n")
 	}
 
 	// Rule 2: an sc.NAME anywhere that spells an exported function.

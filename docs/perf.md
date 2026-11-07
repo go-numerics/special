@@ -1,29 +1,55 @@
 # Speed
 
-The comparison is with SciPy 1.18.1's vectorised ufuncs (C/C++, one thread)
-on the same 10^6 points per function.
+The comparison is with SciPy 1.18.1's vectorised ufuncs (C/C++, one thread),
+measured by [refbench](https://github.com/go-scikit/refbench) v0.1.1 from
+`bench/perf_test.go`. The generated table is [perf-table.md](perf-table.md)
+(data: `perf.json`); the public functions without a row are in
+[perf-exempt.md](perf-exempt.md).
 
 ## Method
 
-- `nd/perf_test.go` (`go test -run TestPerfReport -perf.report=...` in
-  `nd/`) starts `bench/scipy_server.py` once through `uv` and drives it
-  over a pipe. For every function and every round it times, back to back:
-  the SciPy call on its 10^6-point array, a plain Go loop calling the scalar
-  function on the same points, and the `nd` array function (which splits
-  the work across `GOMAXPROCS` goroutines).
-- The points are generated identically on both sides
-  (`lo + (hi-lo)·frac(0.618…·i)`, the same IEEE operations), over a
-  representative range per function (listed in both files).
-- Rounds are interleaved function by function, so a change in the load of
-  the host hits both sides alike; the table reports the median of the
-  rounds. SciPy's time includes allocating its result array, as the Go side
-  does.
-- The host is shared and was heavily loaded (load average in the table
-  header, on 16 cores). Absolute times are therefore inflated for both
-  sides and the parallel column in particular understates what an idle
-  machine gives; the single-thread ratio is the more robust number.
+- **One core on both sides.** refbench sets `GOMAXPROCS=1` around the run and
+  starts the SciPy worker with `OMP/OPENBLAS/MKL/VECLIB_*_THREADS=1`. The `nd/`
+  rows therefore run on one goroutine; the earlier multi-core column is gone.
+- **Like with like: one call over an array on both sides.** Every row times one
+  call over the same 10 000 points. The SciPy body is one ufunc call (result
+  array allocated by the call, as the Go side allocates its own); the ufunc's
+  per-call overhead (about 1 µs) is amortised over the points. Three Go bodies
+  are timed against the same SciPy call: the scalar function in a loop over the
+  points (`Gamma`), the public array kernel (`GammaTo`: the Go counterpart of
+  a ufunc loop, no call per element), and the `nd` wrapper (`nd/Gamma`,
+  kernel plus allocation and dtype handling). A scalar loop calls the function
+  once per element through a function value; SciPy's ufunc loop does the same
+  through a C function pointer, so that row is fair, and the kernel rows are
+  the strict array-against-array comparison.
+- **Same bytes.** The points are `lo + (hi-lo)·frac(i·0.618…)`; `go test -run
+  TestDataParity -perf.parity` compares the SHA-256 of the Go arrays with
+  NumPy's, row by row (all equal on 2026-11-07).
+- **Interleaved rounds, load gate.** Rounds alternate Go-first and SciPy-first;
+  refbench refuses to time at a 1-minute load of 8 or more, and the table says
+  `deferred` when no window opened.
 
-## Results
+```
+cd bench
+go test -run TestPerf -cpu 1 .                 # CI: allocations, table, inventory
+go test -run TestPerf -cpu 1 -perf.run .       # timing (writes perf.json and the table)
+go test -run TestPerf -cpu 1 -perf.record .    # allocation counts only
+```
+
+## Status (2026-11-07)
+
+The committed `perf.json` is **deferred**: allocation counts only (the host's
+1-minute load stayed between 8 and 50 during the session). `BetaIncInv` and
+`BetaIncCInv` allocate once per call (a closure in the iteration); the `nd/`
+rows allocate 8 to 22 objects per array call, and 10 022 for those two
+inverses.
+
+## Earlier table (before refbench; not a verdict)
+
+The table below is the pre-refbench measurement: SciPy against a Go scalar loop
+(function call per element) and `nd` on 16 goroutines, on a loaded host
+(load 7.7 at the start, 23 during). It is the record of the gap the campaign
+closes (0.07x to 0.70x single-thread), not a current number.
 
 1000000 points per call, median of 5 interleaved rounds; darwin/arm64, GOMAXPROCS=16; host load at start: 23:36  up 17 days, 10:34, 1 user, load averages: 7.67 16.16 32.74
 
