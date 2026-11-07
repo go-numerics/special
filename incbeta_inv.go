@@ -92,7 +92,8 @@ func ibetaInv(a, b, p, q float64) float64 {
 		// the same (double-double where needed) evaluation as the
 		// iteration, so a nearly flat I (tiny a and b) is not decided by
 		// a rounded I_(1/2).
-		switch g0, _ := ibetaInvEval(a, b, p, q, lb)(0.5); {
+		ev := ibetaInvEval(a, b, p, q, lb)
+		switch g0, _ := ev.at(0.5); {
 		case g0 == 0:
 			return 0.5
 		case g0 > 0:
@@ -186,7 +187,7 @@ func ibetaInvGuessX(a, b, p, q float64, lb dd.DD) float64 {
 // ibetaInvEval returns g(u) = ±(log T(u) - log t), increasing in u, and
 // r = dg/d log u > 0, where T is the smaller-target tail of I_u(a, b)
 // (lower with target p, or upper with target q).
-func ibetaInvEval(a, b, p, q float64, lb dd.DD) func(u float64) (g, r float64) {
+func ibetaInvEval(a, b, p, q float64, lb dd.DD) ibetaInvF {
 	upper := q < p
 	t := p
 	if upper {
@@ -200,14 +201,24 @@ func ibetaInvEval(a, b, p, q float64, lb dd.DD) func(u float64) (g, r float64) {
 	} else {
 		lt = dd.Log(t)
 	}
-	lbf := lb.Hi + lb.Lo
-	return func(u float64) (g, r float64) {
-		g, r = ibetaInvTail(a, b, u, t, upper, lt, lb, lbf)
-		if upper {
-			g = -g
-		}
-		return g, r
+	return ibetaInvF{a: a, b: b, t: t, upper: upper, lt: lt, lb: lb, lbf: lb.Hi + lb.Lo}
+}
+
+// ibetaInvF is the evaluator of ibetaInvEval: a plain value with a method, not
+// a closure, so that the inversion allocates nothing.
+type ibetaInvF struct {
+	a, b, t float64
+	upper   bool
+	lt, lb  dd.DD
+	lbf     float64
+}
+
+func (e *ibetaInvF) at(u float64) (g, r float64) {
+	g, r = ibetaInvTail(e.a, e.b, u, e.t, e.upper, e.lt, e.lb, e.lbf)
+	if e.upper {
+		g = -g
 	}
+	return g, r
 }
 
 // ibetaInvSide returns the u (at most about 1/2) with I_u(a, b) = p and
@@ -233,7 +244,7 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 	// so (it is then near or below the normal range), except for tiny
 	// parameters, where I is too flat for the guess to be trusted.
 	if u < 0x1p-1000 || a < 1e-3 || b < 1e-3 {
-		if g, _ := eval(0x1p-1074); g >= 0 {
+		if g, _ := eval.at(0x1p-1074); g >= 0 {
 			return 0, true
 		}
 	}
@@ -252,7 +263,7 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 	}
 	lo, hi := 0.0, 0.75
 	for i := 0; i < 400; i++ {
-		g, r := eval(u)
+		g, r := eval.at(u)
 		if g == 0 {
 			return u, true
 		}
@@ -275,7 +286,7 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 		}
 		if !sure && !(nu < 0.5) {
 			// the iteration heads above 1/2: is the root there?
-			if gh, _ := eval(0.5); gh < 0 {
+			if gh, _ := eval.at(0.5); gh < 0 {
 				return 0, false
 			}
 			sure, hi = true, 0.5
