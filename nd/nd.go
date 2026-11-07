@@ -135,10 +135,7 @@ func mapN(f func(v []float64) float64, args ...*ndarray.Array) (*ndarray.Array, 
 	shapes := make([][]int, len(args))
 	f32 := false
 	for i, a := range args {
-		d, s32, err := operand(a)
-		if err != nil {
-			return nil, err
-		}
+		d, s32, _ := operand(a) // Map2 and Map3 have validated the operands (direct)
 		data[i], shapes[i] = d, a.Shape()
 		f32 = f32 || s32
 	}
@@ -149,14 +146,8 @@ func mapN(f func(v []float64) float64, args ...*ndarray.Array) (*ndarray.Array, 
 			f32 = false
 		}
 	}
-	shape, strides, err := broadcast(shapes...)
-	if err != nil {
-		return nil, err
-	}
-	n := 1
-	for _, d := range shape {
-		n *= d
-	}
+	shape, strides, _ := broadcast(shapes...) // validated by direct
+	n := size(shape)
 	out := make([]float64, n)
 	parallel(n, func(lo, hi int) {
 		v := make([]float64, len(args))
@@ -188,14 +179,92 @@ func mapN(f func(v []float64) float64, args ...*ndarray.Array) (*ndarray.Array, 
 	return result(out, shape, f32), nil
 }
 
-// Map2 applies f element-wise to the broadcast pair (a, b).
-func Map2(f func(x, y float64) float64, a, b *ndarray.Array) (*ndarray.Array, error) {
-	return mapN(func(v []float64) float64 { return f(v[0], v[1]) }, a, b)
+// direct reports whether every operand is either of the broadcast shape or a
+// single element, the two cases that need no index arithmetic: it returns the
+// operands' data, their strides (1, or 0 for a single element) and the result
+// shape. ok is false for any other broadcast (mapN handles it); an error is a
+// complex operand or shapes that do not broadcast.
+func direct(args ...*ndarray.Array) (data [][]float64, st []int, shape []int, f32, ok bool, err error) {
+	data = make([][]float64, len(args))
+	shapes := make([][]int, len(args))
+	f32 = true
+	for i, a := range args {
+		d, _, err := operand(a)
+		if err != nil {
+			return nil, nil, nil, false, false, err
+		}
+		data[i], shapes[i] = d, a.Shape()
+		f32 = f32 && a.DType() == ndarray.Float32
+	}
+	shape, _, err = broadcast(shapes...)
+	if err != nil {
+		return nil, nil, nil, false, false, err
+	}
+	n := size(shape)
+	st = make([]int, len(args))
+	for i, d := range data {
+		switch {
+		case len(d) == n && len(shapes[i]) == len(shape):
+			st[i] = 1
+		case len(d) == 1:
+			st[i] = 0
+		default:
+			return nil, nil, nil, false, false, nil
+		}
+	}
+	return data, st, shape, f32, true, nil
 }
 
-// Map3 applies f element-wise to the broadcast triple (a, b, c).
+// Map2 applies f element-wise to the broadcast pair (a, b). Operands of one
+// shape, or one of them a single element, run one loop with no index
+// arithmetic and no call through a second closure per element.
+func Map2(f func(x, y float64) float64, a, b *ndarray.Array) (*ndarray.Array, error) {
+	d, st, shape, f32, ok, err := direct(a, b)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return mapN(func(v []float64) float64 { return f(v[0], v[1]) }, a, b)
+	}
+	n := size(shape)
+	x, y, sx, sy := d[0], d[1], st[0], st[1]
+	out := make([]float64, n)
+	parallel(n, func(lo, hi int) {
+		for i := lo; i < hi; i++ {
+			out[i] = f(x[i*sx], y[i*sy])
+		}
+	})
+	return result(out, shape, f32), nil
+}
+
+// Map3 applies f element-wise to the broadcast triple (a, b, c), with the
+// same direct loop as Map2 where the operands allow it.
 func Map3(f func(x, y, z float64) float64, a, b, c *ndarray.Array) (*ndarray.Array, error) {
-	return mapN(func(v []float64) float64 { return f(v[0], v[1], v[2]) }, a, b, c)
+	d, st, shape, f32, ok, err := direct(a, b, c)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return mapN(func(v []float64) float64 { return f(v[0], v[1], v[2]) }, a, b, c)
+	}
+	n := size(shape)
+	x, y, z, sx, sy, sz := d[0], d[1], d[2], st[0], st[1], st[2]
+	out := make([]float64, n)
+	parallel(n, func(lo, hi int) {
+		for i := lo; i < hi; i++ {
+			out[i] = f(x[i*sx], y[i*sy], z[i*sz])
+		}
+	})
+	return result(out, shape, f32), nil
+}
+
+// size is the element count of a shape.
+func size(shape []int) int {
+	n := 1
+	for _, d := range shape {
+		n *= d
+	}
+	return n
 }
 
 // apply1 is Map1 for the functions with an array variant in package
