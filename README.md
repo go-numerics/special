@@ -94,9 +94,9 @@ Method and full table: [docs/perf.md](docs/perf.md).
 
 Each row gives the Go function and, in brackets, the `scipy.special` function it
 is **measured against** — the pairing comes from the harness
-(`bench/scipy_server.py` and `testdata/gen/fam_*.py`), not from transliterating
+(`bench/perf_test.go` and `testdata/gen/fam_*.py`), not from transliterating
 a name, which is why `Log1pExp` is scipy's `softplus` and `LogGamma` is
-`gammaln`. 63 of the 67 carry such a pairing; `—` marks the four that do not,
+`gammaln`. 64 of the 67 carry such a pairing; `—` marks the three that do not,
 and the notes under the table say what they are. `readme_scipy_test.go` reads
 the harness and fails if this column drifts from it.
 
@@ -111,11 +111,10 @@ the harness and fails if this column drifts from it.
 | Bessel | `J0` (`j0`), `J1` (`j1`), `Jn` (`jv`), `Jv` (`jv`), `Y0` (`y0`), `Y1` (`y1`), `Yn` (`yn`), `Yv` (`yv`), `I0` (`i0`), `I1` (`i1`), `In` (—), `Iv` (`iv`), `K0` (`k0`), `K1` (`k1`), `Kn` (`kn`), `Kv` (`kv`), `I0e` (`i0e`), `I1e` (`i1e`), `Ive` (`ive`), `K0e` (`k0e`), `K1e` (`k1e`), `Kve` (`kve`), `JnZeros` (`jn_zeros`) |
 | elliptic | `EllipK` (`ellipk`), `EllipKm1` (`ellipkm1`), `EllipE` (`ellipe`) |
 
-The four without a pairing, and why:
+The three without a pairing, and why:
 
-- **`GammaSign`** and **`Kn`** — scipy does have `gammasgn` and `kn`; this
-  package simply measures neither against them. The bracketed name is scipy's,
-  not a measurement.
+- **`Kn`** — scipy does have `kn`; this package simply does not measure it
+  against it. The bracketed name is scipy's, not a measurement.
 - **`In`** — scipy has no `in`, and cannot: it is a Python keyword. `Iv` at
   integer order is the equivalent, and `In(n, x)` is `Iv(float64(n), x)`.
   `Kn`/`Kv` and `Jn`/`Jv` stand in the same relation, which is why `Jn` is

@@ -1,0 +1,2286 @@
+{
+  "schema": 1,
+  "status": "deferred",
+  "date": "2026-11-07T21:56:54+01:00",
+  "commit": "",
+  "repo": "go-numerics/special",
+  "go_version": "go1.27.3",
+  "machine": "darwin/arm64, 16 CPUs",
+  "max_load": 8,
+  "load": {
+    "min": 0,
+    "median": 0,
+    "max": 0
+  },
+  "valid": true,
+  "rows": [
+    {
+      "name": "Gamma",
+      "func": "Gamma",
+      "reference": "scipy.special sp.gamma (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Gamma",
+      "func": "nd.Gamma",
+      "reference": "scipy.special sp.gamma (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogGamma",
+      "func": "LogGamma",
+      "reference": "scipy.special sp.gammaln (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/LogGamma",
+      "func": "nd.LogGamma",
+      "reference": "scipy.special sp.gammaln (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "GammaSign",
+      "func": "GammaSign",
+      "reference": "scipy.special sp.gammasgn (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/GammaSign",
+      "func": "nd.GammaSign",
+      "reference": "scipy.special sp.gammasgn (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Digamma",
+      "func": "Digamma",
+      "reference": "scipy.special sp.digamma (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Digamma",
+      "func": "nd.Digamma",
+      "reference": "scipy.special sp.digamma (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Beta",
+      "func": "Beta",
+      "reference": "scipy.special sp.beta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Beta",
+      "func": "nd.Beta",
+      "reference": "scipy.special sp.beta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogBeta",
+      "func": "LogBeta",
+      "reference": "scipy.special sp.betaln (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/LogBeta",
+      "func": "nd.LogBeta",
+      "reference": "scipy.special sp.betaln (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Erf",
+      "func": "Erf",
+      "reference": "scipy.special sp.erf (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Erf",
+      "func": "nd.Erf",
+      "reference": "scipy.special sp.erf (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Erfc",
+      "func": "Erfc",
+      "reference": "scipy.special sp.erfc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Erfc",
+      "func": "nd.Erfc",
+      "reference": "scipy.special sp.erfc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Erfcx",
+      "func": "Erfcx",
+      "reference": "scipy.special sp.erfcx (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Erfcx",
+      "func": "nd.Erfcx",
+      "reference": "scipy.special sp.erfcx (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ErfInv",
+      "func": "ErfInv",
+      "reference": "scipy.special sp.erfinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/ErfInv",
+      "func": "nd.ErfInv",
+      "reference": "scipy.special sp.erfinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ErfcInv",
+      "func": "ErfcInv",
+      "reference": "scipy.special sp.erfcinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/ErfcInv",
+      "func": "nd.ErfcInv",
+      "reference": "scipy.special sp.erfcinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Ndtr",
+      "func": "Ndtr",
+      "reference": "scipy.special sp.ndtr (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Ndtr",
+      "func": "nd.Ndtr",
+      "reference": "scipy.special sp.ndtr (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Ndtri",
+      "func": "Ndtri",
+      "reference": "scipy.special sp.ndtri (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Ndtri",
+      "func": "nd.Ndtri",
+      "reference": "scipy.special sp.ndtri (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogNdtr",
+      "func": "LogNdtr",
+      "reference": "scipy.special sp.log_ndtr (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/LogNdtr",
+      "func": "nd.LogNdtr",
+      "reference": "scipy.special sp.log_ndtr (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Expit",
+      "func": "Expit",
+      "reference": "scipy.special sp.expit (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Expit",
+      "func": "nd.Expit",
+      "reference": "scipy.special sp.expit (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogExpit",
+      "func": "LogExpit",
+      "reference": "scipy.special sp.log_expit (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/LogExpit",
+      "func": "nd.LogExpit",
+      "reference": "scipy.special sp.log_expit (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Logit",
+      "func": "Logit",
+      "reference": "scipy.special sp.logit (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Logit",
+      "func": "nd.Logit",
+      "reference": "scipy.special sp.logit (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Log1pExp",
+      "func": "Log1pExp",
+      "reference": "scipy.special sp.softplus (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Log1pExp",
+      "func": "nd.Log1pExp",
+      "reference": "scipy.special sp.softplus (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Xlogy",
+      "func": "Xlogy",
+      "reference": "scipy.special sp.xlogy (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Xlogy",
+      "func": "nd.Xlogy",
+      "reference": "scipy.special sp.xlogy (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Xlog1py",
+      "func": "Xlog1py",
+      "reference": "scipy.special sp.xlog1py (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Xlog1py",
+      "func": "nd.Xlog1py",
+      "reference": "scipy.special sp.xlog1py (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Binom",
+      "func": "Binom",
+      "reference": "scipy.special sp.binom (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Binom",
+      "func": "nd.Binom",
+      "reference": "scipy.special sp.binom (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Zeta",
+      "func": "Zeta",
+      "reference": "scipy.special sp.zeta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Zeta",
+      "func": "nd.Zeta",
+      "reference": "scipy.special sp.zeta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "HurwitzZeta",
+      "func": "HurwitzZeta",
+      "reference": "scipy.special sp.zeta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/HurwitzZeta",
+      "func": "nd.HurwitzZeta",
+      "reference": "scipy.special sp.zeta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Polygamma",
+      "func": "Polygamma",
+      "reference": "scipy.special lambda x: sp.polygamma(1, x) (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Polygamma",
+      "func": "nd.Polygamma",
+      "reference": "scipy.special lambda x: sp.polygamma(1, x) (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 11,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "GammaP",
+      "func": "GammaP",
+      "reference": "scipy.special sp.gammainc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/GammaP",
+      "func": "nd.GammaP",
+      "reference": "scipy.special sp.gammainc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "GammaQ",
+      "func": "GammaQ",
+      "reference": "scipy.special sp.gammaincc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/GammaQ",
+      "func": "nd.GammaQ",
+      "reference": "scipy.special sp.gammaincc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "GammaPInv",
+      "func": "GammaPInv",
+      "reference": "scipy.special sp.gammaincinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/GammaPInv",
+      "func": "nd.GammaPInv",
+      "reference": "scipy.special sp.gammaincinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "GammaQInv",
+      "func": "GammaQInv",
+      "reference": "scipy.special sp.gammainccinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/GammaQInv",
+      "func": "nd.GammaQInv",
+      "reference": "scipy.special sp.gammainccinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "BetaInc",
+      "func": "BetaInc",
+      "reference": "scipy.special sp.betainc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/BetaInc",
+      "func": "nd.BetaInc",
+      "reference": "scipy.special sp.betainc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 22,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "BetaIncC",
+      "func": "BetaIncC",
+      "reference": "scipy.special sp.betaincc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/BetaIncC",
+      "func": "nd.BetaIncC",
+      "reference": "scipy.special sp.betaincc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 22,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "BetaIncInv",
+      "func": "BetaIncInv",
+      "reference": "scipy.special sp.betaincinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 10000,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/BetaIncInv",
+      "func": "nd.BetaIncInv",
+      "reference": "scipy.special sp.betaincinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 10022,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "BetaIncCInv",
+      "func": "BetaIncCInv",
+      "reference": "scipy.special sp.betainccinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 10000,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/BetaIncCInv",
+      "func": "nd.BetaIncCInv",
+      "reference": "scipy.special sp.betainccinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 10022,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "J0",
+      "func": "J0",
+      "reference": "scipy.special sp.j0 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/J0",
+      "func": "nd.J0",
+      "reference": "scipy.special sp.j0 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "J1",
+      "func": "J1",
+      "reference": "scipy.special sp.j1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/J1",
+      "func": "nd.J1",
+      "reference": "scipy.special sp.j1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Y0",
+      "func": "Y0",
+      "reference": "scipy.special sp.y0 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Y0",
+      "func": "nd.Y0",
+      "reference": "scipy.special sp.y0 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Y1",
+      "func": "Y1",
+      "reference": "scipy.special sp.y1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Y1",
+      "func": "nd.Y1",
+      "reference": "scipy.special sp.y1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "I0",
+      "func": "I0",
+      "reference": "scipy.special sp.i0 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/I0",
+      "func": "nd.I0",
+      "reference": "scipy.special sp.i0 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "I0e",
+      "func": "I0e",
+      "reference": "scipy.special sp.i0e (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/I0e",
+      "func": "nd.I0e",
+      "reference": "scipy.special sp.i0e (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "I1",
+      "func": "I1",
+      "reference": "scipy.special sp.i1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/I1",
+      "func": "nd.I1",
+      "reference": "scipy.special sp.i1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "I1e",
+      "func": "I1e",
+      "reference": "scipy.special sp.i1e (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/I1e",
+      "func": "nd.I1e",
+      "reference": "scipy.special sp.i1e (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "K0",
+      "func": "K0",
+      "reference": "scipy.special sp.k0 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/K0",
+      "func": "nd.K0",
+      "reference": "scipy.special sp.k0 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "K0e",
+      "func": "K0e",
+      "reference": "scipy.special sp.k0e (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/K0e",
+      "func": "nd.K0e",
+      "reference": "scipy.special sp.k0e (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "K1",
+      "func": "K1",
+      "reference": "scipy.special sp.k1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/K1",
+      "func": "nd.K1",
+      "reference": "scipy.special sp.k1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "K1e",
+      "func": "K1e",
+      "reference": "scipy.special sp.k1e (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/K1e",
+      "func": "nd.K1e",
+      "reference": "scipy.special sp.k1e (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Jv",
+      "func": "Jv",
+      "reference": "scipy.special sp.jv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Jv",
+      "func": "nd.Jv",
+      "reference": "scipy.special sp.jv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Yv",
+      "func": "Yv",
+      "reference": "scipy.special sp.yv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Yv",
+      "func": "nd.Yv",
+      "reference": "scipy.special sp.yv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Iv",
+      "func": "Iv",
+      "reference": "scipy.special sp.iv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Iv",
+      "func": "nd.Iv",
+      "reference": "scipy.special sp.iv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Ive",
+      "func": "Ive",
+      "reference": "scipy.special sp.ive (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Ive",
+      "func": "nd.Ive",
+      "reference": "scipy.special sp.ive (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Kv",
+      "func": "Kv",
+      "reference": "scipy.special sp.kv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Kv",
+      "func": "nd.Kv",
+      "reference": "scipy.special sp.kv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Kve",
+      "func": "Kve",
+      "reference": "scipy.special sp.kve (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Kve",
+      "func": "nd.Kve",
+      "reference": "scipy.special sp.kve (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 19,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "EllipK",
+      "func": "EllipK",
+      "reference": "scipy.special sp.ellipk (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/EllipK",
+      "func": "nd.EllipK",
+      "reference": "scipy.special sp.ellipk (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "EllipKm1",
+      "func": "EllipKm1",
+      "reference": "scipy.special sp.ellipkm1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/EllipKm1",
+      "func": "nd.EllipKm1",
+      "reference": "scipy.special sp.ellipkm1 (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "EllipE",
+      "func": "EllipE",
+      "reference": "scipy.special sp.ellipe (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/EllipE",
+      "func": "nd.EllipE",
+      "reference": "scipy.special sp.ellipe (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "GammaTo",
+      "func": "GammaTo",
+      "reference": "scipy.special sp.gamma (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogGammaTo",
+      "func": "LogGammaTo",
+      "reference": "scipy.special sp.gammaln (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "DigammaTo",
+      "func": "DigammaTo",
+      "reference": "scipy.special sp.digamma (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ErfTo",
+      "func": "ErfTo",
+      "reference": "scipy.special sp.erf (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ErfcTo",
+      "func": "ErfcTo",
+      "reference": "scipy.special sp.erfc (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ErfcxTo",
+      "func": "ErfcxTo",
+      "reference": "scipy.special sp.erfcx (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ErfInvTo",
+      "func": "ErfInvTo",
+      "reference": "scipy.special sp.erfinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ErfcInvTo",
+      "func": "ErfcInvTo",
+      "reference": "scipy.special sp.erfcinv (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "NdtrTo",
+      "func": "NdtrTo",
+      "reference": "scipy.special sp.ndtr (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "NdtriTo",
+      "func": "NdtriTo",
+      "reference": "scipy.special sp.ndtri (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogNdtrTo",
+      "func": "LogNdtrTo",
+      "reference": "scipy.special sp.log_ndtr (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ExpitTo",
+      "func": "ExpitTo",
+      "reference": "scipy.special sp.expit (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogitTo",
+      "func": "LogitTo",
+      "reference": "scipy.special sp.logit (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Log1pExpTo",
+      "func": "Log1pExpTo",
+      "reference": "scipy.special sp.softplus (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "ZetaTo",
+      "func": "ZetaTo",
+      "reference": "scipy.special sp.zeta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "TrigammaTo",
+      "func": "TrigammaTo",
+      "reference": "scipy.special lambda x: sp.polygamma(1, x) (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "BetaTo",
+      "func": "BetaTo",
+      "reference": "scipy.special sp.beta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogBetaTo",
+      "func": "LogBetaTo",
+      "reference": "scipy.special sp.betaln (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "XlogyTo",
+      "func": "XlogyTo",
+      "reference": "scipy.special sp.xlogy (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "HurwitzZetaTo",
+      "func": "HurwitzZetaTo",
+      "reference": "scipy.special sp.zeta (ufunc over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    }
+  ]
+}
