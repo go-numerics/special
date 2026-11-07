@@ -40,9 +40,11 @@ go test -run TestPerf -cpu 1 -perf.record .    # allocation counts only
 
 The committed `perf.json` is **deferred**: allocation counts only (the host's
 1-minute load stayed between 8 and 50 during the session). `BetaIncInv` and
-`BetaIncCInv` allocate once per call (a closure in the iteration); the `nd/`
-rows allocate 8 to 22 objects per array call, and 10 022 for those two
-inverses.
+`BetaIncCInv` allocated once per call (a closure in the iteration, 10 000 per
+10 000-point row); the iteration's evaluator is now a value with a method and
+the rows record 0 (`TestBetaIncInvAllocatesNothing`). The speed effect is
+unmeasured (load above 8). The `nd/` rows allocate 8 to 22 objects per array
+call.
 
 ## Earlier table (before refbench; not a verdict)
 

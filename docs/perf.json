@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "status": "deferred",
-  "date": "2026-11-07T21:56:54+01:00",
+  "date": "2026-11-07T22:25:23+01:00",
   "commit": "",
   "repo": "go-numerics/special",
   "go_version": "go1.27.3",
@@ -1099,7 +1099,7 @@
       "func": "BetaIncInv",
       "reference": "scipy.special sp.betaincinv (ufunc over 10000 points)",
       "parity": "none",
-      "allocs": 10000,
+      "allocs": 0,
       "go": {
         "median": 0,
         "q1": 0,
@@ -1117,7 +1117,7 @@
       "func": "nd.BetaIncInv",
       "reference": "scipy.special sp.betaincinv (ufunc over 10000 points)",
       "parity": "none",
-      "allocs": 10022,
+      "allocs": 22,
       "go": {
         "median": 0,
         "q1": 0,
@@ -1135,7 +1135,7 @@
       "func": "BetaIncCInv",
       "reference": "scipy.special sp.betainccinv (ufunc over 10000 points)",
       "parity": "none",
-      "allocs": 10000,
+      "allocs": 0,
       "go": {
         "median": 0,
         "q1": 0,
@@ -1153,7 +1153,7 @@
       "func": "nd.BetaIncCInv",
       "reference": "scipy.special sp.betainccinv (ufunc over 10000 points)",
       "parity": "none",
-      "allocs": 10022,
+      "allocs": 22,
       "go": {
         "median": 0,
         "q1": 0,
