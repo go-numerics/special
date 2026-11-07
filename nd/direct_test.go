@@ -93,8 +93,7 @@ func TestMapDirectDTypesAndErrors(t *testing.T) {
 	if err != nil || r.DType() != ndarray.Float64 {
 		t.Errorf("mixed pair: %v, %v", r, err)
 	}
-	// mapN panics on an empty result (a remainder by a zero extent); the direct
-	// loop returns an empty array.
+	// an empty result through the direct loop (empty_test.go has the mapN path)
 	empty := arr(t, nil, 0)
 	if r, err := Map2(f2, empty, empty); err != nil || len(data(t, r)) != 0 {
 		t.Errorf("empty Map2: %v, %v", r, err)

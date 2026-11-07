@@ -148,6 +148,11 @@ func mapN(f func(v []float64) float64, args ...*ndarray.Array) (*ndarray.Array, 
 	}
 	shape, strides, _ := broadcast(shapes...) // validated by direct
 	n := size(shape)
+	if n == 0 {
+		// a zero extent: nothing to compute, and the index walk below would
+		// take a remainder by that extent
+		return result(nil, shape, f32), nil
+	}
 	out := make([]float64, n)
 	parallel(n, func(lo, hi int) {
 		v := make([]float64, len(args))
