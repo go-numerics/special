@@ -203,6 +203,10 @@ double-double), `(DD).Big`, `(DD).Float`. Relative errors, fuzzed against
 `math/big`: Add 3u², Mul 5u², Div 15u²+56u³ (u = 2⁻⁵³); `Sqrt` is measured
 (under 8u²). It is the arithmetic behind double-double QR with iterative
 refinement (the NIST StRD Filip and Wampler problems to 15 digits).
+`ExpMant` and `ExpReductionMargin` expose the exponential's argument
+reduction, for callers that must know whether two nearby arguments take the
+same table entry (go-statistics/stats uses it; it is the single copy of this
+package).
 
 ## Portability
 

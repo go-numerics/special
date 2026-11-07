@@ -191,3 +191,28 @@ func TestSpecials(t *testing.T) {
 		t.Errorf("DivF = %v", q)
 	}
 }
+
+func TestExpReductionMargin(t *testing.T) {
+	// At a reduction boundary (n+1/2) ln2/64 the margin is ~0, at a multiple
+	// of ln2/64 it is ~1/2, and arguments closer than the margin share n.
+	if m := ExpReductionMargin(0); math.Abs(m-0.5) > 1e-15 {
+		t.Errorf("margin(0) = %g, want 0.5", m)
+	}
+	if m := ExpReductionMargin(0.5 * ln2o64Hi); m > 1e-15 {
+		t.Errorf("margin at boundary = %g, want 0", m)
+	}
+	for i := 0; i < 2000; i++ {
+		x := (float64(i) - 1000) * 0.0137
+		m := ExpReductionMargin(x)
+		if m < 0 || m > 0.5 {
+			t.Fatalf("margin(%g) = %g outside [0, 0.5]", x, m)
+		}
+		n := math.Floor(x*(1/ln2o64Hi) + 0.5)
+		for _, s := range []float64{-0.99, 0.99} {
+			y := x + s*m*ln2o64Hi
+			if ny := math.Floor(y*(1/ln2o64Hi) + 0.5); ny != n {
+				t.Fatalf("x=%g margin %g: reduction moved %g -> %g", x, m, n, ny)
+			}
+		}
+	}
+}
