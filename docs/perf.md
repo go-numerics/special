@@ -46,6 +46,19 @@ the rows record 0 (`TestBetaIncInvAllocatesNothing`). The speed effect is
 unmeasured (load above 8). The `nd/` rows allocate 8 to 22 objects per array
 call.
 
+## What is done, and what is not (#33)
+
+- Done, speed unmeasured (load above 8): `BetaIncInv`/`BetaIncCInv` allocate
+  nothing (#36); `nd.Map2`/`Map3` run one direct loop for same-shape and scalar
+  operands, bit-identical to the old path (#37).
+- Not done: a float64 fast path for the double-double functions (`BetaInc`,
+  `Jv`, `Kv`, ...). The profile puts `dd.Mul`/`FastTwoSum` on top, but a fast
+  path is acceptable only if a certified error bound decides when float64 is
+  already correctly rounded and the double-double path runs otherwise, so that
+  the bits do not move. No such bound has been derived for any of these
+  functions, so none was added.
+- Timing: the first `-perf.run` at a load below 8 replaces the deferred record.
+
 ## Earlier table (before refbench; not a verdict)
 
 The table below is the pre-refbench measurement: SciPy against a Go scalar loop
