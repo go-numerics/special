@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "status": "deferred",
-  "date": "2026-11-07T22:45:55+01:00",
+  "date": "2026-11-08T10:14:52+01:00",
   "commit": "",
   "repo": "go-numerics/special",
   "go_version": "go1.27.3",
@@ -2270,6 +2270,456 @@
       "reference": "scipy.special sp.zeta (ufunc over 10000 points)",
       "parity": "none",
       "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Jn",
+      "func": "Jn",
+      "reference": "scipy.special sp.jn (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Jn",
+      "func": "nd.Jn",
+      "reference": "scipy.special sp.jn (over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Yn",
+      "func": "Yn",
+      "reference": "scipy.special sp.yn (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Yn",
+      "func": "nd.Yn",
+      "reference": "scipy.special sp.yn (over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "In",
+      "func": "In",
+      "reference": "scipy.special sp.iv (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/In",
+      "func": "nd.In",
+      "reference": "scipy.special sp.iv (over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Kn",
+      "func": "Kn",
+      "reference": "scipy.special sp.kn (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Kn",
+      "func": "nd.Kn",
+      "reference": "scipy.special sp.kn (over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Factorial",
+      "func": "Factorial",
+      "reference": "scipy.special sp.factorial (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Factorial",
+      "func": "nd.Factorial",
+      "reference": "scipy.special sp.factorial (over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Factorial integers",
+      "func": "Factorial",
+      "reference": "scipy.special sp.factorial (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Factorial integers",
+      "func": "nd.Factorial",
+      "reference": "scipy.special sp.factorial (over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Factorial2",
+      "func": "Factorial2",
+      "reference": "scipy.special sp.factorial2 (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Factorial2",
+      "func": "nd.Factorial2",
+      "reference": "scipy.special sp.factorial2 (over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Comb",
+      "func": "Comb",
+      "reference": "scipy.special sp.comb (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Comb",
+      "func": "nd.Comb",
+      "reference": "scipy.special sp.comb (over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Perm",
+      "func": "Perm",
+      "reference": "scipy.special sp.perm (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Perm",
+      "func": "nd.Perm",
+      "reference": "scipy.special sp.perm (over 10000 points)",
+      "parity": "none",
+      "allocs": 17,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "JnZeros",
+      "func": "JnZeros",
+      "reference": "scipy.special lambda: sp.jn_zeros(2, 20) (over 10000 points)",
+      "parity": "none",
+      "allocs": 1,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogSumExp",
+      "func": "LogSumExp",
+      "reference": "scipy.special sp.logsumexp (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "Softmax",
+      "func": "Softmax",
+      "reference": "scipy.special sp.softmax (over 10000 points)",
+      "parity": "none",
+      "allocs": 1,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "LogSoftmax",
+      "func": "LogSoftmax",
+      "reference": "scipy.special sp.log_softmax (over 10000 points)",
+      "parity": "none",
+      "allocs": 0,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/LogSumExp",
+      "func": "nd.LogSumExp",
+      "reference": "scipy.special sp.logsumexp (over 10000 points)",
+      "parity": "none",
+      "allocs": 1,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/Softmax",
+      "func": "nd.Softmax",
+      "reference": "scipy.special sp.softmax (over 10000 points)",
+      "parity": "none",
+      "allocs": 8,
+      "go": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ref": {
+        "median": 0,
+        "q1": 0,
+        "q3": 0
+      },
+      "ratio": 0
+    },
+    {
+      "name": "nd/LogSoftmax",
+      "func": "nd.LogSoftmax",
+      "reference": "scipy.special sp.log_softmax (over 10000 points)",
+      "parity": "none",
+      "allocs": 7,
       "go": {
         "median": 0,
         "q1": 0,

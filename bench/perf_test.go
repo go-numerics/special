@@ -339,7 +339,23 @@ func cases(w *refbench.Worker) []refbench.Case {
 			Ref: ref,
 		})
 	}
-	return out
+	return append(out, xcases(w)...)
+}
+
+var smokeFlag = flag.Bool("perf.smoke", false, "TestRefSmoke: run every SciPy call once")
+
+// TestRefSmoke runs every reference call once: a typo in a SciPy expression is a
+// failure here, not in a timing run.
+func TestRefSmoke(t *testing.T) {
+	if !*smokeFlag {
+		t.Skip("set -perf.smoke (starts the SciPy worker through uv)")
+	}
+	w := startWorker(t)
+	for _, c := range cases(w) {
+		if _, err := c.Ref(1); err != nil {
+			t.Errorf("%s: %v", c.Name, err)
+		}
+	}
 }
 
 var parityFlag = flag.Bool("perf.parity", false, "TestDataParity: compare the data digests with NumPy's")
@@ -388,6 +404,18 @@ func TestDataParity(t *testing.T) {
 		}
 		if want := hex.EncodeToString(h.Sum(nil)); got != want {
 			t.Errorf("%s: NumPy data %s, Go data %s", s.name, got, want)
+		}
+	}
+	for _, r := range xrows() {
+		if r.data == nil {
+			continue
+		}
+		got, err := w.DataHash(r.setup, n)
+		if err != nil {
+			t.Fatalf("%s: %v", r.name, err)
+		}
+		if sum := sha256.Sum256(r.data); got != hex.EncodeToString(sum[:]) {
+			t.Errorf("%s: NumPy data %s, Go data %x", r.name, got, sum)
 		}
 	}
 }
