@@ -25,6 +25,19 @@ measured by [refbench](https://github.com/go-scikit/refbench) v0.1.1 from
 - **Same bytes.** The points are `lo + (hi-lo)·frac(i·0.618…)`; `go test -run
   TestDataParity -perf.parity` compares the SHA-256 of the Go arrays with
   NumPy's, row by row (all equal on 2026-11-07).
+- **Integer orders, combinatorics, reductions** (`bench/perf_extra_test.go`).
+  These rows carry their own Python setup, because their arguments are not all
+  float64 arrays: `Jn`, `Yn`, `In`, `Kn` against `scipy.special.jn`, `yn`, `iv`,
+  `kn` (orders `i mod 21` as an int64 array, x in (0.1, 50); the `nd/` rows pass
+  the orders as float64, the values are the same); `Factorial` (non-integers,
+  the gamma path, and a second row for integers, the table path), `Factorial2`,
+  `Comb`, `Perm` against `factorial`, `factorial2`, `comb`, `perm` (Python
+  wrappers: their call overhead is part of what SciPy costs); `JnZeros` against
+  `jn_zeros(2, 20)`; `LogSumExp`, `Softmax`, `LogSoftmax` over 10 000 points
+  against `logsumexp`, `softmax`, `log_softmax`. `go test -run TestRefSmoke
+  -perf.smoke .` runs every SciPy expression once (all run on 2026-11-08) and
+  `TestDataParity` hashes the integer arrays too. `LogFactorial` stays exempt:
+  SciPy has no such function.
 - **Interleaved rounds, load gate.** Rounds alternate Go-first and SciPy-first;
   refbench refuses to time at a 1-minute load of 8 or more, and the table says
   `deferred` when no window opened.
@@ -45,6 +58,10 @@ The committed `perf.json` is **deferred**: allocation counts only (the host's
 the rows record 0 (`TestBetaIncInvAllocatesNothing`). The speed effect is
 unmeasured (load above 8). The `nd/` rows allocate 8 to 22 objects per array
 call.
+
+2026-11-08: the 25 rows listed in the previous exemptions as follow-ups (integer
+orders, combinatorics, reductions, scalar and `nd/`) have allocation counts in
+`perf.json`; their timing is unmeasured for the same reason (load 60 to 80).
 
 ## What is done, and what is not (#33)
 

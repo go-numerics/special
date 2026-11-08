@@ -1,42 +1,16 @@
 # Public functions without a performance case
 
 Read by `refbench` in the CI mode (`cd bench && go test -run TestPerf .`): every
-public function of the module has a case in `bench/perf_test.go` or is named here
-with its reason. The method and the table are in [perf.md](perf.md). A row here
-is a debt, not a verdict: the integer-order and combinatorial functions are the
-next rows to add (go-numerics/special#33).
+public function of the module has a case in `bench/perf_test.go` or
+`bench/perf_extra_test.go`, or is named here with its reason. The method and the
+table are in [perf.md](perf.md). What remains here is genuine: a function with no
+SciPy counterpart, a function whose reference is not SciPy, or a building block.
 
-## Integer-order Bessel and combinatorics (SciPy has them as Python wrappers or integer ufuncs; follow-up rows)
+## No SciPy function to compare with
 
-- `Jn`: integer order; same code as `Jv` (measured as `Jv`); SciPy's `jn` takes integer arrays, not yet a row.
-- `Yn`: as `Jn`, against `yn`.
-- `In`: one-line wrapper of `Iv`.
-- `Kn`: one-line wrapper of `Kv`.
-- `nd.Jn`: as `Jn`.
-- `nd.Yn`: as `Jn`.
-- `nd.In`: as `In`.
-- `nd.Kn`: as `Kn`.
-- `Factorial`: scalar lookup/Gamma; SciPy's `factorial` is a Python wrapper (call overhead, not a ufunc loop); follow-up row.
-- `LogFactorial`: as `Factorial`.
-- `Factorial2`: as `Factorial`.
-- `Comb`: integer combinatorics; SciPy's `comb` is a Python wrapper; follow-up row.
-- `Perm`: as `Comb`.
-- `nd.Factorial`: as `Factorial`.
-- `nd.LogFactorial`: as `Factorial`.
-- `nd.Factorial2`: as `Factorial`.
-- `nd.Comb`: as `Comb`.
-- `nd.Perm`: as `Comb`.
-
-## Not an element-wise ufunc
-
+- `LogFactorial`: SciPy has no `logfactorial`; the equivalent `gammaln(n + 1)` forms n + 1 (which rounds for a non-integer n, the reason this function exists) and is the row `LogGamma`.
+- `nd.LogFactorial`: as `LogFactorial`.
 - `LogGammaSign`: returns two values; its value part is measured as `LogGamma`, its sign as `GammaSign`.
-- `JnZeros`: root finding returning a slice, not an element-wise function; SciPy's `jn_zeros` is Python; follow-up row.
-- `LogSumExp`: array reduction; SciPy's `logsumexp` is a Python function with its own overhead; follow-up row.
-- `Softmax`: as `LogSumExp`.
-- `LogSoftmax`: as `LogSumExp`.
-- `nd.LogSumExp`: as `LogSumExp`.
-- `nd.Softmax`: as `LogSumExp`.
-- `nd.LogSoftmax`: as `LogSumExp`.
 - `nd.Map1`: generic driver; every `nd.<Function>` row measures it with a real function.
 - `nd.Map2`: as `nd.Map1`.
 - `nd.Map3`: as `nd.Map1`.
