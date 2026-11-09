@@ -73,6 +73,10 @@ func main() {
 	switch args[0] {
 	case "ellip-oct":
 		ellipOct()
+	case "lgamma-oct":
+		lgammaOct()
+	case "gamma-rel":
+		gammaRel()
 	case "octaves":
 		octaves(args[1])
 	case "bessel-cells":
@@ -83,6 +87,9 @@ func main() {
 		check(fmt.Errorf("unknown job %q", args[0]))
 	}
 	src, err := format.Source(out.Bytes())
+	if err != nil {
+		os.Stderr.Write(out.Bytes())
+	}
 	check(err)
 	os.Stdout.Write(src)
 }

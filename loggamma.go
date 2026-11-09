@@ -69,6 +69,9 @@ func LogGammaSign(x float64) (float64, int) {
 			if x > logGammaMax {
 				return math.Inf(1), 1
 			}
+			if x < 1024 {
+				return lgammaOct(x), 1
+			}
 			h, l := logGammaLargeHL(x)
 			return h + l, 1
 		}
