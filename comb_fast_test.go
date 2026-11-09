@@ -131,7 +131,7 @@ func gapsRand(seed uint64) func() float64 {
 // claim a result, and claim most points.
 func TestXlog1pyFastEqualsReference(t *testing.T) {
 	r := gapsRand(1)
-	n, hit := 3000000, 0
+	n, hit := 300000, 0 // 3e6 in the PR's evidence run; -race and coverage cost 20x on Windows
 	for i := 0; i < n; i++ {
 		x := float64((r() - 0.5) * math.Exp2(float64(int(float64(r()*80))-40)))
 		y := float64(math.Exp2(float64(int(float64(r()*70))-20)) * (r() + 0.5))
@@ -158,7 +158,7 @@ func TestXlog1pyFastEqualsReference(t *testing.T) {
 
 func TestFactorialFastEqualsReference(t *testing.T) {
 	r := gapsRand(2)
-	n, hit := 3000000, 0
+	n, hit := 300000, 0
 	for i := 0; i < n; i++ {
 		x := 10 + float64(160*r())
 		if x == math.Trunc(x) {
