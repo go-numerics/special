@@ -4,3 +4,5 @@ github.com/go-ndarray/ndarray v0.34.0 h1:UYGXAB4DUB0tk3c2+B8I1+hOgzzjvVNUrph7Pfk
 github.com/go-ndarray/ndarray v0.34.0/go.mod h1:OVccdl+ajDh+zTtEvkE/Xai2LTzdYigdPG/5XtzWFqk=
 github.com/go-scikit/refbench v0.1.1 h1:3UNGHqwOzIdjaKQo2A1j6q0UtmqIXBZ4htCiVEb17rg=
 github.com/go-scikit/refbench v0.1.1/go.mod h1:PhJxvLwXiQeKLP2f5ndcb9k5k4PTvU1rSFJ/MKRCrU0=
+github.com/go-scikit/refbench v0.1.2 h1:bzD0LhsC1UA6HzG1FK8TvQdIYnPib4rEibdUkgVeOfA=
+github.com/go-scikit/refbench v0.1.2/go.mod h1:PhJxvLwXiQeKLP2f5ndcb9k5k4PTvU1rSFJ/MKRCrU0=
