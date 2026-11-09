@@ -215,6 +215,16 @@ func gammaLarge(x float64) float64 {
 	if x > gammaMax {
 		return math.Inf(1)
 	}
+	return gammaRel(x)
+}
+
+// gammaLargeStirling is the evaluation gammaLarge used up to v0.5.9:
+// exp(log Γ(x)) with log Γ from logGammaLargeHL. It stays as the reference
+// the table evaluation gammaRel is compared with (gamma_rel_test.go).
+func gammaLargeStirling(x float64) float64 {
+	if x > gammaMax {
+		return math.Inf(1)
+	}
 	h, l := logGammaLargeHL(x)
 	hn := h + l
 	eh, el, k := expHL(hn, l-(hn-h))
