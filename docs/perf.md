@@ -74,6 +74,15 @@ orders, combinatorics, reductions, scalar and `nd/`) have allocation counts in
   already correctly rounded and the double-double path runs otherwise, so that
   the bits do not move. No such bound has been derived for any of these
   functions, so none was added.
+- Done, speed unmeasured (load above 8): `Gamma` on 0 < x < 1 and x < 0
+  runs a float64 evaluation with an a-priori error bound and falls back to
+  the double-double path only when the bound cannot decide the rounding, so
+  the results are bit-identical (derivation and fallback rates:
+  [gamma-fastpath.md](gamma-fastpath.md)); `sinPi`/`cosPi` reduce their
+  argument with an exact `a - 2⌊a/2⌋` instead of `math.Mod` (same values).
+  The refbench `Gamma` row, (0.1, 170), was already float64 for 94 % of its
+  points (x >= 10, since #7). The 45.5 ns/elem in the earlier table below
+  predates #7, which moved `Gamma` onto the float64 kernels.
 - Timing: the first `-perf.run` at a load below 8 replaces the deferred record.
 
 ## Earlier table (before refbench; not a verdict)

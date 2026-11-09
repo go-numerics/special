@@ -45,7 +45,7 @@ var scipyRef = regexp.MustCompile(`\bsc\.([a-z_0-9]+)`)
 
 var perfPair = regexp.MustCompile(`u[123]\("([A-Za-z_0-9]+)", "sp\.([a-z_0-9]+)"`)
 
-var entryStart =regexp.MustCompile(`(?m)^[[:space:]]+"([A-Za-z_0-9]+)": (?:lambda:|\()`)
+var entryStart = regexp.MustCompile(`(?m)^[[:space:]]+"([A-Za-z_0-9]+)": (?:lambda:|\()`)
 
 // fixtureGo maps a harness fixture name to the Go function it exercises, for
 // the names that differ by more than case and underscores. Anything not here
@@ -77,9 +77,9 @@ var expression = map[string]struct{ fn, spelling string }{
 // with what the README may say instead. A name here is NOT evidence about
 // scipy; it is a statement that this package has not measured one.
 var unpaired = map[string]string{
-	"Kn":           "kn",       // scipy has it; nothing here pairs them
-	"In":           "—",        // scipy has no `in`: it is a Python keyword
-	"LogGammaSign": "—",        // scipy splits it across gammaln and gammasgn
+	"Kn":           "kn", // scipy has it; nothing here pairs them
+	"In":           "—",  // scipy has no `in`: it is a Python keyword
+	"LogGammaSign": "—",  // scipy splits it across gammaln and gammasgn
 }
 
 // harnessPairs reads every Go -> scipy pairing the harness records, by two

@@ -313,7 +313,7 @@ func GammaTo(ζdst, ζx []float64) {
 					ζdst[ζi] = float64(hζ0 + lζ0)
 					continue ζloop
 				}
-				ζdst[ζi] = float64(gammaPos(xζ0).Float())
+				ζdst[ζi] = float64(gammaUnit(xζ0))
 				continue ζloop
 			}
 			ζdst[ζi] = float64(gammaNeg(xζ0))
