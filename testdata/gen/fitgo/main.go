@@ -5,6 +5,8 @@
 //
 //	go run ./testdata/gen/fitgo ellip-oct          > zz_ellipOct_coeffs.go
 //	go run ./testdata/gen/fitgo octaves besselI0eOct > zz_besselI0eOct_coeffs.go
+//	go run ./testdata/gen/fitgo octaves besselI1eOct > zz_besselI1eOct_coeffs.go
+//	go run ./testdata/gen/fitgo octaves besselK1eOct > zz_besselK1eOct_coeffs.go
 //	go run ./testdata/gen/fitgo octaves besselK0eOct > zz_besselK0eOct_coeffs.go
 //	go run ./testdata/gen/fitgo bessel-cells       > zz_besselCells_coeffs.go
 //	go run ./testdata/gen/fitgo temme-sum          > zz_igamTemmeSum_gen.go
@@ -274,6 +276,8 @@ func octaves(name string) {
 	}{
 		"besselI0eOct": {"I0(x) e^-x for x in [2^-3, 2^9).", "i0e", -3, 8, 8, 11},
 		"besselK0eOct": {"K0(x) e^x for x in [1, 2^9).", "k0e", 0, 8, 8, 11},
+		"besselI1eOct": {"I1(x) e^-x for x in [2^-3, 2^9).", "i1e", -3, 8, 8, 11},
+		"besselK1eOct": {"K1(x) e^x for x in [1, 2^9).", "k1e", 0, 8, 8, 11},
 	}
 	j, ok := jobs[name]
 	if !ok {

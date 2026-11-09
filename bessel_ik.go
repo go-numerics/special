@@ -424,8 +424,12 @@ func I1(x float64) float64 {
 	switch {
 	case math.IsNaN(x) || math.IsInf(x, 1):
 		return float64(sign * x)
-	case x < 7.75:
+	case x < 0.125:
 		return float64(sign * besselI1Small(x))
+	}
+	if i := octIndex(x, besselI0eOctMin, besselI0eOctMax); i >= 0 {
+		q := &besselI1eOct[i]
+		return float64(sign * octExpMul(q, x-q.c, x))
 	}
 	return float64(sign * besselLdexpExp(besselI1eLarge(x), 0, x))
 }
@@ -451,8 +455,12 @@ func I1e(x float64) float64 {
 		return x
 	case math.IsInf(x, 1):
 		return float64(sign * 0)
-	case x < 7.75:
+	case x < 0.125:
 		return float64(sign * besselLdexpExp(besselI1Small(x), 0, -x))
+	}
+	if i := octIndex(x, besselI0eOctMin, besselI0eOctMax); i >= 0 {
+		q := &besselI1eOct[i]
+		return float64(sign * octEval(q, x-q.c))
 	}
 	return float64(sign * besselI1eLarge(x))
 }
@@ -462,8 +470,10 @@ var (
 	besselI1Pm = [...]float64{3.989422804014406054e-01, -1.496033551613111533e-01, -4.675104253598537322e-02, -4.090895951581637791e-02, -5.719036414430205390e-02, -1.528189554374492735e-01, 3.458284470977172076e+00, -2.426181371595021021e+02, 1.178785865993440669e+04, -4.404655582443487334e+05, 1.277677779341446497e+07, -2.903390398236656519e+08, 5.192386898222206474e+09, -7.313784438967834057e+10, 8.087824484994859552e+11, -6.967602516005787001e+12, 4.614040809616582764e+13, -2.298849639457172489e+14, 8.325554073334618015e+14, -2.067285045778906105e+15, 3.146401654361325073e+15, -2.213318202179221945e+15}
 )
 
-func besselI1Small(x float64) float64 {
-	// (x/2) sum (x^2/4)^k / (k! (k+1)!) in double-double
+func besselI1Small(x float64) float64 { return besselI1SmallDD(x).Float() }
+
+// besselI1SmallDD is (x/2) sum (x^2/4)^k / (k! (k+1)!) in double-double.
+func besselI1SmallDD(x float64) dd.DD {
 	q := dd.MulF(dd.MulFF(x, x), 0.25)
 	t, s := dd.F(1), dd.F(1)
 	for k := 1; k < 60; k++ {
@@ -473,7 +483,7 @@ func besselI1Small(x float64) float64 {
 			break
 		}
 	}
-	return dd.MulF(s, float64(x/2)).Float()
+	return dd.MulF(s, float64(x/2))
 }
 
 // Boost.Math bessel_k0.hpp (53-bit branch) coefficients.
@@ -598,6 +608,10 @@ func K1(x float64) float64 {
 	case x <= 1:
 		return besselK1Small(x)
 	}
+	if i := octIndex(x, besselK0eOctMin, besselK0eOctMax); i >= 0 {
+		q := &besselK1eOct[i]
+		return octExpMul(q, x-q.c, -x)
+	}
 	return besselLdexpExp(besselK1e(x), 0, -x)
 }
 
@@ -612,6 +626,10 @@ func K1e(x float64) float64 {
 		return 0
 	case x <= 1:
 		return besselLdexpExp(besselK1Small(x), 0, x)
+	}
+	if i := octIndex(x, besselK0eOctMin, besselK0eOctMax); i >= 0 {
+		q := &besselK1eOct[i]
+		return octEval(q, x-q.c)
 	}
 	return besselK1e(x)
 }
