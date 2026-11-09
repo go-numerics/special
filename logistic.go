@@ -3,6 +3,7 @@ package special
 import (
 	"github.com/go-numerics/special/internal/libm"
 	"math"
+	"sync"
 
 	"github.com/go-numerics/special/dd"
 )
@@ -288,7 +289,40 @@ func Xlog1py(x, y float64) float64 {
 	if y == -1 || math.IsInf(y, 1) || math.IsInf(x, 0) {
 		return float64(x * libm.Log1p(y))
 	}
+	if v, ok := xlog1pyFast(x, y); ok {
+		return v
+	}
 	return dd.MulF(log1pDD(dd.F(y)), x).Float()
+}
+
+// xlog1pyErr bounds |h + l - D| / |h| of xlog1pyFast, D the double-double
+// value of Xlog1py's reference: the log kernel's relative error for the
+// logarithm of w = 1 + y (below 2^-62, logHL), the reference's own 2^-90, and
+// the product's roundings (2^-100), all under 2^-61.5; 2^-60 is used.
+const xlog1pyErr = 0x1p-60
+
+// xlog1pyFast returns x log1p(y) for 2^-20 <= |y| and y > -1 finite, and
+// whether it is certified equal to the double-double reference's rounding
+// (the Ziv test of gamma_fast.go): w = 1 + y is formed exactly as wh + wl,
+// log(wh) comes from the log kernel as hi + lo, log1p(y) = log(wh) + wl/wh
+// to 2^-86, and the product x (hi + lo) is kept as an unevaluated sum.
+func xlog1pyFast(x, y float64) (float64, bool) {
+	if !(math.Abs(y) >= 0x1p-20) || math.IsInf(y, 0) || math.IsInf(x, 0) {
+		return 0, false
+	}
+	wh := 1 + y
+	bb := wh - 1
+	wl := (1 - (wh - bb)) + (y - bb) // 1 + y = wh + wl exactly
+	lh, ll := logHLn(wh)
+	ll += wl / wh
+	h := float64(x * lh)
+	l := math.FMA(x, lh, -h) + float64(x*ll)
+	s := h + l // Fast2Sum: |l| < 2^-14 |h| (ll is not normalised)
+	l -= s - h
+	if !zivRound(s, l, float64(xlog1pyErr*math.Abs(s))) {
+		return 0, false
+	}
+	return s, true
 }
 
 // LogSumExp returns log(Σ exp(x_i)) without overflow or underflow: the
@@ -325,6 +359,9 @@ func LogSumExp(x []float64) float64 {
 	return dd.AddF(log1pDD(s), m).Float()
 }
 
+// softmaxScratch holds the double-double exponentials of Softmax.
+var softmaxScratch sync.Pool
+
 // Softmax writes exp(x_i) / Σ_j exp(x_j) into dst (allocated when nil or
 // too short) and returns it; the maximum is subtracted first and the sum
 // is accumulated in double-double. An empty x gives an empty result; if x
@@ -353,7 +390,17 @@ func Softmax(dst, x []float64) []float64 {
 		}
 		return dst
 	}
-	es := make([]dd.DD, len(x))
+	// The exponentials are kept in double-double for the division; the
+	// scratch is pooled (a fresh 16 bytes per element costs more than the
+	// division).
+	bp, _ := softmaxScratch.Get().(*[]dd.DD)
+	if bp == nil {
+		bp = new([]dd.DD)
+	}
+	if cap(*bp) < len(x) {
+		*bp = make([]dd.DD, len(x))
+	}
+	es := (*bp)[:len(x)]
 	var s dd.DD
 	for i, v := range x {
 		d := sumDD(v, -m)
@@ -364,6 +411,7 @@ func Softmax(dst, x []float64) []float64 {
 	for i := range dst {
 		dst[i] = dd.Div(es[i], s).Float()
 	}
+	softmaxScratch.Put(bp)
 	return dst
 }
 

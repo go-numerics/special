@@ -2,6 +2,7 @@ package special
 
 import (
 	"math"
+	"math/bits"
 
 	"github.com/go-numerics/special/dd"
 )
@@ -29,7 +30,42 @@ func Factorial(n float64) float64 {
 		return math.Inf(1)
 	}
 	// Γ(n+1) = exp(log n + log Γ(n))
+	if n >= 10 && n <= 170 {
+		if v, ok := factorialLargeFast(n); ok {
+			return v
+		}
+	}
 	return dd.Exp(dd.Add(dd.Log(n), logGammaPos(n)))
+}
+
+// factorialErr bounds |h + l - D| / |h| of factorialLargeFast, D the
+// reference's value: log Γ(n) from logGammaLargeHL (absolute error about
+// 2^-61 up to 171.6), log n from the log kernel (2^-68) and the exponential
+// kernel (2^-68), against the reference's double-double evaluation, whose
+// absolute error in the exponent is its logarithm's 2^-72.9 relative times
+// (n - 1/2) log n < 2^10, below 2^-62.5. Their sum is under 2^-60; 2^-59 is
+// used.
+const factorialErr = 0x1p-59
+
+// factorialLargeFast returns n! = exp(log Γ(n) + log n) for 10 <= n <= 170
+// from the float64 kernels as an unevaluated sum, and whether it is certified
+// equal to the double-double reference's rounding (the Ziv test of
+// gamma_fast.go).
+func factorialLargeFast(n float64) (float64, bool) {
+	gh, gl := logGammaLargeHL(n)
+	lh, ll := logHLn(n)
+	s := gh + lh // Fast2Sum: log Γ(n) >= 12.8 > log n
+	e := (gh - s) + lh
+	lo := e + (gl + ll)
+	hn := s + lo
+	eh, el, k := expHL(hn, lo-(hn-s))
+	p := pow2(k) // k <= 1023
+	h := float64(eh * p)
+	l := float64(el * p)
+	if !zivRound(h, l, float64(factorialErr*h)) {
+		return 0, false
+	}
+	return h, true
 }
 
 // LogFactorial returns log(n!) = log Γ(n+1) for n >= 0 without forming
@@ -64,6 +100,21 @@ func Factorial2(n int) float64 {
 	case n > 300:
 		return math.Inf(1)
 	}
+	return factorials2[n]
+}
+
+// factorials2[n] = n!! (n = 0..300), each the double-double product of
+// factorial2DD rounded once, filled once at start-up like factorials.
+var factorials2 [301]float64
+
+func init() {
+	for n := range factorials2 {
+		factorials2[n] = factorial2DD(n)
+	}
+}
+
+// factorial2DD is the product n (n-2) ... in double-double, rounded once.
+func factorial2DD(n int) float64 {
 	p := dd.F(1)
 	for k := n; k > 1; k -= 2 {
 		p = dd.MulF(p, float64(k))
@@ -88,6 +139,9 @@ func Comb(n, k int64) float64 {
 		k = n - k
 	}
 	if k <= 64 {
+		if c, ok := combExact(uint64(n-k), uint64(k)); ok {
+			return float64(c)
+		}
 		p := dd.F(1)
 		nk := float64(n - k)
 		for i := int64(1); i <= k; i++ {
@@ -104,6 +158,24 @@ func Comb(n, k int64) float64 {
 	fn, fk := float64(n), float64(k)
 	l := dd.Add(dd.Log(fn+1), logBetaPos(fk+1, fn-fk+1))
 	return dd.Exp(dd.Neg(l))
+}
+
+// combExact returns C(m+k, k) as an integer by the exact recurrence
+// C(m+i, i) = C(m+i-1, i-1) (m+i) / i (each step is an exact division, the
+// 128-bit product divided by 64-bit division), or ok = false as soon as a
+// partial value would not fit in 64 bits. A value below 2^64 converted to
+// float64 is rounded to nearest, which is also the double-double product's
+// rounding (that one is exact below 2^106), so the two agree bit for bit.
+func combExact(m, k uint64) (c uint64, ok bool) {
+	c = 1
+	for i := uint64(1); i <= k; i++ {
+		hi, lo := bits.Mul64(c, m+i)
+		if hi >= i {
+			return 0, false
+		}
+		c, _ = bits.Div64(hi, lo, i)
+	}
+	return c, true
 }
 
 // Perm returns the number of k-permutations of n, n!/(n-k)! =

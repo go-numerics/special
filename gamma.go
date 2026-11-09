@@ -342,7 +342,10 @@ func gammaNegDD(x float64) float64 {
 
 // gammaSignNeg returns the sign of Γ(x) for non-integer x < 0: (-1)^ceil(-x).
 func gammaSignNeg(x float64) float64 {
-	if math.Mod(math.Floor(x), 2) == 0 {
+	// floor(x) is even exactly when half of it is an integer (halving is
+	// exact); math.Mod is an iterative remainder and costs ten times this.
+	f := float64(math.Floor(x) * 0.5)
+	if f == math.Floor(f) {
 		return 1
 	}
 	return -1
