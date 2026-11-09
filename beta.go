@@ -351,7 +351,7 @@ func logGammaDiffRest(a, b, s, lh, ll, mh, ml float64) (hi, lo float64) {
 	for _, c := range stirlingCoef {
 		sum = math.FMA(c, tn, sum)
 		tn = math.FMA(ib2, tn, pw*sg)
-		pw *= is2
+		pw = float64(pw * (is2))
 	}
 	ds := float64(d * sum)
 	// -t1 - t3 - t2 + ds

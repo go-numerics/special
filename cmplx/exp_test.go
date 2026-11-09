@@ -1,6 +1,7 @@
 package cmplx
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	std "math/cmplx"
 	"testing"
@@ -22,16 +23,16 @@ func init() {
 // csinh); each entry is also checked at its conjugate. y = 1 stands for a
 // finite nonzero value, cis(1) for cos 1 + i sin 1.
 var (
-	cis1     = complex(math.Cos(1), math.Sin(1))
-	infCis1  = complex(inf*math.Cos(1), inf*math.Sin(1))
+	cis1     = complex(libm.Cos(1), libm.Sin(1))
+	infCis1  = complex(float64(inf*libm.Cos(1)), float64(inf*libm.Sin(1)))
 	expTable = []gcase{
 		{in: complex(0, 0), want: complex(1, 0)},
 		{in: complex(nzero, 0), want: complex(1, 0)},
 		{in: complex(1, inf), want: complex(nan, nan)},
 		{in: complex(1, nan), want: complex(nan, nan)},
 		{in: complex(inf, 0), want: complex(inf, 0)},
-		{in: complex(-inf, 1), want: complex(0*real(cis1), 0*imag(cis1))},
-		{in: complex(-inf, -3), want: complex(math.Copysign(0, math.Cos(-3)), math.Copysign(0, math.Sin(-3)))},
+		{in: complex(-inf, 1), want: complex(float64(0*real(cis1)), float64(0*imag(cis1)))},
+		{in: complex(-inf, -3), want: complex(math.Copysign(0, libm.Cos(-3)), math.Copysign(0, libm.Sin(-3)))},
 		{in: complex(inf, 1), want: infCis1},
 		{in: complex(-inf, inf), want: complex(0, 0), anyRe: true, anyIm: true},
 		{in: complex(inf, inf), want: complex(inf, nan), anyRe: true},
@@ -76,7 +77,7 @@ var (
 func parityTable(t []gcase, sign float64) []gcase {
 	out := append([]gcase(nil), t...)
 	for _, c := range t {
-		out = append(out, gcase{-c.in, complex(sign*real(c.want), sign*imag(c.want)), c.anyRe, c.anyIm})
+		out = append(out, gcase{-c.in, complex(float64(sign*real(c.want)), float64(sign*imag(c.want))), c.anyRe, c.anyIm})
 	}
 	return out
 }
@@ -114,7 +115,7 @@ func TestExpDefects(t *testing.T) {
 	// Exp(710+1e-300i) = e^710 (cos + i sin 1e-300): the imaginary part is
 	// 2.23e8, finite; math/cmplx returns +Inf for both parts.
 	z := Exp(complex(710, 1e-300))
-	if want := math.Exp(355) * (math.Exp(355) * 1e-300); !math.IsInf(real(z), 1) || math.Abs(imag(z)/want-1) > 1e-13 {
+	if want := float64(libm.Exp(355) * (libm.Exp(355) * 1e-300)); !math.IsInf(real(z), 1) || math.Abs(imag(z)/want-1) > 1e-13 {
 		t.Errorf("Exp(710+1e-300i) = %v, want +Inf + 2.2339e8i", z)
 	}
 	if !math.IsInf(imag(std.Exp(complex(710, 1e-300))), 1) {
@@ -180,7 +181,7 @@ func FuzzExp(f *testing.F) {
 		// |Exp(z)| = e^x within a few ulp where it is in range (two parts
 		// of 2 ulp each, Hypot and Exp of 1 ulp each).
 		if finite(x) && finite(y) && math.Abs(x) < 700 {
-			if a, e := Abs(Exp(z)), math.Exp(x); math.Abs(a-e) > 1e-15*e {
+			if a, e := Abs(Exp(z)), libm.Exp(x); math.Abs(a-e) > 1e-15*e {
 				t.Fatalf("|Exp(%v)| = %g, e^x = %g", z, a, e)
 			}
 		}

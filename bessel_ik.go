@@ -36,13 +36,13 @@ func besselKSeries(nu, x float64) (m dd.DD, e int, ok bool) {
 	if libm.Log(float64(math.Abs(c)*2*nu))+float64(2*L.Hi) > libm.Log(0.25) {
 		return dd.DD{}, 0, false
 	}
-	q := x * x / 4
+	q := float64(x * x / 4)
 	ta, sa := 1.0, 0.0
 	tb, sb := 1.0, 0.0
 	for k := 1; k < 200; k++ {
 		fk := float64(k)
-		ta *= q / (fk * (fk - nu))
-		tb *= q / (fk * (fk + nu))
+		ta = float64(ta * (q / (fk * (fk - nu))))
+		tb = float64(tb * (q / (fk * (fk + nu))))
 		sa += ta
 		sb += tb
 		if math.Abs(ta) <= 0x1p-60 && math.Abs(tb) <= 0x1p-60 {
@@ -78,7 +78,7 @@ func besselTemmeIK(u, x float64) (ku, ku1 float64) {
 	}
 	// Boost's gamma1 = g1, gamma2 = g2 (identically).
 	p := 1 / rgp / (2 * b)
-	q := 1 / rgm * b / 2
+	q := float64(1 / rgm * b / 2)
 	f := (float64(libm.Cosh(sigma)*g1) + float64(d*(-a)*g2)) / c
 	h := p
 	coef := 1.0
@@ -90,7 +90,7 @@ func besselTemmeIK(u, x float64) (ku, ku1 float64) {
 		p /= fk - u
 		q /= fk + u
 		h = p - float64(fk*f)
-		coef *= x * x / (4 * fk)
+		coef = float64(coef * (x * x / (4 * fk)))
 		sum += float64(coef * f)
 		sum1 += float64(coef * h)
 		if math.Abs(coef*f) < math.Abs(sum)*0x1p-53 {
@@ -216,7 +216,7 @@ func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
 	prev := math.Inf(1)
 	for k := 1; k < 200; k++ {
 		o := float64(2*k - 1)
-		t *= sgn * (mu - float64(o*o)) / (float64(k) * 8 * x)
+		t = float64(t * (sgn * (mu - float64(o*o)) / (float64(k) * 8 * x)))
 		s += t
 		at := math.Abs(t)
 		if at < besselAsymTol*0x1p-6 {
@@ -291,8 +291,8 @@ func besselIKCore(v, x float64, needI, needK bool) (ie float64, ei int, ke float
 		if x <= besselTemmeIKMaxX {
 			ku, ku1 = besselTemmeIK(u, x)
 			ex := libm.Exp(x)
-			ku *= ex
-			ku1 *= ex
+			ku = float64(ku * (ex))
+			ku1 = float64(ku1 * (ex))
 		} else {
 			ku, ku1 = besselCF2IK(u, x)
 		}
@@ -378,7 +378,7 @@ func besselI0Tiny(x float64) float64 { return 1 + besselI0TinyTail(x) }
 
 // besselI0TinyTail is besselI0Tiny(x) - 1.
 func besselI0TinyTail(x float64) float64 {
-	q := x * x / 4
+	q := float64(x * x / 4)
 	return float64(q * (1 + float64(q*(1.0/4+float64(q*(1.0/36+float64(q*(1.0/576+float64(q*(1.0/14400))))))))))
 }
 
@@ -473,7 +473,7 @@ func besselI1Small(x float64) float64 {
 			break
 		}
 	}
-	return dd.MulF(s, x/2).Float()
+	return dd.MulF(s, float64(x/2)).Float()
 }
 
 // Boost.Math bessel_k0.hpp (53-bit branch) coefficients.
@@ -486,7 +486,7 @@ var (
 // besselK0Small is K0 on (0, 1].
 func besselK0Small(x float64) float64 {
 	const Y = 1.137250900268554688
-	a := x * x / 4
+	a := float64(x * x / 4)
 	a = float64((besselRational(besselK0P1[:], besselK0Q1[:], a)+Y)*a) + 1
 	return besselPoly(besselK0P2[:], float64(x*x)) - float64(besselLog(x)*a)
 }
@@ -561,8 +561,8 @@ var (
 // besselK1Small is K1 on (0, 1].
 func besselK1Small(x float64) float64 {
 	const Y = 8.69547128677368164e-02
-	a := x * x / 4
-	a = (float64((besselRational(besselK1P1[:], besselK1Q1[:], a)+Y)*a*a) + a/2 + 1) * x / 2
+	a := float64(x * x / 4)
+	a = float64((float64((besselRational(besselK1P1[:], besselK1Q1[:], a)+Y)*a*a) + float64(a/2) + 1) * x / 2)
 	return float64(besselRational(besselK1P2[:], besselK1Q2[:], float64(x*x))*x) + 1/x + float64(besselLog(x)*a)
 }
 

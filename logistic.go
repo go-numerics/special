@@ -47,8 +47,8 @@ func Expit(x float64) float64 {
 	h := h0 + l
 	l -= h - h0
 	s := pow2(ki >> 7) // >= -953 for x >= -660
-	h *= s
-	l *= s
+	h = float64(h * (s))
+	l = float64(l * (s))
 	// d = 1 + e exactly (e <= 1).
 	dh := 1 + h
 	dl := (1 - dh) + h + l
@@ -116,8 +116,8 @@ func Log1pExp(x float64) float64 {
 	h := h0 + l
 	l -= h - h0
 	sc := pow2(ki >> 7)
-	h *= sc
-	l *= sc
+	h = float64(h * (sc))
+	l = float64(l * (sc))
 	if h < 0x1p-27 {
 		// log1p(e) = e - e²/2 + e³/3 - ..., e⁴/4 below 2^-80 e. (Through
 		// w = 1 + e the second-order term of log(w.hi + w.lo) would be

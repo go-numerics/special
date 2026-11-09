@@ -32,7 +32,7 @@ const archHashGolden = "testdata/archhash.golden"
 func grid(n int, lo, hi float64) []float64 {
 	x := make([]float64, n)
 	for i := range x {
-		f := float64(i) * 0.6180339887498949
+		f := float64(float64(i) * 0.6180339887498949)
 		f -= math.Floor(f)
 		x[i] = lo + float64((hi-lo)*f)
 	}

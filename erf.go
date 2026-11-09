@@ -272,8 +272,8 @@ func Erf(x float64) float64 {
 	case ax < 6:
 		h, l, k := erfcHLmain(ax, 0)
 		s := pow2(k)
-		h *= s
-		l *= s
+		h = float64(h * (s))
+		l = float64(l * (s))
 		// 1 - erfc: Fast2Sum (erfc(1/2) < 1/2).
 		v := 1 - h
 		return math.Copysign(v+(((1-v)-h)-l), x)
@@ -304,8 +304,8 @@ func Erfc(x float64) float64 {
 	case x <= -0.5 && x > -6:
 		h, l, k := erfcHLmain(-x, 0) // -x < 6
 		s := pow2(k)
-		h *= s
-		l *= s
+		h = float64(h * (s))
+		l = float64(l * (s))
 		v := 2 - h
 		return v + (((2 - v) - h) - l)
 	}
@@ -356,8 +356,8 @@ func Erfcx(x float64) float64 {
 		sh := float64(x * x)
 		eh, el, k := expHL(sh, math.FMA(x, x, -sh))
 		s := pow2(k + 1)
-		eh *= s
-		el *= s
+		eh = float64(eh * (s))
+		el = float64(el * (s))
 		ch, cl := erfcxHL(-x)
 		v := eh - ch // Fast2Sum: 2 exp(x²) > 2.5 > erfcx(-x)
 		return v + (((eh - v) - ch) + (el - cl))
@@ -405,8 +405,8 @@ func Ndtr(x float64) float64 {
 	case zh <= -0.5:
 		h, l, k := erfcHLmain(-zh, -zl) // x < 8.5: -zh < 6.02
 		s := pow2(k - 1)
-		h *= s
-		l *= s
+		h = float64(h * (s))
+		l = float64(l * (s))
 		v := 1 - h // Fast2Sum: Φ(-x) < 1/4
 		return v + (((1 - v) - h) - l)
 	}
@@ -521,8 +521,8 @@ func LogNdtr(x float64) float64 {
 		// log1p(-Φ(-x)), Φ(-x) = erfc(-z)/2 < 1/4
 		h, l, k := erfcHL(-zh, -zl)
 		s := pow2(k - 1)
-		h *= s
-		l *= s
+		h = float64(h * (s))
+		l = float64(l * (s))
 		if h < 0x1p-20 {
 			// -q - q²/2 - q³/3 - q⁴/4 (next term below 2^-80 q)
 			return -h - (l + float64(h*h*math.FMA(h, math.FMA(h, 0.25, 1.0/3), 0.5)))

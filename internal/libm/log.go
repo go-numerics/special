@@ -112,7 +112,7 @@ func log(x float64) float64 {
 	// reduce
 	f1, ki := Frexp(x)
 	if f1 < Sqrt2/2 {
-		f1 *= 2
+		f1 = float64(f1 * (2))
 		ki--
 	}
 	f := f1 - 1

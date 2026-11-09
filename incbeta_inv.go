@@ -135,13 +135,13 @@ func ibetaInvTemme1(a, b, p float64) float64 {
 	B := b - a
 	B2 := float64(B * B)
 	B3 := float64(B2 * B)
-	t1 := ibetaPoly(eta0, -B*r2/2, (1-float64(2*B))/8, -(B * r2 / 48), -1.0/192, -B*r2/3840)
-	t2 := ibetaPoly(eta0, B*r2*(float64(3*B)-2)/12, (float64(20*B2)-float64(12*B)+1)/128, B*r2*(float64(20*B)-1)/960,
+	t1 := ibetaPoly(eta0, float64(-B*r2/2), float64((1-float64(2*B))/8), -(B * r2 / 48), -1.0/192, -B*r2/3840)
+	t2 := ibetaPoly(eta0, B*r2*(float64(3*B)-2)/12, float64((float64(20*B2)-float64(12*B)+1)/128), B*r2*(float64(20*B)-1)/960,
 		(float64(16*B2)+float64(30*B)-15)/4608, B*r2*(float64(21*B)+32)/53760, (float64(-32*B2)+63)/368640, -B*r2*(float64(120*B)+17)/25804480)
 	t3 := ibetaPoly(eta0, B*r2*(float64(-75*B2)+float64(80*B)-16)/480, (float64(-1080*B3)+float64(868*B2)-float64(90*B)-45)/9216,
 		B*r2*(float64(-1190*B2)+float64(84*B)+373)/53760, (float64(-2240*B3)-float64(2508*B2)+float64(2100*B)-165)/368640)
 	eta := ibetaPoly(1/a, eta0, t1, t2, t3)
-	return (1 + math.Copysign(math.Sqrt(-libm.Expm1(-eta*eta/2)), eta)) / 2
+	return float64((1 + math.Copysign(math.Sqrt(-libm.Expm1(float64(-eta*eta/2))), eta)) / 2)
 }
 
 // ibetaPoly returns c[0] + c[1] z + c[2] z² + ...
@@ -278,7 +278,7 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 		}
 		step := -g / r
 		curv := a - (b-1)*u/(1-u) + float64(sg*r)
-		if h := step * curv / 2; math.Abs(h) < 0.5 {
+		if h := float64(step * curv / 2); math.Abs(h) < 0.5 {
 			step /= 1 + h
 		}
 		nu := math.NaN()
@@ -297,7 +297,7 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 		}
 		if !(nu > lo && nu < hi) {
 			if lo == 0 {
-				nu = u / 16
+				nu = float64(u / 16)
 			} else {
 				nu = float64(math.Sqrt(lo) * math.Sqrt(hi))
 			}

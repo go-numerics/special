@@ -1,7 +1,7 @@
 package cmplx
 
 import (
-	"math"
+	"github.com/go-numerics/special/internal/libm"
 	std "math/cmplx"
 	"testing"
 )
@@ -33,7 +33,7 @@ func init() {
 
 func TestStdlib(t *testing.T) {
 	z := complex(3, -4)
-	if Abs(z) != 5 || Phase(z) != math.Atan2(-4, 3) || Conj(z) != complex(3, 4) {
+	if Abs(z) != 5 || Phase(z) != libm.Atan2(-4, 3) || Conj(z) != complex(3, 4) {
 		t.Error("Abs/Phase/Conj")
 	}
 	if r, th := Polar(z); r != 5 || th != Phase(z) || Rect(r, th) != std.Rect(r, th) {

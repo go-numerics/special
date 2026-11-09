@@ -104,7 +104,7 @@ func sincosSmall(r dd.DD) (s, c dd.DD) {
 		r = dd.Neg(r)
 	}
 	j := math.Round(r.Hi * 64)
-	d := dd.AddF(r, -j/64)
+	d := dd.AddF(r, float64(-j/64))
 	t := float64(d.Hi * d.Hi)
 	// d - d³/6 in double-double, d⁵/120 - d⁷/5040 (below 2^-30 of d) in float64.
 	d3 := dd.Mul(dd.Sqr(d), d)
@@ -197,7 +197,7 @@ func tan(y float64) float64 {
 // would inherit.
 func atanDD(q dd.DD) dd.DD {
 	j := math.Round(q.Hi * 64)
-	c := j / 64
+	c := float64(j / 64)
 	s := dd.Div(dd.AddF(q, -c), dd.AddF(dd.MulF(q, c), 1))
 	t := float64(s.Hi * s.Hi)
 	p := -1.0/3 + float64(t*(1.0/5-float64(t*(1.0/7))))

@@ -1,6 +1,7 @@
 package cmplx
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/big"
 	std "math/cmplx"
@@ -78,7 +79,7 @@ func TestTanhDefects(t *testing.T) {
 	if want := y + y*y*y/3; tanSmall(y) != want || tan(-y) != -want {
 		t.Errorf("tanSmall(%g) = %v, want %v", y, tanSmall(y), want)
 	}
-	if math.Tan(y) != y {
+	if libm.Tan(y) != y {
 		t.Log("math.Tan no longer truncates its series below 1e-7")
 	}
 	// tan near a pole: y = 3π/2 rounded, tan y = 1/(3π/2 - y) to 1 ulp.

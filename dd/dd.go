@@ -234,14 +234,14 @@ func Log(x float64) DD {
 	}
 	k := 0
 	if x < 0x1p-1022 {
-		x *= 0x1p54 // normalise a subnormal
+		x = float64(x * (0x1p54)) // normalise a subnormal
 		k = -54
 	}
 	b := math.Float64bits(x)
 	k += int(b>>52) - 1023
 	m := math.Float64frombits(b&(1<<52-1) | 1023<<52) // in [1, 2)
 	if m > math.Sqrt2 {
-		m *= 0.5
+		m = float64(m * (0.5))
 		k++
 	}
 	j := math.Floor(float64(m*128) + 0.5)
@@ -274,11 +274,11 @@ func LogAccurate(x float64) DD {
 	}
 	m, k := math.Frexp(x) // x = m * 2^k, m in [0.5, 1); Frexp normalises subnormals
 	if m < math.Sqrt2/2 {
-		m *= 2
+		m = float64(m * (2))
 		k--
 	}
 	j := math.Floor(float64(m*128) + 0.5)
-	c := j / 128
+	c := float64(j / 128)
 	num := m - c // exact
 	h, l := TwoSum(m, c)
 	s := Div(DD{num, 0}, DD{h, l})

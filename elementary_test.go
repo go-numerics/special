@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"testing"
 
@@ -36,9 +37,9 @@ func TestEvalShortDegrees(t *testing.T) {
 // (the terms decrease with w, so w = w0 is the worst case).
 func TestHurwitzShiftBound(t *testing.T) {
 	for s := 1.0 + 1.0/1024; s <= 64; s += 1.0 / 64 {
-		w := 7.3 + 0.5*s
+		w := 7.3 + float64(0.5*s)
 		bh := w / (s - 1)
-		poch, pw := s*(s+1)*(s+2), math.Pow(w, -3)
+		poch, pw := float64(s*(s+1)*(s+2)), libm.Pow(w, -3)
 		ok := false
 		for j := 2; j <= len(bernoulliOverFactorial25); j++ {
 			if math.Abs(bernoulliOverFactorial25[j-1]*poch*pw) < 0x1p-64*bh {
@@ -46,8 +47,8 @@ func TestHurwitzShiftBound(t *testing.T) {
 				break
 			}
 			k := float64(2*j - 1)
-			poch *= (s + k) * (s + k + 1)
-			pw /= w * w
+			poch = float64(float64(poch * ((s + k) * (s + k + 1))))
+			pw /= float64(w * w)
 		}
 		if !ok {
 			t.Fatalf("s = %v: Bernoulli series not converged at w = %v", s, w)
@@ -78,11 +79,11 @@ func TestGammaPosBranches(t *testing.T) {
 
 func TestXlogySubnormal(t *testing.T) {
 	y := 5e-320
-	want := 3 * logf(y)
+	want := float64(3 * logf(y))
 	if got := Xlogy(3, y); math.Abs(got-want) > 2*ulp(want) {
 		t.Errorf("Xlogy(3, %v) = %v, want %v", y, got, want)
 	}
-	if got := logf(2); got != math.Log(2) {
+	if got := logf(2); got != libm.Log(2) {
 		t.Errorf("logf(2) = %v", got)
 	}
 }

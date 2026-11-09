@@ -439,7 +439,7 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	tail := 0.0
 	for ; i < n-1 && dh > tol*sh; i++ {
 		fi := float64(i)
-		dh *= xh * (abh + fi) / (a1h + fi)
+		dh = float64(dh * (xh * (abh + fi) / (a1h + fi)))
 		tail += dh
 	}
 	sl += tail
@@ -587,7 +587,7 @@ func ibetaBgrat(a, b float64, v ibetaXY, w, eps float64) float64 {
 		bp2n := b + n2
 		j = float64((float64(bp2n*(bp2n+1)*j) + float64((zh+bp2n+1)*t)) * v2)
 		n2 += 2
-		t *= t2
+		t = float64(t * (t2))
 		cn /= float64(n2 * (n2 + 1))
 		c[n-1] = cn
 		s := 0.0
@@ -663,7 +663,7 @@ func ibetaBasym(a, b float64, lambda dd.DD, eps float64) float64 {
 	znm1 := z
 	zn := z2
 	for n := 2; n <= num; n += 2 {
-		hn *= h2
+		hn = float64(hn * (h2))
 		a0[n-1] = 2 * r0 * (1 + float64(h*hn)) / (float64(n) + 2)
 		s += hn
 		a0[n] = 2 * r1 * s / (float64(n) + 3)
@@ -687,11 +687,11 @@ func ibetaBasym(a, b float64, lambda dd.DD, eps float64) float64 {
 		}
 		j0 = float64(e1*znm1) + float64((float64(n)-1)*j0)
 		j1 = float64(e1*zn) + float64(float64(n)*j1)
-		znm1 *= z2
-		zn *= z2
-		w *= w0
+		znm1 = float64(znm1 * (z2))
+		zn = float64(zn * (z2))
+		w = float64(w * (w0))
 		t0 := float64(d[n-1] * w * j0)
-		w *= w0
+		w = float64(w * (w0))
 		t1 := float64(d[n] * w * j1)
 		sum += t0 + t1
 		if math.Abs(t0)+math.Abs(t1) <= eps*sum {
@@ -756,7 +756,7 @@ func ibetaFpser(a, b float64, v ibetaXY, eps float64) float64 {
 	s := t / an
 	for i := 0; i < 100000; i++ {
 		an++
-		t *= x
+		t = float64(t * (x))
 		c := t / an
 		s += c
 		if !(math.Abs(c) > tol) {

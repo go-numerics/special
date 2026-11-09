@@ -1,6 +1,7 @@
 package cmplx
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/big"
 	std "math/cmplx"
@@ -34,7 +35,7 @@ var (
 		{in: complex(1, nan), want: complex(nan, nan)},
 		{in: complex(-inf, 1), want: complex(inf, math.Pi)},
 		{in: complex(inf, 1), want: complex(inf, 0)},
-		{in: complex(-inf, inf), want: complex(inf, math.Atan2(inf, -inf))},
+		{in: complex(-inf, inf), want: complex(inf, libm.Atan2(inf, -inf))},
 		{in: complex(inf, inf), want: complex(inf, math.Pi/4)},
 		{in: complex(inf, nan), want: complex(inf, nan)},
 		{in: complex(-inf, nan), want: complex(inf, nan)},
@@ -87,8 +88,8 @@ func TestLogCut(t *testing.T) {
 			t.Errorf("Sqrt(%g ± i0) = %v, %v", x, su, sd)
 		}
 		// math.Atan2 loses the sign of a subnormal y below a huge x.
-		if w := Log(complex(x*1e290, -5e-324)); x < -1e-10 && imag(w) != -math.Pi {
-			t.Errorf("Log(%g - 5e-324i) = %v, want Im -π", x*1e290, w)
+		if w := Log(complex(float64(x*1e290), -5e-324)); x < -1e-10 && imag(w) != -math.Pi {
+			t.Errorf("Log(%g - 5e-324i) = %v, want Im -π", float64(x*1e290), w)
 		}
 	}
 }
@@ -116,7 +117,7 @@ func TestLogDefects(t *testing.T) {
 	if got := arg(-5e-324, -1e130); got != -math.Pi {
 		t.Errorf("arg(-1e130 - 5e-324i) = %v, want -π", got)
 	}
-	if math.Atan2(-5e-324, -1e130) != math.Pi {
+	if libm.Atan2(-5e-324, -1e130) != math.Pi {
 		t.Log("math.Atan2 no longer drops the sign of an underflowed y/x")
 	}
 }

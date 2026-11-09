@@ -22,7 +22,7 @@ func coshSinh(ax float64) (ch, sh dd.DD, k int) {
 	}
 	if ax < 0x1p-16 {
 		t := float64(ax * ax)
-		c, ce := dd.FastTwoSum(1, t/2+(t*t)/24)
+		c, ce := dd.FastTwoSum(1, float64(t/2)+(t*t)/24)
 		s, se := dd.FastTwoSum(ax, float64(ax*(t/6+(t*t)/120)))
 		return dd.DD{Hi: c, Lo: ce}, dd.DD{Hi: s, Lo: se}, 0
 	}

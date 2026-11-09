@@ -43,7 +43,7 @@ func zivRound(h, l, e float64) bool {
 	half := math.Float64frombits((ex - 53) << 52) // ulp(h)/2
 	low := half
 	if b&(1<<52-1) == 0 {
-		low = half / 2
+		low = float64(half / 2)
 	}
 	return l+e < half && l-e > -low
 }

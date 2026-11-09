@@ -220,7 +220,7 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 		// correction is large (far from the root).
 		step := -g / r
 		curv := a - x + float64(sg*r) // (d²g/du²)/(dg/du), u = log x
-		if h := step * curv / 2; math.Abs(h) < 0.5 {
+		if h := float64(step * curv / 2); math.Abs(h) < 0.5 {
 			step /= 1 + h
 		}
 		nx := math.NaN()
@@ -239,7 +239,7 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 			case math.IsInf(hi, 1):
 				nx = math.Min(x*16, math.MaxFloat64)
 			case lo == 0:
-				nx = x / 16
+				nx = float64(x / 16)
 			default:
 				nx = float64(math.Sqrt(lo) * math.Sqrt(hi))
 			}
@@ -374,12 +374,12 @@ func igamInvEq25(a, y float64) float64 {
 	a2 := float64(a * a)
 	a3 := float64(a2 * a)
 	c2 := float64((a - 1) * (1 + c1))
-	c3 := float64((a - 1) * (-(c12 / 2) + float64((a-2)*c1) + (float64(3*a)-5)/2))
-	c4 := float64((a - 1) * ((c13 / 3) - (float64(3*a)-5)*c12/2 + float64((a2-float64(6*a)+7)*c1) + (float64(11*a2)-float64(46*a)+47)/6))
-	c5 := float64((a - 1) * (-(c14 / 4) +
+	c3 := float64((a - 1) * (-(float64(c12 / 2)) + float64((a-2)*c1) + float64((float64(3*a)-5)/2)))
+	c4 := float64((a - 1) * ((c13 / 3) - float64((float64(3*a)-5)*c12/2) + float64((a2-float64(6*a)+7)*c1) + (float64(11*a2)-float64(46*a)+47)/6))
+	c5 := float64((a - 1) * (-(float64(c14 / 4)) +
 		(float64(11*a)-17)*c13/6 +
 		float64((float64(-3*a2)+float64(13*a)-13)*c12) +
-		(float64(2*a3)-float64(25*a2)+float64(72*a)-61)*c1/2 +
+		float64((float64(2*a3)-float64(25*a2)+float64(72*a)-61)*c1/2) +
 		(float64(25*a3)-float64(195*a2)+float64(477*a)-379)/12))
 	y2 := float64(y * y)
 	y3 := float64(y2 * y)
@@ -412,7 +412,7 @@ func igamInvSN(a, x float64, n int, tolerance float64) float64 {
 	sum := 1.0
 	partial := 1.0
 	for i := 1; i <= n; i++ {
-		partial *= x / (a + float64(i))
+		partial = float64(partial * (x / (a + float64(i))))
 		sum += partial
 		if partial < tolerance {
 			break

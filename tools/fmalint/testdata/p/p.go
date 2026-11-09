@@ -19,7 +19,14 @@ func cases(a, b, c float64, f32 float32, n int) []float64 {
 	i := n*n + 1               // integer: not reported
 	const k = 2.0 * 3.0        // constant: not reported
 	r10 := -(a * b)            // want: negation
+	q := a
+	q *= b         // want: compound multiply
+	h := 1 + q/2   // want: x/2 is x*0.5
+	h2 := 1 + q/3  // not a power of two: a real division
+	h += h2 / 0.25 // want: x/0.25 is x*4 (compound sum)
 	_ = ok
 	_ = i
+	_ = q
+	_ = h
 	return []float64{r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, k}
 }

@@ -65,13 +65,14 @@ func nearPole(r *rand.Rand, lo, hi int) float64 {
 	}
 	j := 1 + r.IntN(512)
 	if r.IntN(2) == 0 {
-		return math.Nextafter(-k, math.Inf(1)) + float64(j-1)*ulp(k)
+		return math.Nextafter(-k, math.Inf(1)) + float64(float64(j-1)*ulp(k))
 	}
-	return math.Nextafter(-k, math.Inf(-1)) - float64(j-1)*ulp(k)
+	return math.Nextafter(-k, math.Inf(-1)) - float64(float64(j-1)*ulp(k))
 }
 
 func logUniform(r *rand.Rand, e0, e1 int) float64 {
-	return math.Ldexp(1+r.Float64(), e0+r.IntN(e1-e0))
+	// float64(): Float64 is inlined and its /2^53 is a product (fmalint).
+	return math.Ldexp(1+float64(r.Float64()), e0+r.IntN(e1-e0))
 }
 
 func gammaRegions() []gammaRegion {
@@ -79,33 +80,33 @@ func gammaRegions() []gammaRegion {
 	return []gammaRegion{
 		{"(2^-56, 1)", gammaRecipFast, unitSlow, func(r *rand.Rand, i int) float64 {
 			if i%2 == 0 {
-				return logUniform(r, -56, 0) * 0.5 // [2^-56, 1)
+				return float64(logUniform(r, -56, 0) * 0.5) // [2^-56, 1)
 			}
 			return r.Float64()
 		}, 2_000_000},
 		{"(-1/2, -2^-56)", gammaRecipFast, gammaNegDD, func(r *rand.Rand, i int) float64 {
 			if i%2 == 0 {
-				return -logUniform(r, -56, -1) * 0.5 * 0.999
+				return float64(-logUniform(r, -56, -1) * 0.5 * 0.999)
 			}
-			return -0.5 * (1 - r.Float64())
+			return float64(-0.5 * (1 - float64(r.Float64())))
 		}, 2_000_000},
 		{"(-34, -1/2)", gammaProdFast, gammaNegDD, func(r *rand.Rand, i int) float64 {
 			if i%4 == 0 {
 				return nearPole(r, 1, 33)
 			}
-			return -0.5 - 33.5*r.Float64()
+			return -0.5 - float64(33.5*r.Float64())
 		}, 3_000_000},
 		{"(-171.6, -34)", gammaReflFast, gammaNegDD, func(r *rand.Rand, i int) float64 {
 			if i%4 == 0 {
 				return nearPole(r, 35, 171)
 			}
-			return -34 - 137.6*r.Float64()
+			return -34 - float64(137.6*r.Float64())
 		}, 3_000_000},
 		{"(-190, -171.6)", gammaReflFast, gammaNegDD, func(r *rand.Rand, i int) float64 {
 			if i%4 == 0 {
 				return nearPole(r, 172, 189)
 			}
-			return -171.6 - 18.4*r.Float64()
+			return -171.6 - float64(18.4*r.Float64())
 		}, 1_000_000},
 	}
 }
@@ -192,14 +193,14 @@ func TestMod2(t *testing.T) {
 	}
 	for i := 0; i < n; i++ {
 		check(math.Float64frombits(rng.Uint64() &^ (1 << 63) % 0x7ff0000000000000))
-		check(float64(rng.IntN(1<<20)) + rng.Float64())
+		check(float64(rng.IntN(1<<20)) + float64(rng.Float64()))
 	}
 	for e := -1074; e <= 1023; e++ {
 		p := math.Ldexp(1, e)
 		check(p)
 		check(math.Nextafter(p, 0))
 		check(math.Nextafter(p, math.Inf(1)))
-		check(3 * p)
+		check(float64(3 * p))
 	}
 	check(0)
 	check(math.MaxFloat64)
@@ -222,19 +223,19 @@ func FuzzMod2(f *testing.F) {
 
 func TestZivRound(t *testing.T) {
 	h := 1.5
-	half := ulp(h) / 2
+	half := float64(ulp(h) / 2)
 	for _, c := range []struct {
 		h, l, e float64
 		want    bool
 	}{
 		{h, 0, 0, true},
-		{h, half / 2, half / 4, true},
-		{h, half / 2, half / 2, false}, // reaches the midpoint
-		{h, -half, 0, false},           // a tie
-		{1, 0, 0, true},                // power of two: cells ulp/2 above,
-		{1, 0x1p-53 * 0.9, 0, true},    // ulp/4 below
-		{1, -0x1p-54 * 0.9, 0, true},   //
-		{1, -0x1p-54, 0, false},        // the tie below 1
+		{h, float64(half / 2), float64(half / 4), true},
+		{h, float64(half / 2), float64(half / 2), false}, // reaches the midpoint
+		{h, -half, 0, false},                             // a tie
+		{1, 0, 0, true},                                  // power of two: cells ulp/2 above,
+		{1, 0x1p-53 * 0.9, 0, true},                      // ulp/4 below
+		{1, -0x1p-54 * 0.9, 0, true},                     //
+		{1, -0x1p-54, 0, false},                          // the tie below 1
 		{1, -0x1p-54 * 0.9, 0x1p-56, false},
 		{-1, 0x1p-54 * 0.9, 0, true}, // mirrored for negative h
 		{-1, 0x1p-54, 0, false},

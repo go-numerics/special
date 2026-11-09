@@ -77,6 +77,16 @@ jobs:
           go vet ./...
           go build ./...
           go test ./...
+      # The binary witness: on arm64 every fused multiply-add the compiler
+      # emitted must come from a math.FMA call (tools/fmalint --objdump).
+      - name: No implicit fused multiply-add in the arm64 binaries
+        if: matrix.label == 'arm64'
+        run: |
+          for p in . ./dd ./cmplx ./nd ./internal/libm; do
+            go test -c -o "$RUNNER_TEMP/w.test" "$p"
+            go tool objdump "$RUNNER_TEMP/w.test" > "$RUNNER_TEMP/w.txt"
+            go -C tools run ./fmalint -C .. --objdump "$RUNNER_TEMP/w.txt"
+          done
 
   arch-qemu:
     name: arch ${{ matrix.goarch }} (qemu)

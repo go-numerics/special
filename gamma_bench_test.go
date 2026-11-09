@@ -7,9 +7,9 @@ func benchPoints(n int, lo, hi float64) []float64 {
 	const g = 0.6180339887498949
 	x := make([]float64, n)
 	for i := range x {
-		f := float64(i) * g
+		f := float64(float64(i) * g)
 		f -= float64(int64(f))
-		x[i] = lo + (hi-lo)*f
+		x[i] = lo + float64((hi-lo)*f)
 	}
 	return x
 }

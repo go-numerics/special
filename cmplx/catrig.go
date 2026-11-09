@@ -31,12 +31,12 @@ const (
 // fHull returns f(a, b) = (hypot(a, b) - b)/2, given h = hypot(a, b).
 func fHull(a, b, h float64) float64 {
 	if b < 0 {
-		return (h - b) / 2
+		return float64((h - b) / 2)
 	}
 	if b == 0 {
-		return a / 2
+		return float64(a / 2)
 	}
-	return a * a / (h + b) / 2
+	return float64(a * a / (h + b) / 2)
 }
 
 // hardWork is msun's do_hard_work: for x, y ≥ 0 below 1/ε it returns
@@ -99,7 +99,7 @@ func clogLarge(x, y float64) (float64, float64) {
 	case ax > quarterSqMax || ay < sqrtMin:
 		rr = libm.Log(libm.Hypot(x, y))
 	default:
-		rr = libm.Log(float64(ax*ax)+float64(ay*ay)) / 2
+		rr = float64(libm.Log(float64(ax*ax)+float64(ay*ay)) / 2)
 	}
 	return rr, arg(y, x)
 }
@@ -275,7 +275,7 @@ func Atanh(z complex128) complex128 {
 	// double-double denominator.
 	var rx float64
 	if ax == 1 && ay < epsilon {
-		rx = (math.Ln2 - libm.Log(ay)) / 2
+		rx = float64((math.Ln2 - libm.Log(ay)) / 2)
 	} else {
 		s, e := dd.TwoSum(ax, -1)
 		den := dd.Add(dd.Sqr(dd.DD{Hi: s, Lo: e}), dd.MulFF(ay, ay))

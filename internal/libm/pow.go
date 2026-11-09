@@ -145,10 +145,10 @@ func pow(x, y float64) float64 {
 			break
 		}
 		if i&1 == 1 {
-			a1 *= x1
+			a1 = float64(a1 * (x1))
 			ae += xe
 		}
-		x1 *= x1
+		x1 = float64(x1 * (x1))
 		xe <<= 1
 		if x1 < .5 {
 			x1 += x1

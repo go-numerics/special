@@ -38,7 +38,7 @@ func recipDD(x float64) dd.DD {
 func digammaAsym(x float64) dd.DD {
 	l := dd.Log(x)
 	h := recipDD(x)
-	h = dd.DD{Hi: h.Hi / 2, Lo: h.Lo / 2}
+	h = dd.DD{Hi: float64(h.Hi / 2), Lo: float64(h.Lo / 2)}
 	r := dd.Sub(l, h)
 	if x > 1e17 {
 		return r

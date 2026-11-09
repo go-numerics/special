@@ -712,8 +712,8 @@ func ErfTo(ζdst, ζx []float64) {
 				}
 			ζL27:
 				sζ0 := ζr27_0
-				hζ0 *= sζ0
-				lζ0 *= sζ0
+				hζ0 = float64(hζ0 * (sζ0))
+				lζ0 = float64(lζ0 * (sζ0))
 				vζ0 := 1 - hζ0
 				ζdst[ζi] = float64(math.Copysign(vζ0+(((1-vζ0)-hζ0)-lζ0), xζ0))
 				continue ζloop
@@ -1018,8 +1018,8 @@ func ErfcTo(ζdst, ζx []float64) {
 				}
 			ζL40:
 				sζ0 := ζr40_0
-				hζ0 *= sζ0
-				lζ0 *= sζ0
+				hζ0 = float64(hζ0 * (sζ0))
+				lζ0 = float64(lζ0 * (sζ0))
 				vζ0 := 2 - hζ0
 				ζdst[ζi] = float64(vζ0 + (((2 - vζ0) - hζ0) - lζ0))
 				continue ζloop
@@ -1264,8 +1264,8 @@ func ErfcxTo(ζdst, ζx []float64) {
 				}
 			ζL50:
 				sζ0 := ζr50_0
-				ehζ0 *= sζ0
-				elζ0 *= sζ0
+				ehζ0 = float64(ehζ0 * (sζ0))
+				elζ0 = float64(elζ0 * (sζ0))
 				var ζr51_0 float64
 				var ζr51_1 float64
 				{
@@ -2067,8 +2067,8 @@ func NdtrTo(ζdst, ζx []float64) {
 				}
 			ζL96:
 				sζ0 := ζr96_0
-				hζ0 *= sζ0
-				lζ0 *= sζ0
+				hζ0 = float64(hζ0 * (sζ0))
+				lζ0 = float64(lζ0 * (sζ0))
 				vζ0 := 1 - hζ0
 				ζdst[ζi] = float64(vζ0 + (((1 - vζ0) - hζ0) - lζ0))
 				continue ζloop
@@ -2795,8 +2795,8 @@ func LogNdtrTo(ζdst, ζx []float64) {
 				}
 			ζL138:
 				sζ0 := ζr138_0
-				hζ0 *= sζ0
-				lζ0 *= sζ0
+				hζ0 = float64(hζ0 * (sζ0))
+				lζ0 = float64(lζ0 * (sζ0))
 				if hζ0 < 0x1p-20 {
 					ζdst[ζi] = float64(-hζ0 - (lζ0 + float64(hζ0*hζ0*math.FMA(hζ0, math.FMA(hζ0, 0.25, 1.0/3), 0.5))))
 					continue ζloop
@@ -2999,8 +2999,8 @@ func ExpitTo(ζdst, ζx []float64) {
 			}
 		ζL149:
 			sζ0 := ζr149_0
-			hζ0 *= sζ0
-			lζ0 *= sζ0
+			hζ0 = float64(hζ0 * (sζ0))
+			lζ0 = float64(lζ0 * (sζ0))
 			dhζ0 := 1 + hζ0
 			dlζ0 := (1 - dhζ0) + hζ0 + lζ0
 			nhζ0, nlζ0 := 1.0, 0.0
@@ -3250,8 +3250,8 @@ func Log1pExpTo(ζdst, ζx []float64) {
 			}
 		ζL163:
 			scζ0 := ζr163_0
-			hζ0 *= scζ0
-			lζ0 *= scζ0
+			hζ0 = float64(hζ0 * (scζ0))
+			lζ0 = float64(lζ0 * (scζ0))
 			if hζ0 < 0x1p-27 {
 				tζ0 := hζ0 + (lζ0 + float64(hζ0*hζ0*math.FMA(hζ0, 1.0/3, -0.5)))
 				if xζ0 > 0 {
@@ -3408,8 +3408,8 @@ func ZetaTo(ζdst, ζx []float64) {
 					scζ165 := ζr168_0
 					thζ165 := float64(ehζ165 * ghζ165)
 					tlζ165 := math.FMA(ehζ165, ghζ165, -thζ165) + math.FMA(ehζ165, glζ165, elζ165*ghζ165)
-					thζ165 *= scζ165
-					tlζ165 *= scζ165
+					thζ165 = float64(thζ165 * (scζ165))
+					tlζ165 = float64(tlζ165 * (scζ165))
 					rζ165 := 1 + thζ165
 					ζr165_0 = float64(rζ165 + (((1 - rζ165) + thζ165) + tlζ165))
 					goto ζL165
@@ -4750,7 +4750,7 @@ func BetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 									for _, cζ241 := range stirlingCoef {
 										sumζ241 = math.FMA(cζ241, tnζ241, sumζ241)
 										tnζ241 = math.FMA(ib2ζ241, tnζ241, pwζ241*sgζ241)
-										pwζ241 *= is2ζ241
+										pwζ241 = float64(pwζ241 * (is2ζ241))
 									}
 									dsζ241 := float64(dζ241 * sumζ241)
 									uζ241 := -t1hζ241 - t3hζ241
@@ -4914,7 +4914,7 @@ func BetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 							for _, cζ252 := range stirlingCoef {
 								sumζ252 = math.FMA(cζ252, tnζ252, sumζ252)
 								tnζ252 = math.FMA(ib2ζ252, tnζ252, pwζ252*sgζ252)
-								pwζ252 *= is2ζ252
+								pwζ252 = float64(pwζ252 * (is2ζ252))
 							}
 							dsζ252 := float64(dζ252 * sumζ252)
 							uζ252 := -t1hζ252 - t3hζ252
@@ -5363,7 +5363,7 @@ func BetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 								for _, cζ272 := range stirlingCoef {
 									sumζ272 = math.FMA(cζ272, tnζ272, sumζ272)
 									tnζ272 = math.FMA(ib2ζ272, tnζ272, pwζ272*sgζ272)
-									pwζ272 *= is2ζ272
+									pwζ272 = float64(pwζ272 * (is2ζ272))
 								}
 								dsζ272 := float64(dζ272 * sumζ272)
 								uζ272 := -t1hζ272 - t3hζ272
@@ -5869,7 +5869,7 @@ func LogBetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 										for _, cζ295 := range stirlingCoef {
 											sumζ295 = math.FMA(cζ295, tnζ295, sumζ295)
 											tnζ295 = math.FMA(ib2ζ295, tnζ295, pwζ295*sgζ295)
-											pwζ295 *= is2ζ295
+											pwζ295 = float64(pwζ295 * (is2ζ295))
 										}
 										dsζ295 := float64(dζ295 * sumζ295)
 										uζ295 := -t1hζ295 - t3hζ295
@@ -6021,7 +6021,7 @@ func LogBetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 										for _, cζ306 := range stirlingCoef {
 											sumζ306 = math.FMA(cζ306, tnζ306, sumζ306)
 											tnζ306 = math.FMA(ib2ζ306, tnζ306, pwζ306*sgζ306)
-											pwζ306 *= is2ζ306
+											pwζ306 = float64(pwζ306 * (is2ζ306))
 										}
 										dsζ306 := float64(dζ306 * sumζ306)
 										uζ306 := -t1hζ306 - t3hζ306
@@ -6185,7 +6185,7 @@ func LogBetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 								for _, cζ317 := range stirlingCoef {
 									sumζ317 = math.FMA(cζ317, tnζ317, sumζ317)
 									tnζ317 = math.FMA(ib2ζ317, tnζ317, pwζ317*sgζ317)
-									pwζ317 *= is2ζ317
+									pwζ317 = float64(pwζ317 * (is2ζ317))
 								}
 								dsζ317 := float64(dζ317 * sumζ317)
 								uζ317 := -t1hζ317 - t3hζ317

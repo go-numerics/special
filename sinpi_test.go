@@ -36,7 +36,7 @@ func bigSinCosPi(x float64) (float64, float64) {
 func TestSinCosPi(t *testing.T) {
 	worstS, worstC := 0.0, 0.0
 	for i := 0; i < 20000; i++ {
-		x := -8 + 16*float64(i)/20000 + 1e-7*float64(i%7)
+		x := -8 + 16*float64(i)/20000 + float64(1e-7*float64(i%7))
 		ws, wc := bigSinCosPi(x)
 		if math.Abs(ws) > 1e-40 {
 			worstS = math.Max(worstS, math.Abs(sinPi(x)-ws)/ulp(ws))

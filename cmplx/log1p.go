@@ -88,7 +88,7 @@ func Expm1(x complex128) complex128 {
 		return complex(real(w), imag(w))
 	}
 	s, c := sincosDD(im)
-	sh, _ := sincosDD(im / 2)
+	sh, _ := sincosDD(float64(im / 2))
 	m, k := dd.ExpMant(dd.F(re))
 	r := dd.Sub(dd.Mul(expm1DD(re), c), dd.Ldexp(dd.Sqr(sh), 1))
 	ri := r.Hi

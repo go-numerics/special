@@ -23,9 +23,11 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/parser"
 	"go/token"
 	"go/types"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -41,6 +43,12 @@ type Finding struct {
 	End      int    // byte offset just past it
 	TypeName string // float64 or float32; "" for a math call
 	Math     string // the math function called, for a call whose bits depend on the architecture
+	// MulAssign is set for `x *= y`: a product stored unrounded like any
+	// other. Start..End span the whole statement; OpStart..OpEnd the `*=`.
+	MulAssign        bool
+	OpStart, OpEnd   int
+	LHSStart, LHSEnd int
+	RHSStart, RHSEnd int
 }
 
 // exactMath lists the functions of package math whose results are the same
@@ -63,25 +71,33 @@ var libmFuncs = map[string]bool{
 	"Sincos": true, "Sinh": true, "Tan": true,
 }
 
-// Lint loads the packages matched by patterns (relative to dir) and returns
-// the open products of their non-test, non-generated-by-hand Go files,
-// sorted by position.
+// Lint loads the packages matched by patterns (relative to dir), their
+// tests included (a test's inputs computed with a fused product differ by
+// architecture as much as the code under test), and returns the findings
+// sorted by position, each file once.
 func Lint(dir string, patterns ...string) ([]Finding, error) {
 	cfg := &packages.Config{
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
 			packages.NeedTypes | packages.NeedTypesInfo,
-		Dir: dir,
+		Dir:   dir,
+		Tests: true,
 	}
 	pkgs, err := packages.Load(cfg, patterns...)
 	if err != nil {
 		return nil, err
 	}
 	var out []Finding
+	done := map[string]bool{} // with Tests, a file appears in several package variants
 	for _, p := range pkgs {
 		if len(p.Errors) > 0 {
 			return nil, fmt.Errorf("%s: %v", p.PkgPath, p.Errors[0])
 		}
 		for _, f := range p.Syntax {
+			name := p.Fset.Position(f.Pos()).Filename
+			if done[name] {
+				continue
+			}
+			done[name] = true
 			out = append(out, lintFile(p.Fset, p.TypesInfo, f)...)
 		}
 	}
@@ -92,6 +108,21 @@ func Lint(dir string, patterns ...string) ([]Finding, error) {
 		return out[i].Start < out[j].Start
 	})
 	return out, nil
+}
+
+// isPow2Const reports whether e is a constant ±2^k, the divisors the
+// compiler turns into a multiplication by the (exact) reciprocal.
+func isPow2Const(info *types.Info, e ast.Expr) bool {
+	tv, ok := info.Types[e]
+	if !ok || tv.Value == nil {
+		return false
+	}
+	f, ok := constant.Float64Val(constant.ToFloat(tv.Value))
+	if !ok || f == 0 || math.IsInf(f, 0) {
+		return false
+	}
+	frac, _ := math.Frexp(math.Abs(f))
+	return frac == 0.5
 }
 
 func floatKind(info *types.Info, e ast.Expr) (string, bool) {
@@ -117,6 +148,7 @@ func floatKind(info *types.Info, e ast.Expr) (string, bool) {
 
 func lintFile(fset *token.FileSet, info *types.Info, f *ast.File) []Finding {
 	var out []Finding
+	isTest := strings.HasSuffix(fset.Position(f.Pos()).Filename, "_test.go")
 	// parents maps every node to its parent, skipping nothing.
 	parents := map[ast.Node]ast.Node{}
 	var stack []ast.Node
@@ -132,7 +164,21 @@ func lintFile(fset *token.FileSet, info *types.Info, f *ast.File) []Finding {
 		return true
 	})
 	ast.Inspect(f, func(n ast.Node) bool {
-		if sel, ok := n.(*ast.SelectorExpr); ok {
+		if as, ok := n.(*ast.AssignStmt); ok && as.Tok == token.MUL_ASSIGN && len(as.Lhs) == 1 {
+			if tn, ok := floatKind(info, as.Lhs[0]); ok {
+				off := func(p token.Pos) int { return fset.Position(p).Offset }
+				out = append(out, Finding{
+					Pos: fset.Position(as.Pos()), Start: off(as.Pos()), End: off(as.End()),
+					TypeName: tn, MulAssign: true,
+					OpStart: off(as.TokPos), OpEnd: off(as.TokPos) + 2,
+					LHSStart: off(as.Lhs[0].Pos()), LHSEnd: off(as.Lhs[0].End()),
+					RHSStart: off(as.Rhs[0].Pos()), RHSEnd: off(as.Rhs[0].End()),
+				})
+			}
+			return true
+		}
+		if sel, ok := n.(*ast.SelectorExpr); ok && !isTest {
+			// (tests may call math as an oracle; their products still count)
 			if fn, ok := info.Uses[sel.Sel].(*types.Func); ok && fn.Pkg() != nil &&
 				fn.Pkg().Path() == "math" && !exactMath[fn.Name()] {
 				out = append(out, Finding{
@@ -145,9 +191,10 @@ func lintFile(fset *token.FileSet, info *types.Info, f *ast.File) []Finding {
 			return true
 		}
 		be, ok := n.(*ast.BinaryExpr)
-		if !ok || be.Op != token.MUL {
+		if !ok || (be.Op != token.MUL && !(be.Op == token.QUO && isPow2Const(info, be.Y))) {
 			return true
 		}
+		// x / 2^k is compiled as x * 2^-k (exact), a product like any other.
 		tn, ok := floatKind(info, be)
 		if !ok {
 			return true
@@ -270,6 +317,17 @@ func Fix(findings []Finding, libmPath string) (int, error) {
 				// insert "libm" (same length, so no offset moves).
 				copy(src[f.Start:f.Start+4], "libm")
 				replaced = true
+				continue
+			}
+			if f.MulAssign {
+				// x *= y  ->  x = float64(x * (y))
+				// (same length for the operator, so no offset moves; gofmt
+				// then normalises the spacing)
+				lhs := string(src[f.LHSStart:f.LHSEnd])
+				copy(src[f.OpStart:f.OpEnd], " =")
+				all = append(all,
+					ins{f.RHSEnd, "))"},
+					ins{f.RHSStart, f.TypeName + "(" + lhs + " * ("})
 				continue
 			}
 			all = append(all, ins{f.Start, f.TypeName + "("}, ins{f.End, ")"})

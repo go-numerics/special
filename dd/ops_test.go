@@ -1,6 +1,7 @@
 package dd
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/big"
 	"math/rand"
@@ -26,7 +27,7 @@ func mk(hi float64, frac float64) DD {
 		frac = 0
 	}
 	frac = math.Mod(frac, 1)
-	lo := hi * u * frac
+	lo := float64(hi * u * frac)
 	s, t := FastTwoSum(hi, lo)
 	return DD{s, t}
 }
@@ -101,14 +102,14 @@ func FuzzArith(f *testing.F) {
 func TestArithRandom(t *testing.T) {
 	rng := rand.New(rand.NewSource(1))
 	for i := 0; i < 20000; i++ {
-		a := mk(rng.NormFloat64()*math.Exp(rng.NormFloat64()*20), rng.Float64()*2-1)
-		b := mk(rng.NormFloat64()*math.Exp(rng.NormFloat64()*20), rng.Float64()*2-1)
+		a := mk(float64(rng.NormFloat64()*libm.Exp(float64(rng.NormFloat64()*20))), float64(rng.Float64()*2)-1)
+		b := mk(float64(rng.NormFloat64()*libm.Exp(float64(rng.NormFloat64()*20))), float64(rng.Float64()*2)-1)
 		checkOps(t, a, b)
 	}
 	// near-cancellation
 	for i := 0; i < 2000; i++ {
-		a := mk(rng.NormFloat64(), rng.Float64()*2-1)
-		b := Neg(Add(a, DD{a.Hi * 0x1p-60 * rng.Float64(), 0}))
+		a := mk(rng.NormFloat64(), float64(rng.Float64()*2)-1)
+		b := Neg(Add(a, DD{float64(a.Hi * 0x1p-60 * rng.Float64()), 0}))
 		checkOps(t, a, b)
 	}
 }
@@ -164,10 +165,10 @@ func TestDotSum(t *testing.T) {
 		absD := new(big.Float).SetPrec(4000)
 		absS := new(big.Float).SetPrec(4000)
 		for i := range x {
-			x[i] = rng.NormFloat64() * math.Exp(rng.NormFloat64()*5)
-			y[i] = rng.NormFloat64() * math.Exp(rng.NormFloat64()*5)
-			xd[i] = mk(x[i], rng.Float64()*2-1)
-			yd[i] = mk(y[i], rng.Float64()*2-1)
+			x[i] = float64(rng.NormFloat64() * libm.Exp(float64(rng.NormFloat64()*5)))
+			y[i] = float64(rng.NormFloat64() * libm.Exp(float64(rng.NormFloat64()*5)))
+			xd[i] = mk(x[i], float64(rng.Float64()*2)-1)
+			yd[i] = mk(y[i], float64(rng.Float64()*2)-1)
 			p := new(big.Float).SetPrec(4000).Mul(new(big.Float).SetFloat64(x[i]), new(big.Float).SetFloat64(y[i]))
 			exact.Add(exact, p)
 			abs.Add(abs, new(big.Float).Abs(p))
@@ -179,7 +180,7 @@ func TestDotSum(t *testing.T) {
 		}
 		// Bound: n terms, each Add costs 3u^2 of the running magnitude, each
 		// Mul 5u^2 of its term (test bound; sum of |terms| is the scale).
-		tol := float64(n+1) * 8 * u * u
+		tol := float64(float64(n+1) * 8 * u * u)
 		for _, c := range []struct {
 			name        string
 			got         DD
@@ -274,7 +275,7 @@ func TestConversions(t *testing.T) {
 	// FromBig/Big round trip on representable values, and nearest rounding.
 	rng := rand.New(rand.NewSource(3))
 	for i := 0; i < 2000; i++ {
-		a := mk(rng.NormFloat64()*10, rng.Float64()*2-1)
+		a := mk(float64(rng.NormFloat64()*10), float64(rng.Float64()*2)-1)
 		if g := FromBig(a.Big()); g != a {
 			t.Fatalf("round trip %v -> %v", a, g)
 		}
@@ -346,9 +347,9 @@ func TestElementaryEdges(t *testing.T) {
 	for _, x := range []float64{5e-324, 1e-310, 1.5, 1.9, 0.75} {
 		got := Log(x)
 		// math.Log is wrong for subnormals on amd64: scale first.
-		want := math.Log(x*0x1p54) - 54*math.Ln2
+		want := libm.Log(float64(x*0x1p54)) - 54*math.Ln2
 		if x > 1e-300 {
-			want = math.Log(x)
+			want = libm.Log(x)
 		}
 		if math.Abs(got.Float()-want) > 1e-15*math.Abs(want) {
 			t.Fatalf("Log(%g)", x)

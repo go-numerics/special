@@ -84,7 +84,7 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 	g1, g2 := besselRGammaPair(u)
 	rgp := g2 - float64(u*g1) // 1/Gamma(1+u)
 	rgm := g2 + float64(u*g1) // 1/Gamma(1-u)
-	spv2 := sinPi(u / 2)
+	spv2 := sinPi(float64(u / 2))
 	xp := besselPowHalf(x, u)
 	a := besselLogHalf(x)
 	sigma := float64(-a * u)
@@ -92,7 +92,7 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 	if math.Abs(sigma) >= 0x1p-52 {
 		d = libm.Sinh(sigma) / sigma
 	}
-	e := u * math.Pi * math.Pi / 2
+	e := float64(u * math.Pi * math.Pi / 2)
 	if math.Abs(u) >= 0x1p-52 {
 		e = 2 * spv2 * spv2 / u
 	}
@@ -109,7 +109,7 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 	sum := float64(coef * g)
 	sum1 := float64(coef * h)
 	v2 := float64(u * u)
-	cm := -x * x / 4
+	cm := float64(-x * x / 4)
 	for k := 1; k < 1000; k++ {
 		fk := float64(k)
 		f = (float64(fk*f) + p + q) / (float64(fk*fk) - v2)
@@ -117,7 +117,7 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 		q /= fk + u
 		g = f + float64(e*q)
 		h = p - float64(fk*g)
-		coef *= cm / fk
+		coef = float64(coef * (cm / fk))
 		sum += float64(coef * g)
 		sum1 += float64(coef * h)
 		if math.Abs(coef*g) < math.Abs(sum)*0x1p-53 {
@@ -298,7 +298,7 @@ func besselSeries(v, x, sg float64, scaled bool) (m float64, e int) {
 	}
 	// terms and sum in double-double: for I the terms may grow a long way
 	// before they fall, and one rounding per term would add up
-	q := dd.MulF(dd.MulFF(x, x), sg/4)
+	q := dd.MulF(dd.MulFF(x, x), float64(sg/4))
 	t, s := dd.F(1), dd.F(1)
 	for k := 1; k < 100000; k++ {
 		fk := float64(k)
@@ -376,13 +376,13 @@ func besselLdexpExp(m float64, e int, t float64) float64 {
 // the first or both are accurate.
 func besselYSeries(v, x float64) float64 {
 	L, _ := besselLogPowGamma(v, x)
-	m := -x * x / 4
+	m := float64(-x * x / 4)
 	ta, sa := 1.0, 0.0 // tails after the leading 1, added once at the end
 	tb, sb := 1.0, 0.0
 	for k := 1; k < 1000; k++ {
 		fk := float64(k)
-		ta *= m / (fk * (fk - v))
-		tb *= m / (fk * (fk + v))
+		ta = float64(ta * (m / (fk * (fk - v))))
+		tb = float64(tb * (m / (fk * (fk + v))))
 		sa += ta
 		sb += tb
 		if math.Abs(ta) <= 0x1p-56*math.Abs(1+sa) && math.Abs(tb) <= 0x1p-56*math.Abs(1+sb) {

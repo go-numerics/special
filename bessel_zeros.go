@@ -46,13 +46,13 @@ func besselJZeroGuess(n, k int) float64 {
 	}
 	// Olver: j ~ v z(zeta), zeta = v^(-2/3) |a_k|, a_k the k-th zero of Ai,
 	// with (2/3) zeta^(3/2) = sqrt(z^2 - 1) - arcsec z.
-	t := 3 * math.Pi * (float64(4*float64(k)) - 1) / 8
+	t := float64(3 * math.Pi * (float64(4*float64(k)) - 1) / 8)
 	ti := 1 / (t * t)
 	ak := float64(libm.Pow(t, 2.0/3) * (1 + float64(ti*(5.0/48+float64(ti*(-5.0/36+float64(ti*(77125.0/82944-ti*108056875.0/6967296))))))))
 	zeta := ak / libm.Pow(v, 2.0/3)
 	w := float64(2.0 / 3 * zeta * math.Sqrt(zeta))
 	b := -(w + math.Pi/2)
-	z := (-b + math.Sqrt(float64(b*b)-2)) / 2
+	z := float64((-b + math.Sqrt(float64(b*b)-2)) / 2)
 	for i := 0; i < 20; i++ {
 		s := math.Sqrt(float64(z*z) - 1)
 		f := s - libm.Acos(1/z) - w

@@ -99,10 +99,10 @@ var besselEulerDD = dd.DD{Hi: 0.5772156649015329, Lo: -4.942915152430645e-18}
 // besselJ0Series is J0(x) = sum (-x^2/4)^k / (k!)^2 (DLMF 10.2.2) for
 // 0 <= x <= 1, where the terms fall by a factor 4 at least.
 func besselJ0Series(x float64) float64 {
-	m := -x * x / 4
+	m := float64(-x * x / 4)
 	t, s := 1.0, 0.0
 	for k := 1; k < 30; k++ {
-		t *= m / float64(k*k)
+		t = float64(t * (m / float64(k*k)))
 		s += t
 		if math.Abs(t) < 0x1p-60 {
 			break
@@ -114,10 +114,10 @@ func besselJ0Series(x float64) float64 {
 // besselJ1Series is J1(x) = (x/2) sum (-x^2/4)^k / (k! (k+1)!) for
 // 0 <= x <= 1.5.
 func besselJ1Series(x float64) float64 {
-	m := -x * x / 4
+	m := float64(-x * x / 4)
 	t, s := 1.0, 0.0
 	for k := 1; k < 30; k++ {
-		t *= m / float64(k*(k+1))
+		t = float64(t * (m / float64(k*(k+1))))
 		s += t
 		if math.Abs(t) < 0x1p-60 {
 			break
@@ -130,12 +130,12 @@ func besselJ1Series(x float64) float64 {
 // Y0 = (2/pi) [(log(x/2) + gamma) J0(x) + sum_{k>=1} (-1)^(k+1) H_k (x^2/4)^k / (k!)^2],
 // with the logarithm and the constants in double-double.
 func besselY0Series(x float64) float64 {
-	q := x * x / 4
+	q := float64(x * x / 4)
 	t, s, H := 1.0, 0.0, 0.0
 	for k := 1; k < 30; k++ {
 		fk := float64(k)
 		H += 1 / fk
-		t *= -q / (fk * fk)
+		t = float64(t * (-q / (fk * fk)))
 		s -= float64(H * t)
 		if math.Abs(t) < 0x1p-60 {
 			break
@@ -150,14 +150,14 @@ func besselY0Series(x float64) float64 {
 // Y1 = -2/(pi x) + (2/pi) log(x/2) J1(x)
 //   - (x/(2 pi)) sum (psi(k+1) + psi(k+2)) (-x^2/4)^k / (k! (k+1)!).
 func besselY1Series(x float64) float64 {
-	m := -x * x / 4
+	m := float64(-x * x / 4)
 	g := besselEulerDD.Hi
 	t, H := 1.0, 0.0
 	s := 1 - float64(2*g) // k = 0: psi(1) + psi(2) = 1 - 2 gamma
 	for k := 1; k < 30; k++ {
 		fk := float64(k)
 		H += 1 / fk
-		t *= m / (fk * (fk + 1))
+		t = float64(t * (m / (fk * (fk + 1))))
 		s += float64(t * (float64(2*H) + 1/(fk+1) - float64(2*g)))
 		if math.Abs(t) < 0x1p-60 {
 			break

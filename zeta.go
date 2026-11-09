@@ -149,8 +149,8 @@ func hurwitzPos(s float64, q dd.DD) scaled {
 			break
 		}
 		k := float64(2*j - 1)
-		poch *= float64((s + k) * (s + k + 1))
-		pw *= iw2
+		poch = float64(poch * (float64((s + k) * (s + k + 1))))
+		pw = float64(pw * (iw2))
 	}
 	br = dd.AddF(br, tail)
 	terms = append(terms, scaled{dd.Mul(wm, br), we})
@@ -225,8 +225,8 @@ func zetaTailFast(s float64) float64 {
 	sc := pow2(k) // k >= -65
 	th := float64(eh * gh)
 	tl := math.FMA(eh, gh, -th) + math.FMA(eh, gl, el*gh)
-	th *= sc
-	tl *= sc
+	th = float64(th * (sc))
+	tl = float64(tl * (sc))
 	r := 1 + th // Fast2Sum: ζ(s) - 1 < 0.02
 	return r + (((1 - r) + th) + tl)
 }
@@ -249,7 +249,7 @@ func zetaAbove2(s float64) dd.DD {
 
 // zetaReflect returns ζ(s) for s < -1 by the reflection formula.
 func zetaReflect(s float64) float64 {
-	sn := sinPiDD(s / 2) // s/2 exact
+	sn := sinPiDD(float64(s / 2)) // s/2 exact
 	if sn.Hi == 0 {
 		return 0 // trivial zero
 	}
@@ -439,8 +439,8 @@ func hurwitzFast(s, q float64) (float64, bool) {
 			break // converged (TestHurwitzShiftBound: always by j = 25)
 		}
 		kk := float64(2*j - 1)
-		poch *= float64((s + kk) * (s + kk + 1))
-		pw *= iw2
+		poch = float64(poch * (float64((s + kk) * (s + kk + 1))))
+		pw = float64(pw * (iw2))
 	}
 	c1 := bh + 0.5 // Fast2Sum: w/(s-1) > 1
 	e1 := (bh - c1) + 0.5

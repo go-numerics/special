@@ -147,7 +147,7 @@ func TestMap3AndDTypes(t *testing.T) {
 	a := arr(t, []float64{1, 2}, 2)
 	b := arr(t, []float64{3}, 1)
 	c := arr(t, []float64{4, 5, 6, 7}, 2, 2)
-	r, err := Map3(func(x, y, z float64) float64 { return x*100 + y*10 + z }, a, b, c)
+	r, err := Map3(func(x, y, z float64) float64 { return float64(x*100) + float64(y*10) + z }, a, b, c)
 	if err != nil {
 		t.Fatal(err)
 	}

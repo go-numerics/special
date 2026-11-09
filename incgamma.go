@@ -201,7 +201,7 @@ func igamLowerSeriesRest(a, x float64) dd.DD {
 	}
 	tail := 0.0
 	for ; n < 10000 && th > 0x1p-60*sh; n++ {
-		th *= x / (a + n)
+		th = float64(th * (x / (a + n)))
 		tail += th
 	}
 	h, l := dd.FastTwoSum(sh, sl+tail)
@@ -261,7 +261,7 @@ func igamFractionDenDD(a, x float64) dd.DD {
 		bk := b0 + float64(2*k*sc)
 		a2, a1 = a1, float64(bk*a1)+float64(ak*a2)
 		b2, b1 = b1, float64(bk*b1)+float64(ak*b2)
-		dk *= ak
+		dk = float64(dk * (ak))
 	}
 	// Four steps between checks. An integer a ends the fraction (a_k = 0 at
 	// k = a): D_k is 0 from there on and the test below stops.
