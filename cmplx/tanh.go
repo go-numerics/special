@@ -1,6 +1,7 @@
 package cmplx
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -73,7 +74,7 @@ func Tanh(z complex128) complex128 {
 		// i NaN) = ±1 ± i0 (sign of the zero unspecified).
 		v := y
 		if finite(y) {
-			v = float64(math.Sin(y) * math.Cos(y))
+			v = float64(libm.Sin(y) * libm.Cos(y))
 		}
 		return complex(math.Copysign(1, x), math.Copysign(0, v))
 	}

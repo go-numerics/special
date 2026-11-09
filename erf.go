@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -85,7 +86,7 @@ func erfcDD(z dd.DD) dd.DD {
 	}
 	// 1 - erf(z), erf(z.Hi + z.Lo) = erf(z.Hi) + erf'(z.Hi) z.Lo
 	e := erfSmallDD(z.Hi)
-	e = dd.AddF(e, float64(z.Lo*twoOverSqrtPi.Hi*math.Exp(-z.Hi*z.Hi)))
+	e = dd.AddF(e, float64(z.Lo*twoOverSqrtPi.Hi*libm.Exp(float64(-z.Hi*z.Hi))))
 	return dd.Sub(dd.F(1), e)
 }
 

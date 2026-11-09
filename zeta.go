@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -237,7 +238,7 @@ func zetaTailFast(s float64) float64 {
 func zetaAbove2(s float64) dd.DD {
 	switch {
 	case s >= 64:
-		return dd.AddF(dd.F(1), math.Exp2(-s))
+		return dd.AddF(dd.F(1), libm.Exp2(-s))
 	case s <= 6:
 		return dd.Add(recipDD(s-1), evalPiecesDD(zetaPieces[:], s)) // s-1 exact
 	}

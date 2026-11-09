@@ -12,7 +12,10 @@
 // (DWPlusDW: Algorithm 6, DWTimesDW: Algorithm 12, DWDivDW: Algorithm 18).
 package dd
 
-import "math"
+import (
+	"github.com/go-numerics/special/internal/libm"
+	"math"
+)
 
 // DD is an unevaluated sum Hi + Lo.
 type DD struct{ Hi, Lo float64 }
@@ -227,7 +230,7 @@ func Ldexp(a DD, k int) DD {
 // Log(0) = -Inf, Log(+Inf) = +Inf, NaN for x < 0 or NaN (as math.Log).
 func Log(x float64) DD {
 	if !(x > 0) || x > math.MaxFloat64 {
-		return DD{math.Log(x), 0}
+		return DD{libm.Log(x), 0}
 	}
 	k := 0
 	if x < 0x1p-1022 {
@@ -267,7 +270,7 @@ func Log(x float64) DD {
 // that cancel to below 2^-30 of their size (Digamma near its zeros).
 func LogAccurate(x float64) DD {
 	if !(x > 0) || x > math.MaxFloat64 {
-		return DD{math.Log(x), 0}
+		return DD{libm.Log(x), 0}
 	}
 	m, k := math.Frexp(x) // x = m * 2^k, m in [0.5, 1); Frexp normalises subnormals
 	if m < math.Sqrt2/2 {

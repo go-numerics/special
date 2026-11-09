@@ -1,6 +1,7 @@
 package cmplx
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -42,24 +43,24 @@ func fHull(a, b, h float64) float64 {
 // rx = Re casinh(x+iy) and either B = y/A (usable) or sqrt(A² - y²) and a
 // possibly rescaled y for atan2.
 func hardWork(x, y float64) (rx float64, bUsable bool, b, sqrtA2my2, newY float64) {
-	r := math.Hypot(x, y+1)
-	s := math.Hypot(x, y-1)
+	r := libm.Hypot(x, y+1)
+	s := libm.Hypot(x, y-1)
 	// A ≥ 1 mathematically; msun clamps it in case rounding says otherwise
 	// (no float64 case was found in a search of 10^5 points; kept as a
 	// guard).
 	a := math.Max((r+s)/2, 1)
 	switch {
 	case a >= aCrossover:
-		rx = math.Log(a + math.Sqrt(float64(a*a)-1))
+		rx = libm.Log(a + math.Sqrt(float64(a*a)-1))
 	case y == 1 && x < epsilon*epsilon/128:
 		rx = math.Sqrt(x)
 	case x >= epsilon*math.Abs(y-1):
 		am1 := fHull(x, 1+y, r) + fHull(x, 1-y, s)
-		rx = math.Log1p(am1 + math.Sqrt(am1*(a+1)))
+		rx = libm.Log1p(am1 + math.Sqrt(am1*(a+1)))
 	case y < 1:
 		rx = x / math.Sqrt((1-y)*(1+y))
 	default:
-		rx = math.Log1p((y - 1) + math.Sqrt((y-1)*(y+1)))
+		rx = libm.Log1p((y - 1) + math.Sqrt((y-1)*(y+1)))
 	}
 	newY = y
 	if y < fourSqrtMin {
@@ -94,11 +95,11 @@ func clogLarge(x, y float64) (float64, float64) {
 	var rr float64
 	switch {
 	case ax > math.MaxFloat64/2:
-		rr = math.Log(math.Hypot(x/math.E, y/math.E)) + 1
+		rr = libm.Log(libm.Hypot(x/math.E, y/math.E)) + 1
 	case ax > quarterSqMax || ay < sqrtMin:
-		rr = math.Log(math.Hypot(x, y))
+		rr = libm.Log(libm.Hypot(x, y))
 	default:
-		rr = math.Log(float64(ax*ax)+float64(ay*ay)) / 2
+		rr = libm.Log(float64(ax*ax)+float64(ay*ay)) / 2
 	}
 	return rr, arg(y, x)
 }
@@ -137,7 +138,7 @@ func Asinh(z complex128) complex128 {
 	rx, bUsable, b, sqrtA2my2, newY := hardWork(ax, ay)
 	var ry float64
 	if bUsable {
-		ry = math.Asin(b)
+		ry = libm.Asin(b)
 	} else {
 		ry = arg(newY, sqrtA2my2)
 	}
@@ -187,9 +188,9 @@ func Acos(z complex128) complex128 {
 	var rx float64
 	switch {
 	case bUsable && !sx:
-		rx = math.Acos(b)
+		rx = libm.Acos(b)
 	case bUsable:
-		rx = math.Acos(-b)
+		rx = libm.Acos(-b)
 	case !sx:
 		rx = arg(sqrtA2mx2, newX)
 	default:
@@ -246,10 +247,10 @@ func Atanh(z complex128) complex128 {
 	x, y := real(z), imag(z)
 	ax, ay := math.Abs(x), math.Abs(y)
 	if y == 0 && ax <= 1 {
-		return complex(math.Atanh(x), y)
+		return complex(libm.Atanh(x), y)
 	}
 	if x == 0 {
-		return complex(x, math.Atan(y))
+		return complex(x, libm.Atan(y))
 	}
 	if math.IsNaN(x) || math.IsNaN(y) {
 		switch {
@@ -274,7 +275,7 @@ func Atanh(z complex128) complex128 {
 	// double-double denominator.
 	var rx float64
 	if ax == 1 && ay < epsilon {
-		rx = (math.Ln2 - math.Log(ay)) / 2
+		rx = (math.Ln2 - libm.Log(ay)) / 2
 	} else {
 		s, e := dd.TwoSum(ax, -1)
 		den := dd.Add(dd.Sqr(dd.DD{Hi: s, Lo: e}), dd.MulFF(ay, ay))

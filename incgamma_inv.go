@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -111,7 +112,7 @@ func igamLogTail(a, x, t float64, upper bool, lt dd.DD, lga float64) (g, r float
 		default:
 			l = igamLog1pDD(dd.Neg(qd))
 		}
-		return dd.Sub(l, lt).Float(), math.Exp(dd.Sub(lpre, l).Hi)
+		return dd.Sub(l, lt).Float(), libm.Exp(dd.Sub(lpre, l).Hi)
 	}
 	p, q := igamPQ(a, x)
 	v := p
@@ -123,11 +124,11 @@ func igamLogTail(a, x, t float64, upper bool, lt dd.DD, lga float64) (g, r float
 	}
 	lv := logf(v)
 	if v > 0.5*t && v < 2*t {
-		g = math.Log1p((v - t) / t)
+		g = libm.Log1p((v - t) / t)
 	} else {
 		g = lv - lt.Hi
 	}
-	return g, math.Exp(igamLogPrefixF(a, x, lga) - lv)
+	return g, libm.Exp(igamLogPrefixF(a, x, lga) - lv)
 }
 
 // igamLogPrefixF is igamLogPrefix in float64 (for the Newton slope only):
@@ -136,7 +137,7 @@ func igamLogTail(a, x, t float64, upper bool, lt dd.DD, lga float64) (g, r float
 func igamLogPrefixF(a, x, lga float64) float64 {
 	if a >= 10 && x > 0x1p-20*a {
 		d := (x - a) / a
-		return float64(a*(math.Log1p(d)-d)) + float64(0.5*math.Log(a)) - lnSqrt2Pi.Hi - stirlingSeries(a)
+		return float64(a*(libm.Log1p(d)-d)) + float64(0.5*libm.Log(a)) - lnSqrt2Pi.Hi - stirlingSeries(a)
 	}
 	return float64(a*logf(x)) - x - lga
 }
@@ -224,7 +225,7 @@ func igamInvSolve(a, t float64, upper bool, x0 float64) float64 {
 		}
 		nx := math.NaN()
 		if !math.IsInf(step, 0) && !math.IsNaN(step) && step < 700 {
-			nx = float64(x + float64(x*math.Expm1(step)))
+			nx = float64(x + float64(x*libm.Expm1(step)))
 		}
 		// Converged: the step is below the resolution of x. (Stopping
 		// earlier on the cubic convergence lands up to the forward
@@ -287,26 +288,26 @@ func igamInvGuess(a, p, q float64) float64 {
 			// DiDonato and Morris Eq 21
 			var u float64
 			if b*q > 1e-8 && q > 1e-5 {
-				u = math.Pow(p*g*a, 1/a)
+				u = libm.Pow(float64(p*g*a), 1/a)
 			} else {
-				u = math.Exp(-q/a - euler)
+				u = libm.Exp(-q/a - euler)
 			}
 			return u / (1 - u/(a+1))
 		case a < 0.3 && b >= 0.35:
 			// DiDonato and Morris Eq 22
-			t := math.Exp(-euler - b)
-			u := float64(t * math.Exp(t))
-			return float64(t * math.Exp(u))
+			t := libm.Exp(-euler - b)
+			u := float64(t * libm.Exp(t))
+			return float64(t * libm.Exp(u))
 		case b > 0.15 || a >= 0.3:
 			// DiDonato and Morris Eq 23
 			y := -igamLog(b)
-			u := y - float64((1-a)*math.Log(y))
-			return y - float64((1-a)*math.Log(u)) - math.Log(1+(1-a)/(1+u))
+			u := y - float64((1-a)*libm.Log(y))
+			return y - float64((1-a)*libm.Log(u)) - libm.Log(1+(1-a)/(1+u))
 		case b > 0.1:
 			// DiDonato and Morris Eq 24
 			y := -igamLog(b)
-			u := y - float64((1-a)*math.Log(y))
-			return y - float64((1-a)*math.Log(u)) - math.Log((float64(u*u)+float64(2*(3-a)*u)+float64((2-a)*(3-a)))/(float64(u*u)+float64((5-a)*u)+2))
+			u := y - float64((1-a)*libm.Log(y))
+			return y - float64((1-a)*libm.Log(u)) - libm.Log((float64(u*u)+float64(2*(3-a)*u)+float64((2-a)*(3-a)))/(float64(u*u)+float64((5-a)*u)+2))
 		}
 		// DiDonato and Morris Eq 25
 		return igamInvEq25(a, -igamLog(b))
@@ -336,8 +337,8 @@ func igamInvGuess(a, p, q float64) float64 {
 			return igamInvEq25(a, -lb)
 		}
 		// DiDonato and Morris Eq 33
-		u := -lb + float64((a-1)*math.Log(w)) - math.Log(1+(1-a)/(1+w))
-		return -lb + float64((a-1)*math.Log(u)) - math.Log(1+(1-a)/(1+u))
+		u := -lb + float64((a-1)*libm.Log(w)) - libm.Log(1+(1-a)/(1+w))
+		return -lb + float64((a-1)*libm.Log(u)) - libm.Log(1+(1-a)/(1+u))
 	}
 	z := w
 	ap1 := a + 1
@@ -345,28 +346,28 @@ func igamInvGuess(a, p, q float64) float64 {
 	if w < 0.15*ap1 {
 		// DiDonato and Morris Eq 35
 		v := igamLog(p) + LogGamma(ap1)
-		z = math.Exp((v + w) / a)
-		s = math.Log1p(z / ap1 * (1 + z/ap2))
-		z = math.Exp((v + z - s) / a)
-		s = math.Log1p(z / ap1 * (1 + z/ap2))
-		z = math.Exp((v + z - s) / a)
-		s = math.Log1p(z / ap1 * (1 + float64(z/ap2*(1+z/(a+3)))))
-		z = math.Exp((v + z - s) / a)
+		z = libm.Exp((v + w) / a)
+		s = libm.Log1p(float64(z / ap1 * (1 + z/ap2)))
+		z = libm.Exp((v + z - s) / a)
+		s = libm.Log1p(float64(z / ap1 * (1 + z/ap2)))
+		z = libm.Exp((v + z - s) / a)
+		s = libm.Log1p(float64(z / ap1 * (1 + float64(z/ap2*(1+z/(a+3))))))
+		z = libm.Exp((v + z - s) / a)
 	}
 	if z <= 0.01*ap1 || z > 0.7*ap1 {
 		return z
 	}
 	// DiDonato and Morris Eq 36
-	ls := math.Log(igamInvSN(a, z, 100, 1e-4))
+	ls := libm.Log(igamInvSN(a, z, 100, 1e-4))
 	v := igamLog(p) + LogGamma(ap1)
-	z = math.Exp((v + z - ls) / a)
-	return float64(z * (1 - (float64(a*math.Log(z))-z-v+ls)/(a-z)))
+	z = libm.Exp((v + z - ls) / a)
+	return float64(z * (1 - (float64(a*libm.Log(z))-z-v+ls)/(a-z)))
 }
 
 // igamInvEq25 is DiDonato and Morris' Eq 25 (asymptotic inversion for
 // small q), with y = -log(q Γ(a)).
 func igamInvEq25(a, y float64) float64 {
-	c1 := float64((a - 1) * math.Log(y))
+	c1 := float64((a - 1) * libm.Log(y))
 	c12 := float64(c1 * c1)
 	c13 := float64(c12 * c1)
 	c14 := float64(c12 * c12)

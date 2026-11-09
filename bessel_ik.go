@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -32,7 +33,7 @@ func besselKSeries(nu, x float64) (m dd.DD, e int, ok bool) {
 	L, gs := besselLogPowGamma(nu, x) // log|(x/2)^nu/Gamma(nu+1)|
 	c := float64(math.Pi / (2 * sinPi(nu)) * gs)
 	// |second/first| = |c| 2 nu exp(2L)
-	if math.Log(math.Abs(c)*2*nu)+float64(2*L.Hi) > math.Log(0.25) {
+	if libm.Log(float64(math.Abs(c)*2*nu))+float64(2*L.Hi) > libm.Log(0.25) {
 		return dd.DD{}, 0, false
 	}
 	q := x * x / 4
@@ -73,12 +74,12 @@ func besselTemmeIK(u, x float64) (ku, ku1 float64) {
 	}
 	d := 1.0
 	if math.Abs(sigma) >= 0x1p-52 {
-		d = math.Sinh(sigma) / sigma
+		d = libm.Sinh(sigma) / sigma
 	}
 	// Boost's gamma1 = g1, gamma2 = g2 (identically).
 	p := 1 / rgp / (2 * b)
 	q := 1 / rgm * b / 2
-	f := (float64(math.Cosh(sigma)*g1) + float64(d*(-a)*g2)) / c
+	f := (float64(libm.Cosh(sigma)*g1) + float64(d*(-a)*g2)) / c
 	h := p
 	coef := 1.0
 	sum := float64(coef * f)
@@ -283,13 +284,13 @@ func besselIKCore(v, x float64, needI, needK bool) (ie float64, ei int, ke float
 	e0 := 0
 	if a, ea, ok := besselKSeries(math.Abs(u), x); ok && x <= besselTemmeIKMaxX {
 		b, eb, _ := besselKSeries(1+u, x)
-		ex := math.Exp(x)
+		ex := libm.Exp(x)
 		Ku, Ku1, e0 = dd.MulF(a, ex), dd.MulF(besselScaleDD(b, eb-ea), ex), ea
 	} else {
 		var ku, ku1 float64
 		if x <= besselTemmeIKMaxX {
 			ku, ku1 = besselTemmeIK(u, x)
-			ex := math.Exp(x)
+			ex := libm.Exp(x)
 			ku *= ex
 			ku1 *= ex
 		} else {

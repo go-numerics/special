@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -89,7 +90,7 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 	sigma := float64(-a * u)
 	d := 1.0
 	if math.Abs(sigma) >= 0x1p-52 {
-		d = math.Sinh(sigma) / sigma
+		d = libm.Sinh(sigma) / sigma
 	}
 	e := u * math.Pi * math.Pi / 2
 	if math.Abs(u) >= 0x1p-52 {
@@ -99,7 +100,7 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 	if math.Abs(u) >= 0x1p-52 {
 		vspv = u / sinPi(u)
 	}
-	f := float64((float64(g1*math.Cosh(sigma)) - float64(g2*a*d)) * 2 * vspv)
+	f := float64((float64(g1*libm.Cosh(sigma)) - float64(g2*a*d)) * 2 * vspv)
 	p := float64(vspv / xp * rgm)
 	q := float64(vspv * xp * rgp)
 	g := f + float64(e*q)
@@ -419,7 +420,7 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 		}
 		return math.NaN(), math.NaN()
 	}
-	if needY && x < 1 && v >= 1 && LogGamma(v)-float64(v*besselLogHalf(x))-math.Log(math.Pi) > 710.5 {
+	if needY && x < 1 && v >= 1 && LogGamma(v)-float64(v*besselLogHalf(x))-libm.Log(math.Pi) > 710.5 {
 		// |Y_v(x)| ~ Gamma(v) (2/x)^v / pi overflows (DLMF 10.7.4).
 		J = math.NaN()
 		if needJ {
@@ -432,7 +433,7 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 	// The two power series of Y (besselYSeries) where the second, of
 	// relative size (x/2)^(2v) cot(v pi), is negligible or nearly so;
 	// Temme's sum loses accuracy there through exp(+-u log(x/2)).
-	if x < 1 && u != 0 && float64(2*v*besselLogHalf(x))+math.Log1p(math.Abs(cosPi(v)/sinPi(v))) < -10 {
+	if x < 1 && u != 0 && float64(2*v*besselLogHalf(x))+libm.Log1p(math.Abs(cosPi(v)/sinPi(v))) < -10 {
 		J = math.NaN()
 		if needJ {
 			J = besselJSeries(v, x)

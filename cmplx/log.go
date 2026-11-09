@@ -1,6 +1,7 @@
 package cmplx
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -30,7 +31,7 @@ func atan2X(y float64, xd dd.DD) dd.DD {
 	pi := dd.DD{Hi: 2 * pio2a, Lo: 2 * pio2b}
 	switch {
 	case !finite(x) || !finite(y):
-		return dd.F(math.Copysign(math.Abs(math.Atan2(math.Abs(y), x)), y))
+		return dd.F(math.Copysign(math.Abs(libm.Atan2(math.Abs(y), x)), y))
 	case y == 0: // ±0 or ±π, exactly as double-doubles
 		if math.Signbit(x) {
 			pi.Hi, pi.Lo = math.Copysign(pi.Hi, y), math.Copysign(pi.Lo, y)

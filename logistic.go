@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -167,7 +168,7 @@ func log1pExpTail(x float64) float64 {
 	case math.IsNaN(x):
 		return x
 	case x > 40:
-		return x + math.Exp(-x) // exact sum to within the last bit
+		return x + libm.Exp(-x) // exact sum to within the last bit
 	case x < -746:
 		return 0
 	}
@@ -272,7 +273,7 @@ func xlogyTail(x, y float64) float64 {
 		lh, ll := logHL(y)
 		return math.FMA(x, lh, x*ll)
 	}
-	return float64(x * math.Log(y))
+	return float64(x * libm.Log(y))
 }
 
 // Xlog1py returns x*log1p(y), defined as 0 when x = 0 and y is not NaN, as
@@ -285,7 +286,7 @@ func Xlog1py(x, y float64) float64 {
 		return math.NaN()
 	}
 	if y == -1 || math.IsInf(y, 1) || math.IsInf(x, 0) {
-		return float64(x * math.Log1p(y))
+		return float64(x * libm.Log1p(y))
 	}
 	return dd.MulF(log1pDD(dd.F(y)), x).Float()
 }

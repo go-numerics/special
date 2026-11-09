@@ -1,6 +1,7 @@
 package cmplx
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/bits"
 
@@ -211,7 +212,7 @@ func atanDD(q dd.DD) dd.DD {
 // (truncation y^6·17/315 relative, below 2^-120).
 func tanSmall(y float64) float64 {
 	if math.Abs(y) >= 0x1p-20 {
-		return math.Tan(y)
+		return libm.Tan(y)
 	}
 	q := float64(y * y)
 	c := 1.0/3 + float64(q*(2.0/15))

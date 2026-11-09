@@ -1,6 +1,9 @@
 package special
 
-import "math"
+import (
+	"github.com/go-numerics/special/internal/libm"
+	"math"
+)
 
 // JnZeros returns the first nt positive zeros of the Bessel function J_n,
 // in increasing order. Since J_{-n} = (-1)^n J_n, a negative n gives the
@@ -45,14 +48,14 @@ func besselJZeroGuess(n, k int) float64 {
 	// with (2/3) zeta^(3/2) = sqrt(z^2 - 1) - arcsec z.
 	t := 3 * math.Pi * (float64(4*float64(k)) - 1) / 8
 	ti := 1 / (t * t)
-	ak := float64(math.Pow(t, 2.0/3) * (1 + float64(ti*(5.0/48+float64(ti*(-5.0/36+float64(ti*(77125.0/82944-ti*108056875.0/6967296))))))))
-	zeta := ak / math.Pow(v, 2.0/3)
+	ak := float64(libm.Pow(t, 2.0/3) * (1 + float64(ti*(5.0/48+float64(ti*(-5.0/36+float64(ti*(77125.0/82944-ti*108056875.0/6967296))))))))
+	zeta := ak / libm.Pow(v, 2.0/3)
 	w := float64(2.0 / 3 * zeta * math.Sqrt(zeta))
 	b := -(w + math.Pi/2)
 	z := (-b + math.Sqrt(float64(b*b)-2)) / 2
 	for i := 0; i < 20; i++ {
 		s := math.Sqrt(float64(z*z) - 1)
-		f := s - math.Acos(1/z) - w
+		f := s - libm.Acos(1/z) - w
 		dz := f / (s / z)
 		z -= dz
 		if math.Abs(dz) < 1e-12*z {

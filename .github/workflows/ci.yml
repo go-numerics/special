@@ -41,11 +41,15 @@ jobs:
       - name: No float product open to multiply-add fusion (tools/fmalint)
         run: |
           go -C tools test ./fmalint
-          go -C tools run ./fmalint -C .. . ./dd ./cmplx ./nd
+          go -C tools run ./fmalint -C .. . ./dd ./cmplx ./nd ./internal/libm
       - name: Test + 100% coverage gate
         shell: bash
         run: |
-          COVERPKG=$(go list ./... | paste -sd, -)
+          # internal/libm is generated from Go's src/math (tools/fmalint
+          # --genlibm, checked up to date by the fmalint tests); two of its
+          # branches (log1p for k == 0 with |f| < 2^-20) are unreachable in
+          # Go's own code, so it is tested on its own and kept out of the gate.
+          COVERPKG=$(go list ./... | grep -v /internal/libm | paste -sd, -)
           go test -race -coverpkg="$COVERPKG" -coverprofile=cover.out ./...
           go tool cover -func=cover.out | tail -n 40
           cov=$(go tool cover -func=cover.out | tail -1 | awk '{print $3}' | tr -d '%')

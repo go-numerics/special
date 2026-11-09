@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -350,9 +351,9 @@ func igamExpm1DD(u dd.DD) dd.DD {
 	if u.Hi < -30 {
 		// e^u < 2^-43: -1 + e^u directly. (Below about -36.7, expm1 rounds
 		// to -1 exactly and the Newton step below would take log1p(-1).)
-		return dd.AddF(dd.F(-1), float64(math.Exp(u.Hi)*(1+u.Lo)))
+		return dd.AddF(dd.F(-1), float64(libm.Exp(u.Hi)*(1+u.Lo)))
 	}
-	e := math.Expm1(u.Hi)
+	e := libm.Expm1(u.Hi)
 	if e == 0 {
 		return u
 	}
@@ -404,7 +405,7 @@ func igamTemme(a, x float64) (p, q float64) {
 		w = dd.Mul(m, base)
 	} else {
 		e := dd.MulF(erfcDD(z), 0.5)
-		w = dd.AddF(e, float64(r*math.Exp(-z2.Hi)))
+		w = dd.AddF(e, float64(r*libm.Exp(-z2.Hi)))
 	}
 	v, c := igamPair(w, k)
 	if upper {

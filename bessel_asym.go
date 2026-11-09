@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/bits"
 
@@ -106,7 +107,7 @@ func besselReduce(x float64) (q int, f dd.DD) {
 // enters through the first-order term.
 func besselSinCosQuarter(n int, s dd.DD) (sn, cs float64) {
 	a := dd.Mul(s, besselPiOver2DD)
-	sh, ch := math.Sincos(a.Hi)
+	sh, ch := libm.Sincos(a.Hi)
 	sa := sh + float64(a.Lo*ch)
 	ca := ch - float64(a.Lo*sh)
 	switch n & 3 {

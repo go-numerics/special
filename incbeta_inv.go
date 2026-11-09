@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -140,7 +141,7 @@ func ibetaInvTemme1(a, b, p float64) float64 {
 	t3 := ibetaPoly(eta0, B*r2*(float64(-75*B2)+float64(80*B)-16)/480, (float64(-1080*B3)+float64(868*B2)-float64(90*B)-45)/9216,
 		B*r2*(float64(-1190*B2)+float64(84*B)+373)/53760, (float64(-2240*B3)-float64(2508*B2)+float64(2100*B)-165)/368640)
 	eta := ibetaPoly(1/a, eta0, t1, t2, t3)
-	return (1 + math.Copysign(math.Sqrt(-math.Expm1(-eta*eta/2)), eta)) / 2
+	return (1 + math.Copysign(math.Sqrt(-libm.Expm1(-eta*eta/2)), eta)) / 2
 }
 
 // ibetaPoly returns c[0] + c[1] z + c[2] z² + ...
@@ -176,12 +177,12 @@ func ibetaInvGuessX(a, b, p, q float64, lb dd.DD) float64 {
 			return x
 		}
 	}
-	lu := (igamLog(p) + math.Log(a) + lb.Hi) / a
-	lv := (igamLog(q) + math.Log(b) + lb.Hi) / b
+	lu := (igamLog(p) + libm.Log(a) + lb.Hi) / a
+	lv := (igamLog(q) + libm.Log(b) + lb.Hi) / b
 	if lu <= lv {
-		return math.Exp(lu)
+		return libm.Exp(lu)
 	}
-	return -math.Expm1(lv)
+	return -libm.Expm1(lv)
 }
 
 // ibetaInvEval returns g(u) = ±(log T(u) - log t), increasing in u, and
@@ -282,7 +283,7 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 		}
 		nu := math.NaN()
 		if !math.IsInf(step, 0) && !math.IsNaN(step) && step < 700 {
-			nu = float64(u + float64(u*math.Expm1(step)))
+			nu = float64(u + float64(u*libm.Expm1(step)))
 		}
 		if !sure && !(nu < 0.5) {
 			// the iteration heads above 1/2: is the root there?
@@ -330,7 +331,7 @@ func ibetaInvTail(a, b, u, t float64, upper bool, lt, lb dd.DD, lbf float64) (g,
 			bpser = false
 		}
 		if bpser {
-			return dd.Sub(l, lt).Float(), math.Exp(dd.Sub(ld, l).Hi)
+			return dd.Sub(l, lt).Float(), libm.Exp(dd.Sub(ld, l).Hi)
 		}
 	}
 	w, w1 := ibetaRatio(a, b, ibetaNewXY(u, a+b))
@@ -343,12 +344,12 @@ func ibetaInvTail(a, b, u, t float64, upper bool, lt, lb dd.DD, lbf float64) (g,
 	}
 	lv := logf(v)
 	if v > 0.5*t && v < 2*t {
-		g = math.Log1p((v - t) / t)
+		g = libm.Log1p((v - t) / t)
 	} else {
 		g = lv - lt.Hi
 	}
-	ld := float64(a*logf(u)) + float64((b-1)*math.Log1p(-u)) - lbf
-	return g, math.Exp(ld - lv)
+	ld := float64(a*logf(u)) + float64((b-1)*libm.Log1p(-u)) - lbf
+	return g, libm.Exp(ld - lv)
 }
 
 // ibetaUpperFromLog sets *lt = log(1 - I) from log I in double-double and
@@ -389,12 +390,12 @@ func ibetaLogBpser(a, b float64, v ibetaXY) dd.DD {
 // I_u(a, b) = p where a or b is below 1e-3: the power law
 // I_u ~ u^a/(a B(a, b)).
 func ibetaInvGuess(a, b, p float64, lb dd.DD) float64 {
-	lu := (igamLog(p) + math.Log(a) + lb.Hi) / a
-	if lu > math.Log(0.5) {
+	lu := (igamLog(p) + libm.Log(a) + lb.Hi) / a
+	if lu > libm.Log(0.5) {
 		return 0.5
 	}
 	if lu < -744 {
 		return 0x1p-1074
 	}
-	return math.Exp(lu)
+	return libm.Exp(lu)
 }

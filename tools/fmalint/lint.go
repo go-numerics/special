@@ -23,10 +23,13 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/parser"
 	"go/token"
 	"go/types"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -34,9 +37,30 @@ import (
 // Finding is one product open to fusion.
 type Finding struct {
 	Pos      token.Position
-	Start    int    // byte offset of the product in its file
+	Start    int    // byte offset of the product (or math.F selector) in its file
 	End      int    // byte offset just past it
-	TypeName string // float64 or float32
+	TypeName string // float64 or float32; "" for a math call
+	Math     string // the math function called, for a call whose bits depend on the architecture
+}
+
+// exactMath lists the functions of package math whose results are the same
+// bits on every architecture (exact, or correctly rounded by IEEE 754).
+var exactMath = map[string]bool{
+	"Abs": true, "Ceil": true, "Copysign": true, "Dim": true, "FMA": true,
+	"Float32bits": true, "Float32frombits": true, "Float64bits": true,
+	"Float64frombits": true, "Floor": true, "Frexp": true, "Ilogb": true,
+	"Inf": true, "IsInf": true, "IsNaN": true, "Ldexp": true, "Logb": true,
+	"Max": true, "Min": true, "Mod": true, "Modf": true, "NaN": true,
+	"Nextafter": true, "Nextafter32": true, "Remainder": true, "Round": true,
+	"RoundToEven": true, "Signbit": true, "Sqrt": true, "Trunc": true,
+}
+
+// libmFuncs lists the functions internal/libm provides in place of math's.
+var libmFuncs = map[string]bool{
+	"Acos": true, "Asin": true, "Atan": true, "Atan2": true, "Atanh": true,
+	"Cos": true, "Cosh": true, "Exp": true, "Exp2": true, "Expm1": true,
+	"Hypot": true, "Log": true, "Log1p": true, "Pow": true, "Sin": true,
+	"Sincos": true, "Sinh": true, "Tan": true,
 }
 
 // Lint loads the packages matched by patterns (relative to dir) and returns
@@ -108,6 +132,18 @@ func lintFile(fset *token.FileSet, info *types.Info, f *ast.File) []Finding {
 		return true
 	})
 	ast.Inspect(f, func(n ast.Node) bool {
+		if sel, ok := n.(*ast.SelectorExpr); ok {
+			if fn, ok := info.Uses[sel.Sel].(*types.Func); ok && fn.Pkg() != nil &&
+				fn.Pkg().Path() == "math" && !exactMath[fn.Name()] {
+				out = append(out, Finding{
+					Pos:   fset.Position(sel.Pos()),
+					Start: fset.Position(sel.Pos()).Offset,
+					End:   fset.Position(sel.End()).Offset,
+					Math:  fn.Name(),
+				})
+			}
+			return true
+		}
 		be, ok := n.(*ast.BinaryExpr)
 		if !ok || be.Op != token.MUL {
 			return true
@@ -165,11 +201,53 @@ func accepted(info *types.Info, parents map[ast.Node]ast.Node, e ast.Expr) bool 
 	return false
 }
 
-// Fix wraps every finding in an explicit conversion to its type, editing
-// the files in place, and returns the number of products wrapped.
-func Fix(findings []Finding) (int, error) {
+// MathUses returns, for the packages matched by patterns, how many times
+// each function of package math is called. Several of them (Exp, Log,
+// Log1p, Pow, Sin, ...) have assembly versions on some architectures, and
+// their pure-Go versions are themselves compiled with fusion on others, so
+// their bits differ by architecture even when the caller's do not.
+func MathUses(dir string, patterns ...string) (map[string]int, error) {
+	cfg := &packages.Config{
+		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
+			packages.NeedTypes | packages.NeedTypesInfo,
+		Dir: dir,
+	}
+	pkgs, err := packages.Load(cfg, patterns...)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]int{}
+	for _, p := range pkgs {
+		if len(p.Errors) > 0 {
+			return nil, fmt.Errorf("%s: %v", p.PkgPath, p.Errors[0])
+		}
+		for id, obj := range p.TypesInfo.Uses {
+			fn, ok := obj.(*types.Func)
+			if !ok || fn.Pkg() == nil || fn.Pkg().Path() != "math" {
+				continue
+			}
+			_ = id
+			out[fn.Name()]++
+		}
+	}
+	return out, nil
+}
+
+// Fix wraps every product finding in an explicit conversion to its type
+// and, when libmPath is set, replaces every call of a math function that
+// internal/libm provides by the libm one (importing libmPath, and dropping
+// "math" where nothing else uses it). It edits the files in place and
+// returns the number of findings fixed; findings it cannot fix (a math
+// function libm lacks) are left for the report.
+func Fix(findings []Finding, libmPath string) (int, error) {
 	byFile := map[string][]Finding{}
 	for _, f := range findings {
+		switch {
+		case f.Math == "":
+		case libmPath != "" && libmFuncs[f.Math]:
+		default:
+			continue
+		}
 		byFile[f.Pos.Filename] = append(byFile[f.Pos.Filename], f)
 	}
 	n := 0
@@ -185,12 +263,25 @@ func Fix(findings []Finding) (int, error) {
 			text string
 		}
 		var all []ins
+		replaced := false
 		for _, f := range fs {
+			if f.Math != "" {
+				// "math.Exp" -> "libm.Exp": drop the 4 bytes of "math",
+				// insert "libm" (same length, so no offset moves).
+				copy(src[f.Start:f.Start+4], "libm")
+				replaced = true
+				continue
+			}
 			all = append(all, ins{f.Start, f.TypeName + "("}, ins{f.End, ")"})
 		}
 		sort.SliceStable(all, func(i, j int) bool { return all[i].at > all[j].at })
 		for _, in := range all {
 			src = append(src[:in.at], append([]byte(in.text), src[in.at:]...)...)
+		}
+		if replaced {
+			if src, err = fixImports(name, src, libmPath); err != nil {
+				return n, err
+			}
 		}
 		if err := os.WriteFile(name, src, 0o644); err != nil {
 			return n, err
@@ -198,4 +289,59 @@ func Fix(findings []Finding) (int, error) {
 		n += len(fs)
 	}
 	return n, nil
+}
+
+// fixImports makes src import libmPath, and drops "math" when no
+// math.X selector is left.
+func fixImports(name string, src []byte, libmPath string) ([]byte, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, name, src, 0)
+	if err != nil {
+		return nil, err
+	}
+	var mathSpec *ast.ImportSpec
+	for _, is := range f.Imports {
+		switch strings.Trim(is.Path.Value, `"`) {
+		case libmPath:
+			return src, nil // already imported
+		case "math":
+			if is.Name == nil {
+				mathSpec = is
+			}
+		}
+	}
+	if mathSpec == nil {
+		return nil, fmt.Errorf("%s: math.X replaced but no plain \"math\" import", name)
+	}
+	mathUsed := false
+	ast.Inspect(f, func(n ast.Node) bool {
+		if sel, ok := n.(*ast.SelectorExpr); ok {
+			if id, ok := sel.X.(*ast.Ident); ok && id.Name == "math" {
+				mathUsed = true
+			}
+		}
+		return !mathUsed
+	})
+	start := fset.Position(mathSpec.Path.Pos()).Offset
+	end := fset.Position(mathSpec.Path.End()).Offset
+	lit := strconv.Quote(libmPath)
+	if !mathUsed {
+		return append(src[:start:start], append([]byte(lit), src[end:]...)...), nil
+	}
+	// Keep "math"; add libm on its own spec. In a parenthesised block a new
+	// line after "math" does; a lone `import "math"` becomes a block.
+	var gd *ast.GenDecl
+	for _, d := range f.Decls {
+		if g, ok := d.(*ast.GenDecl); ok && g.Tok == token.IMPORT {
+			for _, s := range g.Specs {
+				if s == mathSpec {
+					gd = g
+				}
+			}
+		}
+	}
+	if gd != nil && gd.Lparen.IsValid() {
+		return append(src[:end:end], append([]byte("\n\t"+lit), src[end:]...)...), nil
+	}
+	return append(src[:start:start], append([]byte("(\n\t\"math\"\n\t"+lit+"\n)"), src[end:]...)...), nil
 }

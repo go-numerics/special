@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -194,7 +195,7 @@ func ibetaPsiApprox(x float64) float64 {
 	for ; x < 6; x++ {
 		r -= 1 / x
 	}
-	return r + math.Log(x) - 0.5/x - 1/(12*x*x)
+	return r + libm.Log(x) - 0.5/x - 1/(12*x*x)
 }
 
 // ibetaLogABeta returns log(a·B(a, b)) as a double-double for a, b > 0
@@ -269,7 +270,7 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 			return res(swapped, dd.F(ibetaApser(a0, b0, x0, eps)), false)
 		}
 		if math.Max(a0, b0) <= 1 {
-			if math.Pow(x0, a0) <= 0.9 || a0 >= math.Min(0.2, b0) {
+			if libm.Pow(x0, a0) <= 0.9 || a0 >= math.Min(0.2, b0) {
 				return res(swapped, ibetaBpserDD(a0, b0, v0, eps), true)
 			}
 			if x0 >= 0.3 {
@@ -285,7 +286,7 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 		if x0 >= 0.3 {
 			return res(swapped, ibetaBpserDD(b0, a0, v0.swap(), eps), false)
 		}
-		if x0 < 0.1 && math.Pow(x0*b0, a0) <= 0.7 {
+		if x0 < 0.1 && libm.Pow(float64(x0*b0), a0) <= 0.7 {
 			return res(swapped, ibetaBpserDD(a0, b0, v0, eps), true)
 		}
 		if b0 > 15 {
@@ -699,7 +700,7 @@ func ibetaBasym(a, b float64, lambda dd.DD, eps float64) float64 {
 	}
 	// u = exp(-bcorr(a, b)), bcorr = del(a) + del(b) - del(a+b) with del
 	// the Stirling series remainder.
-	u := math.Exp(-(stirlingSeries(a) + stirlingSeries(b) - stirlingSeries(a+b)))
+	u := libm.Exp(-(stirlingSeries(a) + stirlingSeries(b) - stirlingSeries(a+b)))
 	return ibetaScale(tm, tk, float64(e0*u*sum))
 }
 
@@ -709,7 +710,7 @@ func ibetaErfcx(z, f dd.DD) float64 {
 	if z.Hi >= 0.5 {
 		return erfcxCorrected(z).Float()
 	}
-	return float64(math.Exp(f.Hi) * erfcDD(z).Float())
+	return float64(libm.Exp(f.Hi) * erfcDD(z).Float())
 }
 
 // ibetaApser returns I_(1-x)(b, a) for a <= min(eps, eps·b), b·x <= 1,

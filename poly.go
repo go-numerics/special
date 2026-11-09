@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -182,7 +183,7 @@ func pieceIndex(p []polyPiece, t float64) int {
 // Scaling by 2^54 into the normal range first sidesteps it.
 func logf(x float64) float64 {
 	if x > 0 && x < 0x1p-1022 {
-		return math.Log(x*0x1p54) - 54*math.Ln2
+		return libm.Log(float64(x*0x1p54)) - 54*math.Ln2
 	}
-	return math.Log(x)
+	return libm.Log(x)
 }
