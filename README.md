@@ -88,6 +88,13 @@ functions spread large arrays over the cores and beat SciPy for 21 of 31
 functions measured (typically 1.5–3x on a 16-core host; e.g. Gamma 6.4 vs
 13.4 ns/element, Ndtr 4.7 vs 9.0, GammaP 37 vs 137).
 
+Since v0.5.6, `I1`, `I1e`, `K1` and `K1e` use the same fitted octave
+interpolants as `I0e` and `K0e` (about 4–10x faster, and more accurate:
+worst case against mpmath 3.45 to 0.51 ulp for I1), `Comb`, `Factorial2`,
+`Factorial` and `Xlog1py` have faster paths that return the same bits as
+before. No timing table has yet been recorded at a load below 8, so these
+speed-ups are stated from `go test -bench` and not from the refbench table.
+
 Method and full table: [docs/perf.md](docs/perf.md).
 
 ## Functions
