@@ -235,15 +235,10 @@ func Binom(n, k float64) float64 {
 	np1 := sumDD(n, 1)
 	nk1 := dd.AddF(sumDD(n, -k), 1)
 	if np1.Hi > 0 && nk1.Hi > 0 && k > -1 {
-		// log B(a, b) at the rounded a = n-k+1 and b = k+1, corrected to
-		// first order for their rounding: ∂/∂a log B = ψ(a) - ψ(a+b).
-		k1 := sumDD(k, 1)
-		a, b := nk1.Float(), k1.Float()
-		da, db := dd.AddF(nk1, -a).Float(), dd.AddF(k1, -b).Float()
-		lb := logBetaPos(math.Min(a, b), math.Max(a, b))
-		ps := Digamma(a + b)
-		lb = dd.AddF(lb, float64(da*(Digamma(a)-ps))+float64(db*(Digamma(b)-ps)))
-		return dd.Exp(dd.Neg(dd.Add(logDD(np1), lb)))
+		if v, ok := binomFast(np1, nk1, k); ok {
+			return v
+		}
+		return binomBetaDD(np1, nk1, k)
 	}
 	k1 := sumDD(k, 1)
 	isPole := func(x dd.DD) bool { return x.Lo == 0 && x.Hi <= 0 && x.Hi == math.Trunc(x.Hi) }
@@ -261,4 +256,18 @@ func Binom(n, k float64) float64 {
 	l := dd.Sub(lg(np1), dd.Add(lg(k1), lg(nk1)))
 	sign := float64(GammaSign(np1.Hi) * GammaSign(k1.Hi) * GammaSign(nk1.Hi))
 	return float64(sign * dd.Exp(l))
+}
+
+// binomBetaDD is Binom's reference evaluation for n+1 > 0, n-k+1 > 0 and
+// k > -1: log B(a, b) at the rounded a = n-k+1 and b = k+1, corrected to
+// first order for their rounding (∂/∂a log B = ψ(a) - ψ(a+b)), then
+// 1/((n+1) B(a, b)) by one double-double exponential.
+func binomBetaDD(np1, nk1 dd.DD, k float64) float64 {
+	k1 := sumDD(k, 1)
+	a, b := nk1.Float(), k1.Float()
+	da, db := dd.AddF(nk1, -a).Float(), dd.AddF(k1, -b).Float()
+	lb := logBetaPos(math.Min(a, b), math.Max(a, b))
+	ps := Digamma(a + b)
+	lb = dd.AddF(lb, float64(da*(Digamma(a)-ps))+float64(db*(Digamma(b)-ps)))
+	return dd.Exp(dd.Neg(dd.Add(logDD(np1), lb)))
 }

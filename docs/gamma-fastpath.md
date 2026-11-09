@@ -177,3 +177,28 @@ Fallback rate measured (darwin/arm64, 2026-11-09):
 
 The rate of region C is the predicted one: P(fallback) = 2E·eh/ulp(eh),
 2^-5.5·eh for eh in [1, 2), about 3.3 % on average.
+
+## Binom (beta branch), v0.6.1
+
+`Binom(n, k)` for n+1 > 0, n-k+1 > 0, k > -1 evaluates
+exp(-(log(n+1) + log B(a, b) + corrections)) in double-double
+(`binomBetaDD`). `binomFast` forms the same sum as hi + lo from the float64
+kernels and returns it when `zivRound` certifies it, `binomErr` = 2^-58
+relative; otherwise the reference runs, so every output is the reference's
+bits.
+
+Covered: p = min(a, b), q = max(a, b) with 1/2 <= p < 2 and 10 <= q <= 2^40,
+or q < 10 and p + q < 10 (the refbench row is all of it). The pieces are
+those of the reference where it rounds to float64: log Γ from the Γ(1+t) core
+`gamma1pFast` (the same polynomial value as `gamma1pm1`), the Stirling
+difference S(q) - S(p+q) as the float64 `stirlingSeries(q) - stirlingSeries(s)`
+that `logGammaDiff` forms (it carries a 2^-60 error near q = 10 that the fast
+path must reproduce, not improve on: using the more accurate value from
+`logGammaDiffHL` gave a worst distance of 2^-58), and the first-order
+corrections for the rounding of a and b from the same `Digamma` calls.
+
+Evidence (`binom_fast_test.go`): 2·10^7 points over the covered region,
+0 mismatches with the reference, worst |h + l - D|/D = 2^-60.62 against
+the 2^-58 bound (margin 5), 4.5 % of the points fall back; 10^6 wide random
+points and the refbench grid through the public function, equal to the
+reference.
