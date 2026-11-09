@@ -40,8 +40,19 @@ reverse) is reported as `wrong`.
 **Budgets.** `TestAccuracy` fails if any region's maximum error exceeds its
 budget (`budgets_test.go`: 1.5 times the error measured when the budgets
 were generated, at least 1 ulp). The suite runs on amd64, arm64, 386, arm,
-riscv64, loong64, ppc64le and s390x in CI: architectures where Go fuses
-multiply-adds and ones where it does not must all meet the same budgets.
+riscv64, loong64, ppc64le and s390x in CI.
+
+**Same bits on every architecture.** Go may fuse `x*y + z` into one
+multiply-add, and does on arm64, ppc64le, s390x, riscv64 and loong64 but
+not on amd64, 386 or arm; package math's Exp, Log, Pow, Sin, ... also
+differ by architecture (assembly versions, or pure Go compiled with
+fusion). Every product here is therefore rounded explicitly
+(`float64(a*b)`) or fused on purpose with `math.FMA` — `tools/fmalint`
+checks the source, and its `--objdump` mode checks the arm64 binaries —
+and those math functions come from `internal/libm`, Go's pure-Go
+implementations with the same treatment. `TestArchHash` compares the
+output bits of every public function on a fixed grid with
+`testdata/archhash.golden` in every CI lane.
 
 Regenerate:
 
@@ -178,9 +189,7 @@ listed so the table is not misread:
   log-gammas carry ~2^-56 relative errors that the cancellation exposes
   (SciPy: 45 000).
 - **Bessel**: Jn/Yn within 5.4 ulp at the zeros of orders >= 2; Jv at
-  negative non-integer order and x < |v| 7.2 ulp (13.2 ulp on loong64,
-  ppc64le and s390x, where Go fuses multiply-adds differently: results are
-  not bit-identical across architectures), Ive at negative order
+  negative non-integer order and x < |v| 7.2 ulp, Ive at negative order
   12 ulp (both from the reflection formula's cancellation); K1/K1e at small
   x tie with SciPy (1.05/1.49 ulp, Boost's rational unchanged); orders above
   1e7 only where the series or the large-x expansion applies (NaN

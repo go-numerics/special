@@ -1,25 +1,34 @@
 package cmplx
 
-import "math/cmplx"
+import (
+	"math/cmplx"
+
+	"github.com/go-numerics/special/internal/libm"
+)
 
 // The functions below are one call to a correctly specified real function
-// (math.Hypot, math.Atan2) or a classification; they are those of
-// math/cmplx, unchanged.
+// (Hypot, Atan2, Sincos) or a classification: those of math/cmplx, with the
+// real functions taken from internal/libm so that the bits are the same on
+// every architecture (math's Hypot, Atan2 and Sincos have assembly versions
+// on some).
 
-// Abs returns the absolute value (modulus) of x, math.Hypot(real(x), imag(x)).
-func Abs(x complex128) float64 { return cmplx.Abs(x) }
+// Abs returns the absolute value (modulus) of x, Hypot(real(x), imag(x)).
+func Abs(x complex128) float64 { return libm.Hypot(real(x), imag(x)) }
 
-// Phase returns the argument of x in [-π, π], math.Atan2(imag(x), real(x)).
-func Phase(x complex128) float64 { return cmplx.Phase(x) }
+// Phase returns the argument of x in [-π, π], Atan2(imag(x), real(x)).
+func Phase(x complex128) float64 { return libm.Atan2(imag(x), real(x)) }
 
 // Conj returns the complex conjugate of x.
 func Conj(x complex128) complex128 { return cmplx.Conj(x) }
 
 // Polar returns the modulus r and the argument θ of x.
-func Polar(x complex128) (r, θ float64) { return cmplx.Polar(x) }
+func Polar(x complex128) (r, θ float64) { return Abs(x), Phase(x) }
 
 // Rect returns the complex number with modulus r and argument θ.
-func Rect(r, θ float64) complex128 { return cmplx.Rect(r, θ) }
+func Rect(r, θ float64) complex128 {
+	s, c := libm.Sincos(θ)
+	return complex(float64(r*c), float64(r*s))
+}
 
 // Inf returns a complex infinity, complex(+Inf, +Inf).
 func Inf() complex128 { return cmplx.Inf() }

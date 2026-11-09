@@ -63,6 +63,11 @@ var exactMath = map[string]bool{
 	"RoundToEven": true, "Signbit": true, "Sqrt": true, "Trunc": true,
 }
 
+// exactCmplx lists the functions of math/cmplx that do no arithmetic; the
+// others call math's architecture-dependent functions (Hypot, Atan2,
+// Sincos, Exp, Log, ...) and are reported like them.
+var exactCmplx = map[string]bool{"Conj": true, "Inf": true, "NaN": true, "IsInf": true, "IsNaN": true}
+
 // libmFuncs lists the functions internal/libm provides in place of math's.
 var libmFuncs = map[string]bool{
 	"Acos": true, "Asin": true, "Atan": true, "Atan2": true, "Atanh": true,
@@ -180,7 +185,8 @@ func lintFile(fset *token.FileSet, info *types.Info, f *ast.File) []Finding {
 		if sel, ok := n.(*ast.SelectorExpr); ok && !isTest {
 			// (tests may call math as an oracle; their products still count)
 			if fn, ok := info.Uses[sel.Sel].(*types.Func); ok && fn.Pkg() != nil &&
-				fn.Pkg().Path() == "math" && !exactMath[fn.Name()] {
+				((fn.Pkg().Path() == "math" && !exactMath[fn.Name()]) ||
+					(fn.Pkg().Path() == "math/cmplx" && !exactCmplx[fn.Name()])) {
 				out = append(out, Finding{
 					Pos:   fset.Position(sel.Pos()),
 					Start: fset.Position(sel.Pos()).Offset,

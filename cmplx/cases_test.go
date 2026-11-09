@@ -36,7 +36,8 @@ func TestStdlib(t *testing.T) {
 	if Abs(z) != 5 || Phase(z) != libm.Atan2(-4, 3) || Conj(z) != complex(3, 4) {
 		t.Error("Abs/Phase/Conj")
 	}
-	if r, th := Polar(z); r != 5 || th != Phase(z) || Rect(r, th) != std.Rect(r, th) {
+	s, c := libm.Sincos(1)
+	if r, th := Polar(z); r != 5 || th != Phase(z) || Rect(2, 1) != complex(float64(2*c), float64(2*s)) {
 		t.Error("Polar/Rect")
 	}
 	if !IsInf(Inf()) || !IsNaN(NaN()) || IsInf(z) || IsNaN(z) {
