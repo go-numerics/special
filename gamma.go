@@ -134,7 +134,7 @@ func Gamma(x float64) float64 {
 			h, l := gammaMid(x)
 			return h + l
 		}
-		return gammaPos(x).Float()
+		return gammaUnit(x)
 	}
 	return gammaNeg(x)
 }
@@ -296,8 +296,11 @@ func gammaTiny(x float64) dd.DD {
 	return dd.AddF(dd.DD{Hi: q, Lo: r / x}, -euler)
 }
 
-// gammaNeg returns Γ(x) for non-integer x < 0.
-func gammaNeg(x float64) float64 {
+// gammaNegDD returns Γ(x) for non-integer x < 0 through the double-double
+// path. Gamma calls it through gammaNeg (gamma_fast.go), which returns the
+// same float64 from a cheaper evaluation whenever an error bound proves
+// that it rounds the same way.
+func gammaNegDD(x float64) float64 {
 	if x > -0x1p-56 {
 		return gammaTiny(x).Float()
 	}

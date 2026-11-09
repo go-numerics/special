@@ -63,7 +63,7 @@ func sinPiDD(x float64) dd.DD {
 		return dd.F(math.NaN())
 	}
 	neg := x < 0
-	r := math.Mod(math.Abs(x), 2) // exact, in [0, 2)
+	r := mod2(math.Abs(x)) // exact, in [0, 2)
 	if r >= 1 {
 		r -= 1 // exact
 		neg = !neg
@@ -93,7 +93,7 @@ func cosPiDD(x float64) dd.DD {
 	if math.IsInf(x, 0) || math.IsNaN(x) {
 		return dd.F(math.NaN())
 	}
-	r := math.Mod(math.Abs(x), 2) // exact, in [0, 2)
+	r := mod2(math.Abs(x)) // exact, in [0, 2)
 	if r > 1 {
 		r = 2 - r // exact
 	}
@@ -113,6 +113,17 @@ func cosPiDD(x float64) dd.DD {
 		c = dd.Neg(c)
 	}
 	return c
+}
+
+// mod2 returns math.Mod(a, 2) for finite a >= 0, exactly, at a fraction
+// of its cost (math.Mod runs a loop over the exponent difference):
+// a - 2 floor(a/2). For a < 2 the floor is 0 (a/2 may round when a is
+// subnormal; its floor does not change). For 2 <= a < 2^53, a/2 is exact,
+// 2 floor(a/2) is an integer hence a multiple of ulp(a) <= 1, and so is the
+// difference, which lies in [0, 2) and fits in 53 bits: exact. For
+// a >= 2^53, a is an even integer and the result is 0.
+func mod2(a float64) float64 {
+	return a - 2*math.Floor(a*0.5)
 }
 
 // sinPiReduced returns sin(pi*r), 0 <= r <= 0.25, as r(π + r²G(r²)) in
