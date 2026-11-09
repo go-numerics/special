@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "status": "deferred",
-  "date": "2026-11-08T10:14:52+01:00",
+  "date": "2026-11-09T16:39:35+01:00",
   "commit": "",
   "repo": "go-numerics/special",
   "go_version": "go1.27.3",
@@ -2647,7 +2647,7 @@
       "func": "Softmax",
       "reference": "scipy.special sp.softmax (over 10000 points)",
       "parity": "none",
-      "allocs": 1,
+      "allocs": 0,
       "go": {
         "median": 0,
         "q1": 0,
@@ -2701,7 +2701,7 @@
       "func": "nd.Softmax",
       "reference": "scipy.special sp.softmax (over 10000 points)",
       "parity": "none",
-      "allocs": 8,
+      "allocs": 7,
       "go": {
         "median": 0,
         "q1": 0,
