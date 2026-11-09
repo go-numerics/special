@@ -56,7 +56,7 @@ func digammaAsym(x float64) dd.DD {
 		b8 = -3617.0 / 8160
 		b9 = 43867.0 / 14364
 	)
-	s := z * (b1 + z*(b2+z*(b3+z*(b4+z*(b5+z*(b6+z*(b7+z*(b8+z*b9))))))))
+	s := float64(z * (b1 + float64(z*(b2+float64(z*(b3+float64(z*(b4+float64(z*(b5+float64(z*(b6+float64(z*(b7+float64(z*(b8+float64(z*b9)))))))))))))))))
 	return dd.AddF(r, -s)
 }
 
@@ -155,7 +155,7 @@ func digammaFrac(t float64) dd.DD {
 	a = dd.Sub(a, dd.DivF(dd.Mul(iw4, iw2), 252))
 	// remaining B_2k/(2k w^2k), k = 4..10, in float64 (each < 1e-15)
 	z := iw2.Hi
-	tail := z * z * z * z * (-1.0/240 + z*(1.0/132+z*(-691.0/32760+z*(1.0/12+z*(-3617.0/8160+z*(43867.0/14364+z*(-174611.0/6600)))))))
+	tail := float64(z * z * z * z * (-1.0/240 + float64(z*(1.0/132+float64(z*(-691.0/32760+float64(z*(1.0/12+float64(z*(-3617.0/8160+float64(z*(43867.0/14364+float64(z*(-174611.0/6600))))))))))))))
 	a = dd.AddF(a, -tail)
 	return dd.Sub(a, sum)
 }
@@ -169,7 +169,7 @@ func digamma1pNeg(x float64) dd.DD {
 	// to first order with ψ'(1+h) ~ D + (h - r)D'; the correction l is
 	// below 2^-53, so ψ'(1+h)*l is ample.
 	core := digamma1p(h)
-	core = dd.AddF(core, l*trigamma1p(h))
+	core = dd.AddF(core, float64(l*trigamma1p(h)))
 	one := dd.DD{Hi: h, Lo: l}
 	return dd.Sub(core, dd.Div(dd.F(1), one))
 }
@@ -225,7 +225,7 @@ func digammaSmall(x float64) float64 {
 	}
 	// ψ(1+x) - 1/x
 	q := 1 / x
-	ql := math.FMA(-q, x, 1) * q
+	ql := float64(math.FMA(-q, x, 1) * q)
 	v := ph - q // Fast2Sum: 1/x > 1 > |ψ(1+x)|
 	return v + ((ph - (v + q)) + (pl - ql))
 }
@@ -248,14 +248,14 @@ func digammaLarge(x float64) float64 {
 	)
 	lh, ll := logHLn(x)
 	ix := 1 / x
-	hh := 0.5 * ix
-	hl := 0.5 * math.FMA(-ix, x, 1) * ix // 1/(2x) = hh + hl
-	z := ix * ix
-	z2 := z * z
-	z4 := z2 * z2
+	hh := float64(0.5 * ix)
+	hl := float64(0.5 * math.FMA(-ix, x, 1) * ix) // 1/(2x) = hh + hl
+	z := float64(ix * ix)
+	z2 := float64(z * z)
+	z4 := float64(z2 * z2)
 	a := math.FMA(math.FMA(b4, z, b3), z2, math.FMA(b2, z, b1))
 	b := math.FMA(math.FMA(b8, z, b7), z2, math.FMA(b6, z, b5))
-	s := math.FMA(math.FMA(b9, z4, b), z4, a) * z
+	s := float64(math.FMA(math.FMA(b9, z4, b), z4, a) * z)
 	r := lh - hh // Fast2Sum: log x > 2.3 > 1/(2x)
 	return r + ((((lh - r) - hh) + ll) - (hl + s))
 }

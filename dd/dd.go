@@ -87,7 +87,7 @@ func Sub(a, b DD) DD { return Add(a, Neg(b)) }
 // Mul returns a * b (DWTimesDW with FMA, relative error <= 5u^2).
 func Mul(a, b DD) DD {
 	p, e := TwoProd(a.Hi, b.Hi)
-	t := a.Hi * b.Lo
+	t := float64(a.Hi * b.Lo)
 	t = math.FMA(a.Lo, b.Hi, t)
 	e += t
 	p, e = FastTwoSum(p, e)
@@ -173,13 +173,13 @@ func ExpMant(a DD) (m DD, k int) {
 	case x < -1e7:
 		return DD{}, 0
 	}
-	n := math.Floor(x*(1/ln2o64Hi) + 0.5)
+	n := math.Floor(float64(x*(1/ln2o64Hi)) + 0.5)
 	var s, t float64
 	if math.Abs(n) < 1<<21 {
-		rh := x - n*ln2o64Hi // n*ln2o64Hi exact; the difference exact (Sterbenz)
+		rh := x - float64(n*ln2o64Hi) // n*ln2o64Hi exact; the difference exact (Sterbenz)
 		p1, e1 := TwoProd(n, ln2o64Mid)
 		s, t = TwoSum(rh, -p1)
-		t += a.Lo - e1 - n*ln2o64Lo
+		t += a.Lo - e1 - float64(n*ln2o64Lo)
 		s, t = FastTwoSum(s, t)
 	} else {
 		r := Sub(a, MulFF(n, ln2o64Hi))
@@ -191,10 +191,10 @@ func ExpMant(a DD) (m DD, k int) {
 	k = (ni - j) / 64
 	// r = s + t; r² = s² + 2st (t² < 2^-200)
 	q, qe := TwoProd(s, s)
-	p := s * q * (1.0/6 + s*(1.0/24+s*(1.0/120+s*(1.0/720+s*(1.0/5040+s*(1.0/40320+s*(1.0/362880)))))))
+	p := float64(s * q * (1.0/6 + float64(s*(1.0/24+float64(s*(1.0/120+float64(s*(1.0/720+float64(s*(1.0/5040+float64(s*(1.0/40320+float64(s*(1.0/362880))))))))))))))
 	u, v := TwoSum(1, s)
-	v += t + 0.5*qe + s*t + p
-	e := AddF(DD{u, v}, 0.5*q)
+	v += t + float64(0.5*qe) + float64(s*t) + p
+	e := AddF(DD{u, v}, float64(0.5*q))
 	return Mul(e, expTable[j]), k
 }
 
@@ -203,7 +203,7 @@ func ExpMant(a DD) (m DD, k int) {
 // two arguments within that distance of each other get the same k and the
 // same table entry. The result is in [0, 0.5].
 func ExpReductionMargin(x float64) float64 {
-	v := x*(1/ln2o64Hi) + 0.5
+	v := float64(x*(1/ln2o64Hi)) + 0.5
 	return math.Abs(v - math.Round(v))
 }
 
@@ -241,22 +241,22 @@ func Log(x float64) DD {
 		m *= 0.5
 		k++
 	}
-	j := math.Floor(m*128 + 0.5)
-	c := j * (1.0 / 128)
+	j := math.Floor(float64(m*128) + 0.5)
+	c := float64(j * (1.0 / 128))
 	f := m - c // exact
 	h, l := TwoSum(m, c)
 	sh := f / h
-	sl := (math.FMA(-sh, h, f) - sh*l) / h
-	z := sh * sh
-	tail := sh * z * (2.0/3 + z*(2.0/5+z*(2.0/7)))
-	lm := AddF(DD{2 * sh, 2 * sl}, tail)
+	sl := (math.FMA(-sh, h, f) - float64(sh*l)) / h
+	z := float64(sh * sh)
+	tail := float64(sh * z * (2.0/3 + float64(z*(2.0/5+float64(z*(2.0/7))))))
+	lm := AddF(DD{float64(2 * sh), float64(2 * sl)}, tail)
 	lm = Add(lm, logTable[int(j)-logTableLo])
 	if k == 0 {
 		return lm
 	}
 	kk := float64(k)
 	// k*Ln2Hi is exact: Ln2Hi has 32 significant bits and |k| < 1100.
-	kh, kl := FastTwoSum(kk*ln2Hi32, kk*ln2Lo32)
+	kh, kl := FastTwoSum(float64(kk*ln2Hi32), float64(kk*ln2Lo32))
 	return Add(DD{kh, kl}, lm)
 }
 
@@ -274,7 +274,7 @@ func LogAccurate(x float64) DD {
 		m *= 2
 		k--
 	}
-	j := math.Floor(m*128 + 0.5)
+	j := math.Floor(float64(m*128) + 0.5)
 	c := j / 128
 	num := m - c // exact
 	h, l := TwoSum(m, c)
@@ -283,7 +283,7 @@ func LogAccurate(x float64) DD {
 	z := s2.Hi
 	// series = 1 + s2/3 + s2^2/5 + s2^3 (1/7 + s2/9 + s2^2/11 + s2^3/13)
 	t := Add(Div(s2, DD{3, 0}), DivF(Mul(s2, s2), 5))
-	t = AddF(t, z*z*z*(1.0/7+z*(1.0/9+z*(1.0/11+z/13))))
+	t = AddF(t, float64(z*z*z*(1.0/7+float64(z*(1.0/9+float64(z*(1.0/11+z/13)))))))
 	t = AddF(t, 1)
 	lm := MulF(Mul(s, t), 2)
 	lm = Add(lm, logTable[int(j)-logTableLo])

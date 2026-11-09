@@ -1,0 +1,201 @@
+// Command fmalint finds the floating-point products that the Go compiler
+// may fuse with an addition or subtraction, and can round them explicitly.
+//
+// The Go specification lets an implementation fuse x*y + z into one
+// operation, "possibly across statements", and the compiler does so on
+// arm64, ppc64le, s390x, riscv64 and loong64 (cmd/compile ARM64.rules:
+// (FADDD a (FMULD x y)) => (FMADDD a x y), with no condition on the number
+// of uses of the product) but not on amd64 v1 or 386. The same source then
+// rounds differently on different architectures. An explicit conversion,
+// float64(x*y), rounds the product and forbids the fusion.
+//
+// A float product is accepted only where it cannot reach an addition
+// without passing through a rounding: as a factor of another product or a
+// divisor/dividend, in a comparison, as the operand of float64()/float32(),
+// or as an argument of a function of package math (intrinsics, or bodies
+// too large to inline; math.FMA is the explicit fusion). Everywhere else
+// (an operand of + or -, a negation, an assigned value, a returned value,
+// an argument of a function that may be inlined, a composite literal
+// element) it is reported, because SSA forwards the unrounded product to
+// whatever addition consumes it, through variables and inlined calls.
+package main
+
+import (
+	"fmt"
+	"go/ast"
+	"go/token"
+	"go/types"
+	"os"
+	"sort"
+
+	"golang.org/x/tools/go/packages"
+)
+
+// Finding is one product open to fusion.
+type Finding struct {
+	Pos      token.Position
+	Start    int    // byte offset of the product in its file
+	End      int    // byte offset just past it
+	TypeName string // float64 or float32
+}
+
+// Lint loads the packages matched by patterns (relative to dir) and returns
+// the open products of their non-test, non-generated-by-hand Go files,
+// sorted by position.
+func Lint(dir string, patterns ...string) ([]Finding, error) {
+	cfg := &packages.Config{
+		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
+			packages.NeedTypes | packages.NeedTypesInfo,
+		Dir: dir,
+	}
+	pkgs, err := packages.Load(cfg, patterns...)
+	if err != nil {
+		return nil, err
+	}
+	var out []Finding
+	for _, p := range pkgs {
+		if len(p.Errors) > 0 {
+			return nil, fmt.Errorf("%s: %v", p.PkgPath, p.Errors[0])
+		}
+		for _, f := range p.Syntax {
+			out = append(out, lintFile(p.Fset, p.TypesInfo, f)...)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Pos.Filename != out[j].Pos.Filename {
+			return out[i].Pos.Filename < out[j].Pos.Filename
+		}
+		return out[i].Start < out[j].Start
+	})
+	return out, nil
+}
+
+func floatKind(info *types.Info, e ast.Expr) (string, bool) {
+	t := info.TypeOf(e)
+	if t == nil {
+		return "", false
+	}
+	if tv, ok := info.Types[e]; ok && tv.Value != nil {
+		return "", false // constant: folded at compile time
+	}
+	b, ok := t.Underlying().(*types.Basic)
+	if !ok {
+		return "", false
+	}
+	switch b.Kind() {
+	case types.Float64:
+		return "float64", true
+	case types.Float32:
+		return "float32", true
+	}
+	return "", false
+}
+
+func lintFile(fset *token.FileSet, info *types.Info, f *ast.File) []Finding {
+	var out []Finding
+	// parents maps every node to its parent, skipping nothing.
+	parents := map[ast.Node]ast.Node{}
+	var stack []ast.Node
+	ast.Inspect(f, func(n ast.Node) bool {
+		if n == nil {
+			stack = stack[:len(stack)-1]
+			return true
+		}
+		if len(stack) > 0 {
+			parents[n] = stack[len(stack)-1]
+		}
+		stack = append(stack, n)
+		return true
+	})
+	ast.Inspect(f, func(n ast.Node) bool {
+		be, ok := n.(*ast.BinaryExpr)
+		if !ok || be.Op != token.MUL {
+			return true
+		}
+		tn, ok := floatKind(info, be)
+		if !ok {
+			return true
+		}
+		if accepted(info, parents, be) {
+			return true
+		}
+		out = append(out, Finding{
+			Pos:      fset.Position(be.Pos()),
+			Start:    fset.Position(be.Pos()).Offset,
+			End:      fset.Position(be.End()).Offset,
+			TypeName: tn,
+		})
+		return true
+	})
+	return out
+}
+
+// accepted reports whether the product e sits where it cannot be fused.
+func accepted(info *types.Info, parents map[ast.Node]ast.Node, e ast.Expr) bool {
+	p := parents[e]
+	for {
+		pe, ok := p.(*ast.ParenExpr)
+		if !ok {
+			break
+		}
+		p = parents[pe]
+	}
+	switch p := p.(type) {
+	case *ast.BinaryExpr:
+		switch p.Op {
+		case token.MUL, token.QUO:
+			return true
+		case token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ:
+			return true
+		}
+		return false
+	case *ast.CallExpr:
+		if tv, ok := info.Types[p.Fun]; ok && tv.IsType() {
+			return true // conversion
+		}
+		if sel, ok := p.Fun.(*ast.SelectorExpr); ok {
+			if id, ok := sel.X.(*ast.Ident); ok {
+				if pn, ok := info.Uses[id].(*types.PkgName); ok && pn.Imported().Path() == "math" {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return false
+}
+
+// Fix wraps every finding in an explicit conversion to its type, editing
+// the files in place, and returns the number of products wrapped.
+func Fix(findings []Finding) (int, error) {
+	byFile := map[string][]Finding{}
+	for _, f := range findings {
+		byFile[f.Pos.Filename] = append(byFile[f.Pos.Filename], f)
+	}
+	n := 0
+	for name, fs := range byFile {
+		src, err := os.ReadFile(name)
+		if err != nil {
+			return n, err
+		}
+		// Insert from the end so that earlier offsets stay valid; a product
+		// nested in another reported one is wrapped too (harmless).
+		type ins struct {
+			at   int
+			text string
+		}
+		var all []ins
+		for _, f := range fs {
+			all = append(all, ins{f.Start, f.TypeName + "("}, ins{f.End, ")"})
+		}
+		sort.SliceStable(all, func(i, j int) bool { return all[i].at > all[j].at })
+		for _, in := range all {
+			src = append(src[:in.at], append([]byte(in.text), src[in.at:]...)...)
+		}
+		if err := os.WriteFile(name, src, 0o644); err != nil {
+			return n, err
+		}
+		n += len(fs)
+	}
+	return n, nil
+}

@@ -170,7 +170,7 @@ func Binom(n, k float64) float64 {
 		da, db := dd.AddF(nk1, -a).Float(), dd.AddF(k1, -b).Float()
 		lb := logBetaPos(math.Min(a, b), math.Max(a, b))
 		ps := Digamma(a + b)
-		lb = dd.AddF(lb, da*(Digamma(a)-ps)+db*(Digamma(b)-ps))
+		lb = dd.AddF(lb, float64(da*(Digamma(a)-ps))+float64(db*(Digamma(b)-ps)))
 		return dd.Exp(dd.Neg(dd.Add(logDD(np1), lb)))
 	}
 	k1 := sumDD(k, 1)
@@ -184,9 +184,9 @@ func Binom(n, k float64) float64 {
 	// log|Γ| of each double-double argument, corrected to first order for
 	// the low part (∂ log|Γ(x)| = ψ(x)), combined before one exponential.
 	lg := func(x dd.DD) dd.DD {
-		return dd.AddF(logGammaAbsDD(x.Hi), Digamma(x.Hi)*x.Lo)
+		return dd.AddF(logGammaAbsDD(x.Hi), float64(Digamma(x.Hi)*x.Lo))
 	}
 	l := dd.Sub(lg(np1), dd.Add(lg(k1), lg(nk1)))
-	sign := GammaSign(np1.Hi) * GammaSign(k1.Hi) * GammaSign(nk1.Hi)
-	return sign * dd.Exp(l)
+	sign := float64(GammaSign(np1.Hi) * GammaSign(k1.Hi) * GammaSign(nk1.Hi))
+	return float64(sign * dd.Exp(l))
 }

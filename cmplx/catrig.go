@@ -63,7 +63,7 @@ func hardWork(x, y float64) (rx float64, bUsable bool, b, sqrtA2my2, newY float6
 	}
 	newY = y
 	if y < fourSqrtMin {
-		return rx, false, 0, a * (2 / epsilon), y * (2 / epsilon)
+		return rx, false, 0, float64(a * (2 / epsilon)), float64(y * (2 / epsilon))
 	}
 	b = y / a
 	if b <= bCrossover {
@@ -71,13 +71,13 @@ func hardWork(x, y float64) (rx float64, bUsable bool, b, sqrtA2my2, newY float6
 	}
 	switch {
 	case y == 1 && x < epsilon/128:
-		sqrtA2my2 = math.Sqrt(x) * math.Sqrt((a+y)/2)
+		sqrtA2my2 = float64(math.Sqrt(x) * math.Sqrt((a+y)/2))
 	case x >= epsilon*math.Abs(y-1):
 		amy := fHull(x, y+1, r) + fHull(x, y-1, s)
 		sqrtA2my2 = math.Sqrt(amy * (a + y))
 	case y > 1:
 		sqrtA2my2 = x * (4 / epsilon / epsilon) * y / math.Sqrt((y+1)*(y-1))
-		newY = y * (4 / epsilon / epsilon)
+		newY = float64(y * (4 / epsilon / epsilon))
 	default:
 		sqrtA2my2 = math.Sqrt((1 - y) * (1 + y))
 	}
@@ -236,8 +236,8 @@ func realPartReciprocal(x, y float64) float64 {
 		return x / (float64(x*x) + float64(y*y))
 	}
 	scale := math.Ldexp(1, 1-ix) // msun: 2^(1 - ilogb(x))
-	x, y = x*scale, y*scale
-	return x / (float64(x*x) + float64(y*y)) * scale
+	x, y = float64(x*scale), float64(y*scale)
+	return float64(x / (float64(x*x) + float64(y*y)) * scale)
 }
 
 // Atanh returns the inverse hyperbolic tangent of x. Special values: C11
@@ -278,10 +278,10 @@ func Atanh(z complex128) complex128 {
 	} else {
 		s, e := dd.TwoSum(ax, -1)
 		den := dd.Add(dd.Sqr(dd.DD{Hi: s, Lo: e}), dd.MulFF(ay, ay))
-		l := log1pDD(dd.Div(dd.F(4*ax), den))
+		l := log1pDD(dd.Div(dd.F(float64(4*ax)), den))
 		rx = round(l, -2, l.Hi)
 	}
-	r := atan2X(2*ay, dd.AddF(dd.Neg(dd.Add(dd.MulFF(ax, ax), dd.MulFF(ay, ay))), 1))
+	r := atan2X(float64(2*ay), dd.AddF(dd.Neg(dd.Add(dd.MulFF(ax, ax), dd.MulFF(ay, ay))), 1))
 	ry := round(r, -1, r.Hi)
 	return complex(math.Copysign(rx, x), math.Copysign(ry, y))
 }

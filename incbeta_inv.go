@@ -130,15 +130,15 @@ func ibetaInv(a, b, p, q float64) float64 {
 // correction terms in 1/a, then x = (1 + sign(η) sqrt(1 - e^(-η²/2)))/2.
 func ibetaInvTemme1(a, b, p float64) float64 {
 	const r2 = math.Sqrt2
-	eta0 := ErfcInv(2*p) / -math.Sqrt(a/2)
+	eta0 := ErfcInv(float64(2*p)) / -math.Sqrt(a/2)
 	B := b - a
-	B2 := B * B
-	B3 := B2 * B
-	t1 := ibetaPoly(eta0, -B*r2/2, (1-2*B)/8, -(B * r2 / 48), -1.0/192, -B*r2/3840)
-	t2 := ibetaPoly(eta0, B*r2*(3*B-2)/12, (20*B2-12*B+1)/128, B*r2*(20*B-1)/960,
-		(16*B2+30*B-15)/4608, B*r2*(21*B+32)/53760, (-32*B2+63)/368640, -B*r2*(120*B+17)/25804480)
-	t3 := ibetaPoly(eta0, B*r2*(-75*B2+80*B-16)/480, (-1080*B3+868*B2-90*B-45)/9216,
-		B*r2*(-1190*B2+84*B+373)/53760, (-2240*B3-2508*B2+2100*B-165)/368640)
+	B2 := float64(B * B)
+	B3 := float64(B2 * B)
+	t1 := ibetaPoly(eta0, -B*r2/2, (1-float64(2*B))/8, -(B * r2 / 48), -1.0/192, -B*r2/3840)
+	t2 := ibetaPoly(eta0, B*r2*(float64(3*B)-2)/12, (float64(20*B2)-float64(12*B)+1)/128, B*r2*(float64(20*B)-1)/960,
+		(float64(16*B2)+float64(30*B)-15)/4608, B*r2*(float64(21*B)+32)/53760, (float64(-32*B2)+63)/368640, -B*r2*(float64(120*B)+17)/25804480)
+	t3 := ibetaPoly(eta0, B*r2*(float64(-75*B2)+float64(80*B)-16)/480, (float64(-1080*B3)+float64(868*B2)-float64(90*B)-45)/9216,
+		B*r2*(float64(-1190*B2)+float64(84*B)+373)/53760, (float64(-2240*B3)-float64(2508*B2)+float64(2100*B)-165)/368640)
 	eta := ibetaPoly(1/a, eta0, t1, t2, t3)
 	return (1 + math.Copysign(math.Sqrt(-math.Expm1(-eta*eta/2)), eta)) / 2
 }
@@ -147,7 +147,7 @@ func ibetaInvTemme1(a, b, p float64) float64 {
 func ibetaPoly(z float64, c ...float64) float64 {
 	s := 0.0
 	for i := len(c) - 1; i >= 0; i-- {
-		s = s*z + c[i]
+		s = float64(s*z) + c[i]
 	}
 	return s
 }
@@ -171,7 +171,7 @@ func ibetaInvGuessX(a, b, p, q float64, lb dd.DD) float64 {
 	}
 	if a >= 1 && b >= 1 && a+b >= 10 {
 		s := a + b
-		x := a/s + Ndtri(p)*math.Sqrt(a*b/(s*s*(s+1)))
+		x := a/s + float64(Ndtri(p)*math.Sqrt(a*b/(s*s*(s+1))))
 		if x > 0 && x < 1 {
 			return x
 		}
@@ -276,13 +276,13 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 			sure = true // the root is at most u
 		}
 		step := -g / r
-		curv := a - (b-1)*u/(1-u) + sg*r
+		curv := a - (b-1)*u/(1-u) + float64(sg*r)
 		if h := step * curv / 2; math.Abs(h) < 0.5 {
 			step /= 1 + h
 		}
 		nu := math.NaN()
 		if !math.IsInf(step, 0) && !math.IsNaN(step) && step < 700 {
-			nu = float64(u + u*math.Expm1(step))
+			nu = float64(u + float64(u*math.Expm1(step)))
 		}
 		if !sure && !(nu < 0.5) {
 			// the iteration heads above 1/2: is the root there?
@@ -347,7 +347,7 @@ func ibetaInvTail(a, b, u, t float64, upper bool, lt, lb dd.DD, lbf float64) (g,
 	} else {
 		g = lv - lt.Hi
 	}
-	ld := a*logf(u) + (b-1)*math.Log1p(-u) - lbf
+	ld := float64(a*logf(u)) + float64((b-1)*math.Log1p(-u)) - lbf
 	return g, math.Exp(ld - lv)
 }
 

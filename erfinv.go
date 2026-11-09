@@ -32,8 +32,8 @@ var (
 func (e *estPiece) evalLow(t, tl float64) (hi, lo float64) {
 	s := t - e.c
 	q := &e.q
-	s2 := s * s
-	s4 := s2 * s2
+	s2 := float64(s * s)
+	s4 := float64(s2 * s2)
 	a0 := math.FMA(q[5], s, q[4])
 	a1 := math.FMA(q[7], s, q[6])
 	a2 := math.FMA(q[9], s, q[8])
@@ -57,7 +57,7 @@ func erfInvSmallHL(p float64) (hi, lo float64) {
 	t := float64(p * p) // float64(): not fused below
 	rh, rl := erfInvSmallEst[min(int(t*8), 1)].evalLow(t, math.FMA(p, p, -t))
 	hi = float64(p * rh)
-	return hi, math.FMA(p, rh, -hi) + p*rl
+	return hi, math.FMA(p, rh, -hi) + float64(p*rl)
 }
 
 // erfcInvHL returns erfcinv(q) as hi + lo for 0 < q < 1/2.
@@ -167,16 +167,16 @@ func Ndtri(p float64) float64 {
 	switch {
 	case p > 0.25 && p < 0.75:
 		// sqrt(2) erfinv(2p - 1), 2p - 1 exact here
-		t := 2*p - 1
+		t := float64(2*p) - 1
 		h, l = erfInvSmallHL(math.Abs(t))
 		if t < 0 {
 			h, l = -h, -l
 		}
 	case p > 0 && p <= 0.25:
-		h, l = erfcInvHL(2 * p) // 2p exact (or an exact subnormal doubling)
+		h, l = erfcInvHL(float64(2 * p)) // 2p exact (or an exact subnormal doubling)
 		h, l = -h, -l
 	case p >= 0.75 && p < 1:
-		h, l = erfcInvN(2 * (1 - p)) // exact, normal
+		h, l = erfcInvN(float64(2 * (1 - p))) // exact, normal
 	case p == 0:
 		return math.Inf(-1)
 	case p == 1:

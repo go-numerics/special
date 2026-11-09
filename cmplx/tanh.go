@@ -37,15 +37,15 @@ func kahan(x, y float64) (t float64, b, c, s dd.DD) {
 // (msun's TANH_HUGE branch, 4 sin y cos y exp(-|x|)², with the exponential
 // in double-double and rounded once with the product).
 func tanhBig(x, y float64) (float64, float64) {
-	m, k := dd.ExpMant(dd.F(-2 * math.Abs(x)))
+	m, k := dd.ExpMant(dd.F(float64(-2 * math.Abs(x))))
 	var im float64
 	if math.Abs(y) < 0x1p1000 {
-		s, _ := sincos(2 * y)
+		s, _ := sincos(float64(2 * y))
 		im = mulRound(m, k+1, s)
 	} else {
 		// 2y would overflow: 4 sin y cos y, the product rounded once more.
 		s, c := sincos(y)
-		im = mulRound(m, k+2, s*c)
+		im = mulRound(m, k+2, float64(s*c))
 	}
 	return math.Copysign(1, x), im
 }
@@ -67,13 +67,13 @@ func Tanh(z complex128) complex128 {
 			if y == 0 {
 				return complex(x, y) // tanh(NaN ± i0) = NaN ± i0
 			}
-			return complex(x, x*y)
+			return complex(x, float64(x*y))
 		}
 		// tanh(±Inf + i y) = ±1 + i0 sin 2y; tanh(±Inf + i Inf), tanh(±Inf +
 		// i NaN) = ±1 ± i0 (sign of the zero unspecified).
 		v := y
 		if finite(y) {
-			v = math.Sin(y) * math.Cos(y)
+			v = float64(math.Sin(y) * math.Cos(y))
 		}
 		return complex(math.Copysign(1, x), math.Copysign(0, v))
 	}

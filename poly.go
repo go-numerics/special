@@ -11,7 +11,7 @@ import (
 func polevl(x float64, c []float64) float64 {
 	ans := c[0]
 	for _, v := range c[1:] {
-		ans = ans*x + v
+		ans = float64(ans*x) + v
 	}
 	return ans
 }
@@ -21,7 +21,7 @@ func polevl(x float64, c []float64) float64 {
 func p1evl(x float64, c []float64) float64 {
 	ans := x + c[0]
 	for _, v := range c[1:] {
-		ans = ans*x + v
+		ans = float64(ans*x) + v
 	}
 	return ans
 }
@@ -34,9 +34,9 @@ func chbevl(x float64, c []float64) float64 {
 	for _, v := range c[1:] {
 		b2 = b1
 		b1 = b0
-		b0 = x*b1 - b2 + v
+		b0 = float64(x*b1) - b2 + v
 	}
-	return 0.5 * (b0 - b2)
+	return float64(0.5 * (b0 - b2))
 }
 
 // pi = piHi + piLo to about 107 bits.
@@ -123,7 +123,7 @@ func cosPiDD(x float64) dd.DD {
 // difference, which lies in [0, 2) and fits in 53 bits: exact. For
 // a >= 2^53, a is an even integer and the result is 0.
 func mod2(a float64) float64 {
-	return a - 2*math.Floor(a*0.5)
+	return a - float64(2*math.Floor(a*0.5))
 }
 
 // sinPiReduced returns sin(pi*r), 0 <= r <= 0.25, as r(π + r²G(r²)) in
@@ -163,7 +163,7 @@ func evalPiecesDD(p []polyPiece, t float64) dd.DD {
 	q := &p[pieceIndex(p, t)]
 	n := len(q.coef) - 1
 	s := t - q.c
-	r := s * polevl(s, q.coef[:n])
+	r := float64(s * polevl(s, q.coef[:n]))
 	h, l := dd.TwoSum(q.coef[n], r)
 	return dd.DD{Hi: h, Lo: l + q.c0lo}
 }

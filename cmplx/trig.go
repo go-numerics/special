@@ -200,7 +200,7 @@ func atanDD(q dd.DD) dd.DD {
 	s := dd.Div(dd.AddF(q, -c), dd.AddF(dd.MulF(q, c), 1))
 	t := float64(s.Hi * s.Hi)
 	p := -1.0/3 + float64(t*(1.0/5-float64(t*(1.0/7))))
-	r := dd.AddF(s, float64(s.Hi*t)*p)
+	r := dd.AddF(s, float64(float64(s.Hi*t)*p))
 	a := atanT[int(j)]
 	return dd.Add(dd.DD{Hi: a[0], Lo: a[1]}, r)
 }

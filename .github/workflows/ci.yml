@@ -18,7 +18,10 @@ permissions:
 # every execution lane: the per-region ULP budgets in the *_test.go files are
 # the regression guard, and they must hold on every architecture, including
 # those where Go fuses multiply-adds (arm64, ppc64le, s390x, riscv64,
-# loong64) and those where it does not (amd64, 386, arm).
+# loong64) and those where it does not (amd64, 386, arm). Since every float
+# product is rounded explicitly or fused through math.FMA (tools/fmalint
+# enforces it), the results are also the same bits on every architecture:
+# TestArchHash compares them with testdata/archhash.golden in each lane.
 jobs:
   test:
     name: test (${{ matrix.os }})
@@ -35,6 +38,10 @@ jobs:
       - run: go version
       - run: go vet ./...
       - run: go build ./...
+      - name: No float product open to multiply-add fusion (tools/fmalint)
+        run: |
+          go -C tools test ./fmalint
+          go -C tools run ./fmalint -C .. . ./dd ./cmplx ./nd
       - name: Test + 100% coverage gate
         shell: bash
         run: |

@@ -185,10 +185,10 @@ func igamLowerSeriesRest(a, x float64) dd.DD {
 	for ; n < 10000; n++ {
 		dh, de := dd.TwoSum(a, n)
 		r := 1 / dh
-		fh := x * r
-		fl := (math.FMA(-fh, dh, x) - fh*de) * r
+		fh := float64(x * r)
+		fl := float64((math.FMA(-fh, dh, x) - float64(fh*de)) * r)
 		ph := float64(th * fh) // rounded: it feeds the TwoSum below
-		tl = math.FMA(th, fh, -ph) + (th*fl + tl*fh)
+		tl = math.FMA(th, fh, -ph) + (float64(th*fl) + float64(tl*fh))
 		th = ph
 		var e float64
 		sh, e = dd.TwoSum(sh, th)
@@ -248,18 +248,18 @@ func igamFractionDenDD(a, x float64) dd.DD {
 	// bounded factor per step.
 	_, e := math.Frexp(z0.Hi)
 	sc := math.Ldexp(1, -e)
-	b0 := z0.Hi * sc
+	b0 := float64(z0.Hi * sc)
 	a2, a1 := 1.0, b0 // A_(k-2), A_(k-1)
 	b2, b1 := 0.0, 1.0
 	dk := 1.0
 	prev := 1.0
 	n := 0.0
-	sc2 := sc * sc
+	sc2 := float64(sc * sc)
 	step := func(k float64) {
-		ak := k * (a - k) * sc2
-		bk := b0 + 2*k*sc
-		a2, a1 = a1, bk*a1+ak*a2
-		b2, b1 = b1, bk*b1+ak*b2
+		ak := float64(k * (a - k) * sc2)
+		bk := b0 + float64(2*k*sc)
+		a2, a1 = a1, float64(bk*a1)+float64(ak*a2)
+		b2, b1 = b1, float64(bk*b1)+float64(ak*b2)
 		dk *= ak
 	}
 	// Four steps between checks. An integer a ends the fraction (a_k = 0 at
@@ -272,13 +272,13 @@ func igamFractionDenDD(a, x float64) dd.DD {
 		n = k + 3
 		if m := math.Abs(b1); m > 0x1p256 || m < 0x1p-256 {
 			f := igamUnscale(m)
-			a1, a2, b1, b2, dk = a1*f, a2*f, b1*f, b2*f, dk*f*f
+			a1, a2, b1, b2, dk = float64(a1*f), float64(a2*f), float64(b1*f), float64(b2*f), float64(dk*f*f)
 		}
 		cur := math.Abs(dk / (a1 * b2))
 		rho := cur / prev
 		prev = cur
 		// remaining <= cur/(1 - rho^(1/4)) <= 4 cur/(1 - rho)
-		if lim := 1 - rho; cur <= 0x1p-58*max(lim*0.25, 1.0/256) {
+		if lim := 1 - rho; cur <= 0x1p-58*max(float64(lim*0.25), 1.0/256) {
 			break
 		}
 	}
@@ -286,19 +286,19 @@ func igamFractionDenDD(a, x float64) dd.DD {
 	// exactly the convergent there), two steps between range checks.
 	p, q := 0.0, 1.0
 	for k := n + 3; k >= 3; k -= 2 {
-		p, q = k*(a-k)*sc2*q, (b0+2*k*sc)*q+p
+		p, q = float64(k*(a-k)*sc2*q), float64((b0+float64(2*k*sc))*q)+p
 		k1 := k - 1
-		p, q = k1*(a-k1)*sc2*q, (b0+2*k1*sc)*q+p
+		p, q = float64(k1*(a-k1)*sc2*q), float64((b0+float64(2*k1*sc))*q)+p
 		if m := math.Abs(q); m > 0x1p256 || m < 0x1p-256 {
 			f := igamUnscale(m)
-			p, q = p*f, q*f
+			p, q = float64(p*f), float64(q*f)
 		}
 	}
 	// The first step, which the result feels undamped, in double-double:
 	// den = z0 + (a-1)/(z0 + 2 + t2).
 	w := dd.AddF(dd.AddF(z0, 2), p/q/sc)
 	t1 := (a - 1) / w.Hi
-	t1 += (math.FMA(-t1, w.Hi, a-1) - t1*w.Lo) / w.Hi
+	t1 += (math.FMA(-t1, w.Hi, a-1) - float64(t1*w.Lo)) / w.Hi
 	return dd.AddF(z0, t1)
 }
 
@@ -350,7 +350,7 @@ func igamExpm1DD(u dd.DD) dd.DD {
 	if u.Hi < -30 {
 		// e^u < 2^-43: -1 + e^u directly. (Below about -36.7, expm1 rounds
 		// to -1 exactly and the Newton step below would take log1p(-1).)
-		return dd.AddF(dd.F(-1), math.Exp(u.Hi)*(1+u.Lo))
+		return dd.AddF(dd.F(-1), float64(math.Exp(u.Hi)*(1+u.Lo)))
 	}
 	e := math.Expm1(u.Hi)
 	if e == 0 {
@@ -404,7 +404,7 @@ func igamTemme(a, x float64) (p, q float64) {
 		w = dd.Mul(m, base)
 	} else {
 		e := dd.MulF(erfcDD(z), 0.5)
-		w = dd.AddF(e, r*math.Exp(-z2.Hi))
+		w = dd.AddF(e, float64(r*math.Exp(-z2.Hi)))
 	}
 	v, c := igamPair(w, k)
 	if upper {
@@ -474,7 +474,7 @@ func igamLog1pmxDDScaled(x dd.DD, scale float64) dd.DD {
 func igamLog1pDD(u dd.DD) dd.DD {
 	if math.Abs(u.Hi) < 0x1p-20 {
 		x := u.Hi
-		tail := x * x * x * (1.0/3 - x*(1.0/4-x*(1.0/5-x/6)))
+		tail := float64(x * x * x * (1.0/3 - float64(x*(1.0/4-float64(x*(1.0/5-x/6))))))
 		return dd.AddF(dd.Sub(u, dd.MulF(dd.Mul(u, u), 0.5)), tail)
 	}
 	h, l := dd.TwoSum(1, u.Hi)
@@ -498,7 +498,7 @@ func igamLog1pmxDD(x dd.DD) dd.DD {
 	xh := x.Hi
 	t := 0.0
 	for k := 11.0; k >= 4; k-- {
-		t = 1/k - xh*t
+		t = 1/k - float64(xh*t)
 	}
-	return dd.AddF(r, -xh*xh*xh*xh*t)
+	return dd.AddF(r, float64(-xh*xh*xh*xh*t))
 }

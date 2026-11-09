@@ -80,7 +80,7 @@ func stirlingSeries(x float64) float64 {
 		return c1 / x
 	}
 	z := 1 / (x * x)
-	return (c1 + z*(c2+z*(c3+z*(c4+z*(c5+z*(c6+z*(c7+z*(c8+z*c9)))))))) / x
+	return (c1 + float64(z*(c2+float64(z*(c3+float64(z*(c4+float64(z*(c5+float64(z*(c6+float64(z*(c7+float64(z*(c8+float64(z*c9)))))))))))))))) / x
 }
 
 // logGammaStirling returns log Γ(x) for x >= 10 as a double-double.
@@ -166,19 +166,19 @@ func logGammaLargeHL2(x, xl float64) (hi, lo float64) {
 	tmp := ixb - 0x3fe8000000000000
 	kf := float64(int64(tmp) >> 52)
 	m := math.Float64frombits(ixb - uint64(int64(tmp)>>52)<<52)
-	t := &logT[int(m*256+0.5)-192]
+	t := &logT[int(float64(m*256)+0.5)-192]
 	invc := t[0]
 	p := float64(m * invc) // float64(): not fused into r below
 	pe := math.FMA(m, invc, -p)
 	r := p - 1
-	r2 := r * r
+	r2 := float64(r * r)
 	q0 := math.FMA(r, 1.0/3, -0.5)
 	q1 := math.FMA(r, 1.0/5, -0.25)
 	q2 := math.FMA(r, 1.0/7, -1.0/6)
 	q2 = math.FMA(r2, -1.0/8, q2)
 	q1 = math.FMA(r2, q2, q1)
-	q := r2 * math.FMA(r2, q1, q0)
-	l0 := kf*ln2Hi42 + t[1]
+	q := float64(r2 * math.FMA(r2, q1, q0))
+	l0 := float64(kf*ln2Hi42) + t[1]
 	lh := l0 + r
 	ll := (r - (lh - l0)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + q))
 	// (x - 1/2) log x
@@ -190,13 +190,13 @@ func logGammaLargeHL2(x, xl float64) (hi, lo float64) {
 	// S(x): stirlingHL
 	const c1lo = 4.625929269271485e-18 // 1/12 - RN(1/12)
 	c := &stirlingCoef
-	ixl := math.FMA(-ix, x, 1) * ix
-	z := ix * ix
-	z2 := z * z
-	z4 := z2 * z2
+	ixl := float64(math.FMA(-ix, x, 1) * ix)
+	z := float64(ix * ix)
+	z2 := float64(z * z)
+	z4 := float64(z2 * z2)
 	sa := math.FMA(math.FMA(c[4], z, c[3]), z2, math.FMA(c[2], z, c[1]))
 	sb := math.FMA(math.FMA(c[8], z, c[7]), z2, math.FMA(c[6], z, c[5]))
-	tail := math.FMA(sb, z4, sa) * z * ix
+	tail := float64(math.FMA(sb, z4, sa) * z * ix)
 	sh := float64(ix * c[0])
 	sl := math.FMA(ix, c[0], -sh) + math.FMA(ixl, c[0], math.FMA(ix, c1lo, tail))
 	v := ph - x // Fast2Sum: (x - 1/2) log x >= 2.2 x here
@@ -205,7 +205,7 @@ func logGammaLargeHL2(x, xl float64) (hi, lo float64) {
 	e1 := (v - h1) + lnSqrt2Pi.Hi
 	hi = h1 + sh // Fast2Sum: sh < 0.01
 	e2 := (h1 - hi) + sh
-	return hi, (e1 + e2) + (vl + pl + (lnSqrt2Pi.Lo + sl) + xl*math.FMA(-0.5, ix, lh))
+	return hi, (e1 + e2) + (vl + pl + (lnSqrt2Pi.Lo + sl) + float64(xl*math.FMA(-0.5, ix, lh)))
 }
 
 // gammaLarge returns Γ(x) for 10 <= x (finite; +Inf above gammaMax):
@@ -218,7 +218,7 @@ func gammaLarge(x float64) float64 {
 	h, l := logGammaLargeHL(x)
 	hn := h + l
 	eh, el, k := expHL(hn, l-(hn-h))
-	return (eh + el) * pow2(k) // k <= 1023
+	return float64((eh + el) * pow2(k)) // k <= 1023
 }
 
 // gamma1pHL returns Γ(1+t) as hi + lo for 0 <= t <= 1: 1 + t(t-1)F(t)
@@ -230,7 +230,7 @@ func gamma1pHL(t float64) (hi, lo float64) {
 	bb := uh - t
 	ul := (t - (uh - bb)) + (-1 - bb)
 	ph := float64(uh * t)
-	pl := math.FMA(uh, t, -ph) + ul*t
+	pl := math.FMA(uh, t, -ph) + float64(ul*t)
 	gh := float64(ph * fh)
 	gl := math.FMA(ph, fh, -gh) + math.FMA(ph, fl, pl*fh)
 	hi = 1 + gh // Fast2Sum: |Γ(1+t) - 1| < 0.12
@@ -250,7 +250,7 @@ func gammaMid(x float64) (hi, lo float64) {
 	for j := 1.0; j <= n; j++ {
 		f := x - j
 		p := float64(hi * f)
-		lo = math.FMA(hi, f, -p) + lo*f
+		lo = math.FMA(hi, f, -p) + float64(lo*f)
 		hi = p
 	}
 	return hi, lo

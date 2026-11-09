@@ -59,7 +59,7 @@ func gamma1pFast(t float64) (hi, lo float64) {
 	bb := uh - t
 	ul := (t - (uh - bb)) + (-1 - bb)
 	ph := float64(uh * t) // float64(): not fused below
-	pl := math.FMA(uh, t, -ph) + ul*t
+	pl := math.FMA(uh, t, -ph) + float64(ul*t)
 	gh := float64(ph * f.Hi)
 	gl := math.FMA(ph, f.Hi, -gh) + math.FMA(ph, f.Lo, pl*f.Hi)
 	hi = 1 + gh // Fast2Sum: |t(t-1)F| <= 0.773 on [-1/2, 1]
@@ -77,7 +77,7 @@ func gammaRecipFast(x float64) (float64, bool) {
 	ql := (r + gl) / x
 	h := qh + ql
 	l := ql - (h - qh)
-	return h, zivRound(h, l, gammaErrRecip*math.Abs(h))
+	return h, zivRound(h, l, float64(gammaErrRecip*math.Abs(h)))
 }
 
 // gammaProdFast returns Γ(x) = Γ(1+t) / (t Π_{k<n} (x+k)), n = ceil(-x),
@@ -94,31 +94,31 @@ func gammaProdFast(x float64) (float64, bool) {
 	for ; k+1 < n; k += 2 {
 		f := x + k
 		p := float64(ah * f)
-		al = math.FMA(ah, f, -p) + al*f
+		al = math.FMA(ah, f, -p) + float64(al*f)
 		ah = p
 		g := x + (k + 1)
 		q := float64(bh * g)
-		bl = math.FMA(bh, g, -q) + bl*g
+		bl = math.FMA(bh, g, -q) + float64(bl*g)
 		bh = q
 	}
 	if k < n {
 		f := x + k
 		p := float64(ah * f)
-		al = math.FMA(ah, f, -p) + al*f
+		al = math.FMA(ah, f, -p) + float64(al*f)
 		ah = p
 	}
 	dh := float64(ah * bh)
-	dl := math.FMA(ah, bh, -dh) + (ah*bl + al*bh)
+	dl := math.FMA(ah, bh, -dh) + (float64(ah*bl) + float64(al*bh))
 	s := dh + dl // Fast2Sum
 	dl -= s - dh
 	dh = s
 	gh, gl := gamma1pFast(t)
 	qh := gh / dh
 	r := math.FMA(-qh, dh, gh) // exact remainder
-	ql := (r + gl - qh*dl) / dh
+	ql := (r + gl - float64(qh*dl)) / dh
 	h := qh + ql
 	l := ql - (h - qh)
-	return h, zivRound(h, l, gammaErrProd*math.Abs(h))
+	return h, zivRound(h, l, float64(gammaErrProd*math.Abs(h)))
 }
 
 // gammaReflFast returns Γ(x) = -π / (x sin(πx) Γ(-x)) for -190 <= x <= -34
@@ -132,7 +132,7 @@ func gammaProdFast(x float64) (float64, bool) {
 func gammaReflFast(x float64) (float64, bool) {
 	s := sinPiDD(x)
 	dh := float64(x * s.Hi)
-	dl := math.FMA(x, s.Hi, -dh) + x*s.Lo
+	dl := math.FMA(x, s.Hi, -dh) + float64(x*s.Lo)
 	lh, ll := logHLn(math.Abs(dh)) // |x sin πx| > 2^-46: normal
 	ll += dl / dh                  // log|dh + dl| = log|dh| + dl/dh + O(u²)
 	gh, gl := logGammaLargeHL(-x)
@@ -155,7 +155,7 @@ func gammaReflFast(x float64) (float64, bool) {
 		return 0, false // outside the exp kernel's range
 	}
 	eh, el, k := expHL(h, l)
-	if !zivRound(eh, el, gammaErrRefl*eh) {
+	if !zivRound(eh, el, float64(gammaErrRefl*eh)) {
 		return 0, false
 	}
 	if k >= -1021 {

@@ -36,7 +36,7 @@ func Log1p(x complex128) complex128 {
 	case (re >= -2 && re <= -0.5) || math.Max(math.Abs(re), math.Abs(im)) >= 0x1p26:
 		l = logAbs(s, im) // 1 + x exact in the first range, harmless in the second
 	default:
-		t := dd.Add(dd.AddF(dd.MulFF(re, re), 2*re), dd.MulFF(im, im))
+		t := dd.Add(dd.AddF(dd.MulFF(re, re), float64(2*re)), dd.MulFF(im, im))
 		l = log1pDD(t)
 	}
 	a := atan2X(im, onePlus)
@@ -55,7 +55,7 @@ func expm1DD(x float64) dd.DD {
 	if math.Abs(x) < 0x1p-20 {
 		// x + x²/2 in double-double, x³/6 + x⁴/24 in float64.
 		x2 := float64(x * x)
-		c := x2 * (float64(x*(1.0/6)) + float64(x2*(1.0/24)))
+		c := float64(x2 * (float64(x*(1.0/6)) + float64(x2*(1.0/24))))
 		return dd.AddF(dd.Add(dd.F(x), dd.Ldexp(dd.MulFF(x, x), -1)), c)
 	}
 	m, k := dd.ExpMant(dd.F(x))
@@ -96,7 +96,7 @@ func Expm1(x complex128) complex128 {
 		ri = round(r, 0, r.Hi)
 	}
 	if s.Hi == 0 {
-		return complex(ri, m.Hi*s.Hi) // e^x · (±0)
+		return complex(ri, float64(m.Hi*s.Hi)) // e^x · (±0)
 	}
 	es := math.Ilogb(s.Hi)
 	return complex(ri, round(dd.Mul(m, dd.Ldexp(s, -es)), k+es, s.Hi))
