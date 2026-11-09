@@ -81,19 +81,25 @@ Full method, sources of every algorithm, negative control and limitations:
 
 ## Speed
 
-Accuracy has a price: single-threaded, a Go loop is about 3x slower than
-SciPy's C for the gamma and error-function families and 10–15x for the
-Bessel functions of real order and the incomplete beta function. The `nd`
-functions spread large arrays over the cores and beat SciPy for 21 of 31
-functions measured (typically 1.5–3x on a 16-core host; e.g. Gamma 6.4 vs
-13.4 ns/element, Ndtr 4.7 vs 9.0, GammaP 37 vs 137).
+Accuracy has a price. Measured against SciPy 1.18.1 on one core (refbench,
+tag v0.5.7, 10 000-point calls, host load 5.1–7.1, valid run; ratios are Go
+time over SciPy time):
+
+- the elementwise families are 1.1–1.5x slower: Gamma 1.13 (15.6 vs 13.8
+  ns/element), LogGamma 1.36, Erfc 1.23, Ndtr 1.15, Ndtri 1.49, Expit 1.22,
+  Logit 1.38, GammaP 1.17;
+- faster than SciPy: the order 0 and 1 Bessel functions (J0 0.75, I0e 0.30,
+  I1 0.96, K1 0.92, K1e 0.37), the elliptic integrals (0.37–0.44), Zeta 0.64,
+  Polygamma 0.05, Comb 0.85, Factorial2 0.02;
+- several times slower, where a double-double continued fraction or series
+  produces the rounded result: Yn 33.4, Iv 7.9, Softmax 6.75, Binom 5.5, In
+  5.2, LogSoftmax 4.1, BetaIncInv 3.5, Kv 2.3, Xlog1py 2.2, BetaInc 2.1
+  (open defects, #33).
 
 Since v0.5.6, `I1`, `I1e`, `K1` and `K1e` use the same fitted octave
-interpolants as `I0e` and `K0e` (about 4–10x faster, and more accurate:
-worst case against mpmath 3.45 to 0.51 ulp for I1), `Comb`, `Factorial2`,
-`Factorial` and `Xlog1py` have faster paths that return the same bits as
-before. No timing table has yet been recorded at a load below 8, so these
-speed-ups are stated from `go test -bench` and not from the refbench table.
+interpolants as `I0e` and `K0e` (and are more accurate: worst case against
+mpmath 3.45 to 0.51 ulp for I1); `Comb`, `Factorial2`, `Factorial` and
+`Xlog1py` have faster paths that return the same bits as before.
 
 Method and full table: [docs/perf.md](docs/perf.md).
 
