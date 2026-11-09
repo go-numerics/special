@@ -359,6 +359,37 @@ func LogSumExp(x []float64) float64 {
 	return dd.AddF(log1pDD(s), m).Float()
 }
 
+// softmaxDivErr bounds the relative error of softmaxDivFast against the exact
+// quotient: the residual r = a - q b is formed from exact pieces (the Sterbenz
+// difference a.Hi - p, the FMA remainder pe) and two roundings of size
+// 2^-53 |r| < 2^-106 |a|, q b.Lo is rounded at 2^-106 |a| and r/b.Hi at
+// 2^-106 |q|: under 2^-104 in all. The reference dd.Div is within 15u² =
+// 2^-100.1 of the exact quotient; 2^-98 covers both.
+const softmaxDivErr = 0x1p-98
+
+// softmaxDiv returns dd.Div(a, b).Float() for a, b > 0 normal: a float64
+// evaluation of a/b as hi + lo with the Ziv test of gamma_fast.go (zivRound),
+// the double-double division for the points it cannot decide (about 2^-44).
+func softmaxDiv(a, b dd.DD) float64 {
+	if v, ok := softmaxDivCertified(a, b); ok {
+		return v
+	}
+	return dd.Div(a, b).Float()
+}
+
+// softmaxDivCertified is the float64 evaluation of softmaxDiv and whether the
+// Ziv test decided its rounding.
+func softmaxDivCertified(a, b dd.DD) (float64, bool) {
+	q := a.Hi / b.Hi
+	p := float64(q * b.Hi)
+	pe := math.FMA(q, b.Hi, -p)
+	r := ((a.Hi - p) - pe) + (a.Lo - float64(q*b.Lo))
+	q2 := r / b.Hi
+	h := q + q2
+	l := q2 - (h - q)
+	return h, zivRound(h, l, float64(softmaxDivErr*h))
+}
+
 // softmaxScratch holds the double-double exponentials of Softmax.
 var softmaxScratch sync.Pool
 
@@ -409,7 +440,7 @@ func Softmax(dst, x []float64) []float64 {
 		s = dd.Add(s, es[i])
 	}
 	for i := range dst {
-		dst[i] = dd.Div(es[i], s).Float()
+		dst[i] = softmaxDiv(es[i], s)
 	}
 	softmaxScratch.Put(bp)
 	return dst
