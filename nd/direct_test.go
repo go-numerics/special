@@ -11,12 +11,12 @@ import (
 // element and mapN for any other broadcast; every layout gives the bits of the
 // scalar function applied element by element.
 func TestMapDirectLayouts(t *testing.T) {
-	f2 := func(x, y float64) float64 { return x*3 + y }
-	f3 := func(x, y, z float64) float64 { return x*5 + y*3 + z }
+	f2 := func(x, y float64) float64 { return float64(x*3) + y }
+	f3 := func(x, y, z float64) float64 { return float64(x*5) + float64(y*3) + z }
 	seq := func(n int, k float64) []float64 {
 		v := make([]float64, n)
 		for i := range v {
-			v[i] = float64(i+1) * k
+			v[i] = float64(float64(i+1) * k)
 		}
 		return v
 	}

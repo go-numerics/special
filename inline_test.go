@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/rand"
 	"testing"
@@ -18,7 +19,7 @@ func TestInlinedLoopsBitIdentical(t *testing.T) {
 		if r.Intn(2) == 0 {
 			s = -1
 		}
-		pts = append(pts, s*math.Exp(r.Float64()*1400-700), s*r.Float64()*60, r.Float64())
+		pts = append(pts, float64(s*libm.Exp(float64(r.Float64()*1400)-700)), float64(s*r.Float64()*60), r.Float64())
 	}
 	unary := map[string]struct {
 		vec    func(dst, x []float64)

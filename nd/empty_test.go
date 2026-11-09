@@ -43,8 +43,8 @@ func shapeLen(t *testing.T, r *ndarray.Array, err error) ([]int, int, error) {
 // as many elements as it holds.
 func TestMapRandomShapesWithZeroExtents(t *testing.T) {
 	rng := rand.New(rand.NewSource(1))
-	f2 := func(x, y float64) float64 { return x*2 + y }
-	f3 := func(x, y, z float64) float64 { return x*2 + y - z }
+	f2 := func(x, y float64) float64 { return float64(x*2) + y }
+	f3 := func(x, y, z float64) float64 { return float64(x*2) + y - z }
 	mk := func() ([]int, int) {
 		sh := make([]int, 1+rng.Intn(3))
 		n := 1

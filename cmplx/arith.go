@@ -119,8 +119,8 @@ func Mul(x, y complex128) complex128 {
 		recalc = true
 	}
 	if recalc {
-		re = math.Inf(1) * (float64(a*c) - float64(b*d))
-		im = math.Inf(1) * (float64(a*d) + float64(b*c))
+		re = float64(math.Inf(1) * (float64(a*c) - float64(b*d)))
+		im = float64(math.Inf(1) * (float64(a*d) + float64(b*c)))
 	}
 	return complex(re, im)
 }
@@ -157,16 +157,16 @@ func divAnnexG(a, b, c, d float64) complex128 {
 	if math.IsNaN(x) && math.IsNaN(y) {
 		switch {
 		case denom == 0 && (!math.IsNaN(a) || !math.IsNaN(b)):
-			x = math.Copysign(math.Inf(1), c) * a
-			y = math.Copysign(math.Inf(1), c) * b
+			x = float64(math.Copysign(math.Inf(1), c) * a)
+			y = float64(math.Copysign(math.Inf(1), c) * b)
 		case (math.IsInf(a, 0) || math.IsInf(b, 0)) && finite(c) && finite(d):
 			a, b = box(a), box(b)
-			x = math.Inf(1) * (float64(a*c) + float64(b*d))
-			y = math.Inf(1) * (float64(b*c) - float64(a*d))
+			x = float64(math.Inf(1) * (float64(a*c) + float64(b*d)))
+			y = float64(math.Inf(1) * (float64(b*c) - float64(a*d)))
 		case math.IsInf(logbw, 1) && finite(a) && finite(b):
 			c, d = box(c), box(d)
-			x = 0 * (float64(a*c) + float64(b*d))
-			y = 0 * (float64(b*c) - float64(a*d))
+			x = float64(0 * (float64(a*c) + float64(b*d)))
+			y = float64(0 * (float64(b*c) - float64(a*d)))
 		}
 	}
 	return complex(x, y)

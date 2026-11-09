@@ -34,17 +34,17 @@ func octIndex(x float64, emin, emax int) int {
 func octTail(q *octPiece, s float64) float64 {
 	c := &q.coef
 	r := c[0]
-	r = r*s + c[1]
-	r = r*s + c[2]
-	r = r*s + c[3]
-	r = r*s + c[4]
-	r = r*s + c[5]
-	r = r*s + c[6]
-	r = r*s + c[7]
-	r = r*s + c[8]
-	r = r*s + c[9]
-	r = r*s + c[10]
-	return r*s + q.c0lo
+	r = float64(r*s) + c[1]
+	r = float64(r*s) + c[2]
+	r = float64(r*s) + c[3]
+	r = float64(r*s) + c[4]
+	r = float64(r*s) + c[5]
+	r = float64(r*s) + c[6]
+	r = float64(r*s) + c[7]
+	r = float64(r*s) + c[8]
+	r = float64(r*s) + c[9]
+	r = float64(r*s) + c[10]
+	return float64(r*s) + q.c0lo
 }
 
 // octEval evaluates a piece at s = x - c with one rounding: the tail is a
@@ -61,6 +61,6 @@ func octExpMul(q *octPiece, s, t float64) float64 {
 	m, k := dd.ExpMant(dd.DD{Hi: t})
 	c0 := q.coef[11]
 	p, pe := dd.TwoProd(m.Hi, c0)
-	r := p + (pe + m.Hi*octTail(q, s) + m.Lo*c0)
+	r := p + (pe + float64(m.Hi*octTail(q, s)) + float64(m.Lo*c0))
 	return math.Ldexp(r, k)
 }

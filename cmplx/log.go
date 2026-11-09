@@ -1,6 +1,7 @@
 package cmplx
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -30,7 +31,7 @@ func atan2X(y float64, xd dd.DD) dd.DD {
 	pi := dd.DD{Hi: 2 * pio2a, Lo: 2 * pio2b}
 	switch {
 	case !finite(x) || !finite(y):
-		return dd.F(math.Copysign(math.Abs(math.Atan2(math.Abs(y), x)), y))
+		return dd.F(math.Copysign(math.Abs(libm.Atan2(math.Abs(y), x)), y))
 	case y == 0: // ±0 or ±π, exactly as double-doubles
 		if math.Signbit(x) {
 			pi.Hi, pi.Lo = math.Copysign(pi.Hi, y), math.Copysign(pi.Lo, y)
@@ -84,7 +85,7 @@ func log1pDD(t dd.DD) dd.DD {
 		h := t.Hi
 		h2 := float64(h * h)
 		p, q := float64(h*(1.0/3)), float64(h2*0.25)
-		c := h2 * (-0.5 + p - q)
+		c := float64(h2 * (-0.5 + p - q))
 		return dd.AddF(t, c)
 	}
 	u := dd.AddF(t, 1)
@@ -154,7 +155,7 @@ func Log2(x complex128) complex128 {
 // mulC returns a·c rounded once (NaN and zeros as a.Hi·c.Hi).
 func mulC(a, c dd.DD) float64 {
 	if !finite(a.Hi) || a.Hi == 0 {
-		return a.Hi * c.Hi
+		return float64(a.Hi * c.Hi)
 	}
 	p := dd.Mul(a, c)
 	return p.Hi + p.Lo

@@ -2,6 +2,7 @@ package nd
 
 import (
 	"errors"
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"testing"
 
@@ -49,10 +50,10 @@ func TestApplyPaths(t *testing.T) {
 	same("Polygamma(2, x)", got, want)
 
 	cplx := x.AsType(ndarray.Complex128)
-	if _, err := Map1(math.Sin, cplx); !errors.Is(err, ndarray.ErrDType) {
+	if _, err := Map1(libm.Sin, cplx); !errors.Is(err, ndarray.ErrDType) {
 		t.Errorf("Map1(complex) err %v", err)
 	}
-	if _, err := Map2(math.Atan2, cplx, x); !errors.Is(err, ndarray.ErrDType) {
+	if _, err := Map2(libm.Atan2, cplx, x); !errors.Is(err, ndarray.ErrDType) {
 		t.Errorf("Map2(complex, _) err %v", err)
 	}
 	if _, err := Beta(x, cplx); !errors.Is(err, ndarray.ErrDType) {
@@ -62,7 +63,7 @@ func TestApplyPaths(t *testing.T) {
 		t.Errorf("Beta(complex, _) err %v", err)
 	}
 	bad, _ := ndarray.FromData([]float64{1, 2}, 2)
-	if _, err := Map2(math.Atan2, bad, x); !errors.Is(err, ErrShape) {
+	if _, err := Map2(libm.Atan2, bad, x); !errors.Is(err, ErrShape) {
 		t.Errorf("Map2 shape err %v", err)
 	}
 	if _, err := Beta(bad, x); !errors.Is(err, ErrShape) {

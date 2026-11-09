@@ -19,7 +19,7 @@ const logGammaMax = 2.556348e305
 func log1pDD(u dd.DD) dd.DD {
 	if math.Abs(u.Hi) < 0x1p-20 {
 		x := u.Hi
-		tail := x * x * x * (1.0/3 - x*(1.0/4-x*(1.0/5-x/6)))
+		tail := float64(x * x * x * (1.0/3 - float64(x*(1.0/4-float64(x*(1.0/5-x/6))))))
 		return dd.AddF(dd.Sub(u, dd.MulF(dd.Mul(u, u), 0.5)), tail)
 	}
 	h, l := dd.TwoSum(1, u.Hi)
@@ -90,7 +90,7 @@ func logGammaPos(x float64) dd.DD {
 	switch {
 	case x < 0x1p-56:
 		// log Γ(x) = -log x - γx + O(x²)
-		return dd.AddF(dd.Neg(dd.Log(x)), -euler*x)
+		return dd.AddF(dd.Neg(dd.Log(x)), float64(-euler*x))
 	case x < 0.5:
 		// log(Γ(1+x)/x)
 		return dd.Sub(log1pDD(gamma1pm1(x)), dd.Log(x))
@@ -112,7 +112,7 @@ func logGammaPos(x float64) dd.DD {
 func logGammaNeg(x float64) dd.DD {
 	switch {
 	case x > -0x1p-56:
-		return dd.AddF(dd.Neg(dd.Log(-x)), -euler*x)
+		return dd.AddF(dd.Neg(dd.Log(-x)), float64(-euler*x))
 	case x > -0.5:
 		return dd.Sub(log1pDD(gamma1pm1(x)), dd.Log(-x))
 	case x > -34:

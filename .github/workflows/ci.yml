@@ -18,7 +18,10 @@ permissions:
 # every execution lane: the per-region ULP budgets in the *_test.go files are
 # the regression guard, and they must hold on every architecture, including
 # those where Go fuses multiply-adds (arm64, ppc64le, s390x, riscv64,
-# loong64) and those where it does not (amd64, 386, arm).
+# loong64) and those where it does not (amd64, 386, arm). Since every float
+# product is rounded explicitly or fused through math.FMA (tools/fmalint
+# enforces it), the results are also the same bits on every architecture:
+# TestArchHash compares them with testdata/archhash.golden in each lane.
 jobs:
   test:
     name: test (${{ matrix.os }})
@@ -35,10 +38,18 @@ jobs:
       - run: go version
       - run: go vet ./...
       - run: go build ./...
+      - name: No float product open to multiply-add fusion (tools/fmalint)
+        run: |
+          go -C tools test ./fmalint
+          go -C tools run ./fmalint -C .. . ./dd ./cmplx ./nd ./internal/libm
       - name: Test + 100% coverage gate
         shell: bash
         run: |
-          COVERPKG=$(go list ./... | paste -sd, -)
+          # internal/libm is generated from Go's src/math (tools/fmalint
+          # --genlibm, checked up to date by the fmalint tests); two of its
+          # branches (log1p for k == 0 with |f| < 2^-20) are unreachable in
+          # Go's own code, so it is tested on its own and kept out of the gate.
+          COVERPKG=$(go list ./... | grep -v /internal/libm | paste -sd, -)
           go test -race -coverpkg="$COVERPKG" -coverprofile=cover.out ./...
           go tool cover -func=cover.out | tail -n 40
           cov=$(go tool cover -func=cover.out | tail -1 | awk '{print $3}' | tr -d '%')
@@ -66,6 +77,16 @@ jobs:
           go vet ./...
           go build ./...
           go test ./...
+      # The binary witness: on arm64 every fused multiply-add the compiler
+      # emitted must come from a math.FMA call (tools/fmalint --objdump).
+      - name: No implicit fused multiply-add in the arm64 binaries
+        if: matrix.label == 'arm64'
+        run: |
+          for p in . ./dd ./cmplx ./nd ./internal/libm; do
+            go test -c -o "$RUNNER_TEMP/w.test" "$p"
+            go tool objdump "$RUNNER_TEMP/w.test" > "$RUNNER_TEMP/w.txt"
+            go -C tools run ./fmalint -C .. --objdump "$RUNNER_TEMP/w.txt"
+          done
 
   arch-qemu:
     name: arch ${{ matrix.goarch }} (qemu)

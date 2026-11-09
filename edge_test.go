@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"testing"
 )
@@ -27,7 +28,7 @@ func TestEdgeCases(t *testing.T) {
 		{"Beta(-1,2)", Beta(-1, 2), inf},
 		{"Beta(-1,-2)", Beta(-1, -2), nan},
 		{"Beta(-0.5,-0.5)", Beta(-0.5, -0.5), 0},
-		{"Beta(1e-300,2) ~ 1/a", math.Abs(Beta(1e-300, 2)*1e-300-1) < 3e-16, true},
+		{"Beta(1e-300,2) ~ 1/a", math.Abs(float64(Beta(1e-300, 2)*1e-300)-1) < 3e-16, true},
 		{"Factorial(NaN)", Factorial(nan), nan},
 		{"Factorial(-1)", Factorial(-1), 0},
 		{"Factorial(171)", Factorial(171), inf},
@@ -47,8 +48,8 @@ func TestEdgeCases(t *testing.T) {
 		{"Binom(Inf,1)", Binom(inf, 1), nan},
 		{"Binom(5,-1)", Binom(5, -1), 0},
 		{"Binom(-1,0.5)", Binom(-1, 0.5), nan},
-		{"EllipK(-1e301)", EllipK(-1e301), (math.Log(4) + 0.5*math.Log(1e301)) / math.Sqrt(1e301)},
-		{"EllipKm1(1e301)", EllipKm1(1e301), (math.Log(4) + 0.5*math.Log(1e301)) / math.Sqrt(1e301)},
+		{"EllipK(-1e301)", EllipK(-1e301), (libm.Log(4) + float64(0.5*libm.Log(1e301))) / math.Sqrt(1e301)},
+		{"EllipKm1(1e301)", EllipKm1(1e301), (libm.Log(4) + float64(0.5*libm.Log(1e301))) / math.Sqrt(1e301)},
 		{"EllipKm1(NaN)", EllipKm1(nan), nan},
 		{"EllipE(-1e301)", EllipE(-1e301), math.Sqrt(1e301)},
 		{"EllipE(-Inf)", EllipE(math.Inf(-1)), inf},

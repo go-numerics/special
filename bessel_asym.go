@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/bits"
 
@@ -106,9 +107,9 @@ func besselReduce(x float64) (q int, f dd.DD) {
 // enters through the first-order term.
 func besselSinCosQuarter(n int, s dd.DD) (sn, cs float64) {
 	a := dd.Mul(s, besselPiOver2DD)
-	sh, ch := math.Sincos(a.Hi)
-	sa := sh + a.Lo*ch
-	ca := ch - a.Lo*sh
+	sh, ch := libm.Sincos(a.Hi)
+	sa := sh + float64(a.Lo*ch)
+	ca := ch - float64(a.Lo*sh)
 	switch n & 3 {
 	case 0:
 		return sa, ca
@@ -142,7 +143,7 @@ const besselAsymTol = 0x1p-58
 // small. (Hankel's P cos(chi) - Q sin(chi) form, as in Cephes and Boost,
 // loses it there.)
 func besselAsymJY(v, x float64, needJ, needY bool) (j, y float64, ok bool) {
-	mu := 4 * v * v
+	mu := float64(4 * v * v)
 	// S = sum_{k>=1} T_k, T_k = c_k/x^(2k): M^2 = 2/(pi x) (1 + S).
 	// D_k: 1/(1+S) = sum D_k (D_0 = 1); phase terms e_k = x D_k/(1-2k).
 	// Both series are asymptotic: they are summed while their terms
@@ -158,13 +159,13 @@ func besselAsymJY(v, x float64, needJ, needY bool) (j, y float64, ok bool) {
 	for k := 1; k < len(t); k++ {
 		o := float64(2*k - 1)
 		if k == 1 {
-			t[1] = (mu - 1) / 8 * ix2
+			t[1] = float64((mu - 1) / 8 * ix2)
 		} else {
-			t[k] = t[k-1] * (o / float64(2*k)) * (mu - o*o) / 4 * ix2
+			t[k] = float64(t[k-1] * (o / float64(2*k)) * (mu - float64(o*o)) / 4 * ix2)
 		}
 		s := 0.0
 		for i := 1; i <= k; i++ {
-			s -= t[i] * d[k-i]
+			s -= float64(t[i] * d[k-i])
 		}
 		d[k] = s
 		ek := x * d[k] / (1 - float64(2*k))
@@ -186,12 +187,12 @@ func besselAsymJY(v, x float64, needJ, needY bool) (j, y float64, ok bool) {
 		return math.NaN(), math.NaN(), false
 	}
 	// e_1 + e_2 in double-double.
-	mu1 := dd.AddF(dd.MulFF(2*v, 2*v), -1)
+	mu1 := dd.AddF(dd.MulFF(float64(2*v), float64(2*v)), -1)
 	var eps dd.DD
 	if x < 0x1p300 {
-		e1 := dd.DivF(mu1, 8*x)
+		e1 := dd.DivF(mu1, float64(8*x))
 		x3 := dd.MulF(dd.MulFF(x, x), x)
-		e2 := dd.Div(dd.Mul(mu1, dd.AddF(dd.MulFF(2*v, 2*v), -25)), dd.MulF(x3, 384))
+		e2 := dd.Div(dd.Mul(mu1, dd.AddF(dd.MulFF(float64(2*v), float64(2*v)), -25)), dd.MulF(x3, 384))
 		eps = dd.AddF(dd.Add(e1, e2), phase)
 	} else {
 		// e2 and beyond are below 2^-900; e1 needs no extra precision.
@@ -214,7 +215,7 @@ func besselAsymJY(v, x float64, needJ, needY bool) (j, y float64, ok bool) {
 	// rounding of the terms summed in float64. J = M cos(theta) is then
 	// relatively accurate only where |cos(theta)| >> errPh; next to a zero
 	// the caller is told to use another method.
-	errPh := last + phaseAbs*0x1p-52 + 0x1p-100
+	errPh := last + float64(phaseAbs*0x1p-52) + 0x1p-100
 	if (needJ && errPh > 0x1p-56*math.Abs(cs)) || (needY && errPh > 0x1p-56*math.Abs(sn)) {
 		ok = false
 	} else {
@@ -224,12 +225,12 @@ func besselAsymJY(v, x float64, needJ, needY bool) (j, y float64, ok bool) {
 	scale := 1.0
 	xs := x
 	if x > 0x1p1000 {
-		xs = x * 0x1p-200
+		xs = float64(x * 0x1p-200)
 		scale = 0x1p-100
 	}
 	m2 := dd.Mul(dd.DivF(besselTwoOverPiDD, xs), dd.AddF(dd.F(1), S))
 	M := dd.Sqrt(m2)
-	j = (M.Hi*cs + M.Lo*cs) * scale
-	y = (M.Hi*sn + M.Lo*sn) * scale
+	j = float64((float64(M.Hi*cs) + float64(M.Lo*cs)) * scale)
+	y = float64((float64(M.Hi*sn) + float64(M.Lo*sn)) * scale)
 	return j, y, ok
 }

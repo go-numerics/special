@@ -6,6 +6,7 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"os"
 	"sort"
@@ -348,8 +349,8 @@ func budgetOf(max float64) float64 {
 	if math.IsInf(b, 0) {
 		return b
 	}
-	e := math.Pow(10, math.Floor(math.Log10(b))-1)
-	return math.Ceil(b/e) * e
+	e := libm.Pow(10, math.Floor(math.Log10(b))-1)
+	return float64(math.Ceil(b/e) * e)
 }
 
 // TestAccuracyBudgets writes the measured budgets with -accuracy.budgets=PATH.

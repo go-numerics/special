@@ -28,9 +28,9 @@ func log1pmxDD(x dd.DD) dd.DD {
 	xh := x.Hi
 	t := 0.0
 	for k := 11.0; k >= 4; k-- {
-		t = 1/k - xh*t
+		t = 1/k - float64(xh*t)
 	}
-	return dd.AddF(r, -xh*xh*xh*xh*t)
+	return dd.AddF(r, float64(-xh*xh*xh*xh*t))
 }
 
 // logGammaDiff returns log Γ(b) - log Γ(a+b) for b >= 10 and 0 < a <= b
@@ -59,7 +59,7 @@ func logBetaPos(a, b float64) dd.DD {
 	// exactly and log Γ(s+e) = log Γ(s) + ψ(s) e to first order.
 	s := sumDD(a, b)
 	lg := dd.Add(logGammaPos(a), logGammaPos(b))
-	ls := dd.AddF(logGammaPos(s.Hi), Digamma(s.Hi)*s.Lo)
+	ls := dd.AddF(logGammaPos(s.Hi), float64(Digamma(s.Hi)*s.Lo))
 	return dd.Sub(lg, ls)
 }
 
@@ -120,7 +120,7 @@ func logBetaGeneral(a, b float64) float64 {
 // pole involved (s = a+b exactly).
 func logBetaNegDD(a, b float64, s dd.DD) dd.DD {
 	l := dd.Add(logGammaAbsDD(a), logGammaAbsDD(b))
-	ls := dd.AddF(logGammaAbsDD(s.Hi), Digamma(s.Hi)*s.Lo)
+	ls := dd.AddF(logGammaAbsDD(s.Hi), float64(Digamma(s.Hi)*s.Lo))
 	return dd.Sub(l, ls)
 }
 
@@ -155,7 +155,7 @@ func Beta(a, b float64) float64 {
 			if k >= -1021 && k <= 1022 {
 				ph := float64(gh * eh)
 				pl := math.FMA(gh, eh, -ph) + math.FMA(gh, el, gl*eh)
-				return (ph + pl) * pow2(k)
+				return float64((ph + pl) * pow2(k))
 			}
 		}
 		if b >= 10 && a >= 10 && b <= 1e300 {
@@ -163,7 +163,7 @@ func Beta(a, b float64) float64 {
 			hn := h + l
 			eh, el, k := expHL(hn, l-(hn-h))
 			if k >= -1021 && k <= 1022 {
-				return (eh + el) * pow2(k)
+				return float64((eh + el) * pow2(k))
 			}
 		}
 		if math.IsInf(b, 1) {
@@ -179,8 +179,8 @@ func Beta(a, b float64) float64 {
 		return l
 	}
 	s := sumDD(a, b)
-	sign := GammaSign(a) * GammaSign(b) * GammaSign(s.Hi)
-	return sign * dd.Exp(logBetaNegDD(a, b, s))
+	sign := float64(GammaSign(a) * GammaSign(b) * GammaSign(s.Hi))
+	return float64(sign * dd.Exp(logBetaNegDD(a, b, s)))
 }
 
 // Float64 fast paths (kernels.go): the same decompositions as logBetaPos
@@ -197,7 +197,7 @@ func gammaHL(x float64) (hi, lo float64) {
 	hn := h + l
 	eh, el, k := expHL(hn, l-(hn-h))
 	s := pow2(k) // k <= 1022 for x <= 171
-	return eh * s, el * s
+	return float64(eh * s), float64(el * s)
 }
 
 // gammaHLsmall is gammaHL for 2^-56 <= x < 10.
@@ -222,12 +222,12 @@ func betaSmall(a, b float64) float64 {
 	bh, bl := gammaHLsmall(b)
 	ch, cl := gammaHL(s)
 	if sl != 0 {
-		cl += ch * Digamma(s) * sl
+		cl += float64(ch * Digamma(s) * sl)
 	}
 	nh := float64(ah * bh)
 	nl := math.FMA(ah, bh, -nh) + math.FMA(ah, bl, al*bh)
 	q := nh / ch
-	r := math.FMA(-q, ch, nh) + (nl - q*cl)
+	r := math.FMA(-q, ch, nh) + (nl - float64(q*cl))
 	return q + r/ch
 }
 
@@ -313,13 +313,13 @@ func logGammaDiffSeries(a, b, s float64) (hi, lo float64) {
 	xl := math.FMA(-xh, b, a) / b
 	// M = -x²/2 + x³(1/3 - x/4 + ...), to x^12/12 (next below 2^-62 M)
 	x2 := float64(xh * xh)
-	x2l := math.FMA(xh, xh, -x2) + 2*xh*xl
-	x4 := x2 * x2
+	x2l := math.FMA(xh, xh, -x2) + float64(2*xh*xl)
+	x4 := float64(x2 * x2)
 	p := math.FMA(math.FMA(-1.0/6, xh, 1.0/5), x2, math.FMA(-1.0/4, xh, 1.0/3))
 	q := math.FMA(math.FMA(-1.0/10, xh, 1.0/9), x2, math.FMA(-1.0/8, xh, 1.0/7))
 	r := math.FMA(math.FMA(-1.0/12, xh, 1.0/11), x4, q)
-	t := math.FMA(r, x4, p) * xh // x/3 - x²/4 + ... - x^10/12
-	mh := -0.5 * x2
+	t := float64(math.FMA(r, x4, p) * xh) // x/3 - x²/4 + ... - x^10/12
+	mh := float64(-0.5 * x2)
 	ml := math.FMA(x2, t, -0.5*x2l)
 	lh := xh + mh // Fast2Sum: |M| < x/100
 	ll := ((xh - lh) + mh) + (xl + ml)
@@ -331,9 +331,9 @@ func logGammaDiffSeries(a, b, s float64) (hi, lo float64) {
 func logGammaDiffRest(a, b, s, lh, ll, mh, ml float64) (hi, lo float64) {
 	bh, bl := logHLn(b)
 	t1h := float64(a * bh) // a log b
-	t1l := math.FMA(a, bh, -t1h) + a*bl
+	t1l := math.FMA(a, bh, -t1h) + float64(a*bl)
 	t2h := float64(b * mh) // b M
-	t2l := math.FMA(b, mh, -t2h) + b*ml
+	t2l := math.FMA(b, mh, -t2h) + float64(b*ml)
 	ah := a - 0.5 // (a - 1/2) L
 	bb := ah - a
 	al := (a - (ah - bb)) + (-0.5 - bb)
@@ -342,18 +342,18 @@ func logGammaDiffRest(a, b, s, lh, ll, mh, ml float64) (hi, lo float64) {
 	// S(b) - S(a+b)
 	ib := 1 / b
 	is := 1 / s
-	d := a * ib * is
-	ib2 := ib * ib
+	d := float64(a * ib * is)
+	ib2 := float64(ib * ib)
 	sg := ib + is
-	is2 := is * is
+	is2 := float64(is * is)
 	tn, pw := 1.0, is
 	sum := 0.0
 	for _, c := range stirlingCoef {
 		sum = math.FMA(c, tn, sum)
 		tn = math.FMA(ib2, tn, pw*sg)
-		pw *= is2
+		pw = float64(pw * (is2))
 	}
-	ds := d * sum
+	ds := float64(d * sum)
 	// -t1 - t3 - t2 + ds
 	u := -t1h - t3h // TwoSum
 	bb = u + t1h

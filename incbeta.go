@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -180,7 +181,7 @@ func ibetaLogBetaSmall(a, b float64) dd.DD {
 	} else {
 		l = dd.Sub(logDD(g), logGammaStirling(s.Hi))
 	}
-	return dd.AddF(l, -ibetaPsiApprox(s.Hi)*s.Lo)
+	return dd.AddF(l, float64(-ibetaPsiApprox(s.Hi)*s.Lo))
 }
 
 // ibetaPsiApprox returns ψ(x) for x > 0 to about 2^-12 absolutely (enough
@@ -188,13 +189,13 @@ func ibetaLogBetaSmall(a, b float64) dd.DD {
 // the recurrence to x + 6 and log t - 1/(2t) - 1/(12t²).
 func ibetaPsiApprox(x float64) float64 {
 	if x < 0.1 {
-		return -1/x - 0.5772156649015329 + 1.6449340668482264*x
+		return -1/x - 0.5772156649015329 + float64(1.6449340668482264*x)
 	}
 	r := 0.0
 	for ; x < 6; x++ {
 		r -= 1 / x
 	}
-	return r + math.Log(x) - 0.5/x - 1/(12*x*x)
+	return r + libm.Log(x) - 0.5/x - 1/(12*x*x)
 }
 
 // ibetaLogABeta returns log(a·B(a, b)) as a double-double for a, b > 0
@@ -269,7 +270,7 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 			return res(swapped, dd.F(ibetaApser(a0, b0, x0, eps)), false)
 		}
 		if math.Max(a0, b0) <= 1 {
-			if math.Pow(x0, a0) <= 0.9 || a0 >= math.Min(0.2, b0) {
+			if libm.Pow(x0, a0) <= 0.9 || a0 >= math.Min(0.2, b0) {
 				return res(swapped, ibetaBpserDD(a0, b0, v0, eps), true)
 			}
 			if x0 >= 0.3 {
@@ -285,7 +286,7 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 		if x0 >= 0.3 {
 			return res(swapped, ibetaBpserDD(b0, a0, v0.swap(), eps), false)
 		}
-		if x0 < 0.1 && math.Pow(x0*b0, a0) <= 0.7 {
+		if x0 < 0.1 && libm.Pow(float64(x0*b0), a0) <= 0.7 {
 			return res(swapped, ibetaBpserDD(a0, b0, v0, eps), true)
 		}
 		if b0 > 15 {
@@ -407,7 +408,7 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	xh, xl := x.Hi, x.Lo
 	dh, dl := 1.0, 0.0
 	sh, sl := 1.0, 0.0
-	tol := eps * 0x1p-8
+	tol := float64(eps * 0x1p-8)
 	i := 0
 	for ; i < n-1; i++ {
 		fi := float64(i)
@@ -415,13 +416,13 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 		s1l := e1 + abl
 		s2h, e2 := dd.TwoSum(a1h, fi)
 		s2l := e2 + a1l
-		th := s1h * xh
-		tl := math.FMA(s1h, xh, -th) + (s1h*xl + s1l*xh)
+		th := float64(s1h * xh)
+		tl := math.FMA(s1h, xh, -th) + (float64(s1h*xl) + float64(s1l*xh))
 		r := 1 / s2h
-		fh := th * r
-		fl := (math.FMA(-fh, s2h, th) + tl - fh*s2l) * r
+		fh := float64(th * r)
+		fl := float64((math.FMA(-fh, s2h, th) + tl - float64(fh*s2l)) * r)
 		ph := float64(dh * fh) // rounded: it feeds the TwoSum below
-		dl = math.FMA(dh, fh, -ph) + (dh*fl + dl*fh)
+		dl = math.FMA(dh, fh, -ph) + (float64(dh*fl) + float64(dl*fh))
 		dh = ph
 		var e float64
 		sh, e = dd.TwoSum(sh, dh)
@@ -438,7 +439,7 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	tail := 0.0
 	for ; i < n-1 && dh > tol*sh; i++ {
 		fi := float64(i)
-		dh *= xh * (abh + fi) / (a1h + fi)
+		dh = float64(dh * (xh * (abh + fi) / (a1h + fi)))
 		tail += dh
 	}
 	sl += tail
@@ -484,18 +485,18 @@ func ibetaBfrac(a, b float64, v ibetaXY, lambda dd.DD, eps float64) float64 {
 	for i := 0; i < 100000; i++ {
 		n++
 		t := n / a
-		w := n * (b - n) * x
+		w := float64(n * (b - n) * x)
 		e := a / s
-		alpha := (p * (p + c0) * e * e) * (w * x)
+		alpha := float64((p * (p + c0) * e * e) * (w * x))
 		e = (1 + t) / (c1 + t + t)
-		beta := n + w/s + e*(c+n*yp1)
+		beta := n + w/s + float64(e*(c+float64(n*yp1)))
 		al, be = append(al, alpha), append(be, beta)
 		p = 1 + t
 		s += 2
-		t = alpha*an + beta*anp1
+		t = float64(alpha*an) + float64(beta*anp1)
 		an = anp1
 		anp1 = t
-		t = alpha*bn + beta*bnp1
+		t = float64(alpha*bn) + float64(beta*bnp1)
 		bn = bnp1
 		bnp1 = t
 		r0 := r
@@ -518,11 +519,11 @@ func ibetaBfrac(a, b float64, v ibetaXY, lambda dd.DD, eps float64) float64 {
 	td := dd.F(t)
 	for i := min(ibetaBfracDD, len(al)) - 1; i >= 0; i-- {
 		n := float64(i + 1)
-		s := sumDD(a, 2*n-1)
+		s := sumDD(a, float64(2*n)-1)
 		bn := sumDD(b, -n)
 		w := dd.Mul(dd.MulF(bn, n), v.xd) // n(b-n)x
 		al := dd.Div(dd.Mul(dd.Mul(sumDD(a, n-1), dd.AddF(sumDD(a, b), n-1)), dd.Mul(w, v.xd)), dd.Mul(s, s))
-		e := dd.Div(sumDD(a, n), sumDD(a, 2*n+1))
+		e := dd.Div(sumDD(a, n), sumDD(a, float64(2*n)+1))
 		be := dd.Add(dd.AddF(dd.Div(w, s), n), dd.Mul(e, dd.Add(dd.AddF(lambda, 1), dd.MulF(dd.AddF(v.yd, 1), n))))
 		td = dd.Div(al, dd.Add(be, td))
 	}
@@ -531,7 +532,7 @@ func ibetaBfrac(a, b float64, v ibetaXY, lambda dd.DD, eps float64) float64 {
 	b0 := dd.Div(num, sumDD(a, 1))
 	wd := dd.Add(b0, td)
 	rh := 1 / wd.Hi
-	rl := (math.FMA(-rh, wd.Hi, 1) - rh*wd.Lo) * rh
+	rl := float64((math.FMA(-rh, wd.Hi, 1) - float64(rh*wd.Lo)) * rh)
 	rr := dd.Mul(m, dd.DD{Hi: rh, Lo: rl})
 	return math.Ldexp(rr.Hi+rr.Lo, k)
 }
@@ -572,9 +573,9 @@ func ibetaBgrat(a, b float64, v ibetaXY, w, eps float64) float64 {
 	// the low part of z: dj/dz = -1/z - j (b/z - 1).
 	zh := z.Hi
 	j := igamQOverPrefix(b, zh)
-	j += z.Lo * (-1/zh - j*(b/zh-1))
+	j += float64(z.Lo * (-1/zh - float64(j*(b/zh-1))))
 	v2 := 0.25 / (nu.Hi * nu.Hi)
-	t2 := 0.25 * lnx.Hi * lnx.Hi
+	t2 := float64(0.25 * lnx.Hi * lnx.Hi)
 	l := w / u
 	sum := j
 	t := 1.0
@@ -584,19 +585,19 @@ func ibetaBgrat(a, b float64, v ibetaXY, w, eps float64) float64 {
 	bm := bm1.Hi + bm1.Lo
 	for n := 1; n <= 30; n++ {
 		bp2n := b + n2
-		j = (bp2n*(bp2n+1)*j + (zh+bp2n+1)*t) * v2
+		j = float64((float64(bp2n*(bp2n+1)*j) + float64((zh+bp2n+1)*t)) * v2)
 		n2 += 2
-		t *= t2
-		cn /= n2 * (n2 + 1)
+		t = float64(t * (t2))
+		cn /= float64(n2 * (n2 + 1))
 		c[n-1] = cn
 		s := 0.0
 		coef := b - float64(n)
 		for i := 1; i < n; i++ {
-			s += coef * c[i-1] * d[n-i-1]
+			s += float64(coef * c[i-1] * d[n-i-1])
 			coef += b
 		}
-		d[n-1] = bm*cn + s/float64(n)
-		dj := d[n-1] * j
+		d[n-1] = float64(bm*cn) + s/float64(n)
+		dj := float64(d[n-1] * j)
 		sum += dj
 		if !(math.Abs(dj) > eps*(sum+l)) {
 			break
@@ -647,51 +648,51 @@ func ibetaBasym(a, b float64, lambda dd.DD, eps float64) float64 {
 	}
 	z0d := dd.Sqrt(f)
 	z0 := z0d.Hi
-	z := 0.5 * (z0 / e1)
+	z := float64(0.5 * (z0 / e1))
 	z2 := f.Hi + f.Hi
-	a0[0] = (2.0 / 3.0) * r1
-	c[0] = -0.5 * a0[0]
+	a0[0] = float64((2.0 / 3.0) * r1)
+	c[0] = float64(-0.5 * a0[0])
 	d[0] = -c[0]
-	j0 := (0.5 / e0) * ibetaErfcx(z0d, f)
+	j0 := float64((0.5 / e0) * ibetaErfcx(z0d, f))
 	j1 := e1
-	sum := j0 + d[0]*w0*j1
+	sum := j0 + float64(d[0]*w0*j1)
 	s := 1.0
-	h2 := h * h
+	h2 := float64(h * h)
 	hn := 1.0
 	w := w0
 	znm1 := z
 	zn := z2
 	for n := 2; n <= num; n += 2 {
-		hn *= h2
-		a0[n-1] = 2 * r0 * (1 + h*hn) / (float64(n) + 2)
+		hn = float64(hn * (h2))
+		a0[n-1] = 2 * r0 * (1 + float64(h*hn)) / (float64(n) + 2)
 		s += hn
 		a0[n] = 2 * r1 * s / (float64(n) + 3)
 		for i := n; i <= n+1; i++ {
-			r := -0.5 * (float64(i) + 1)
-			b0[0] = r * a0[0]
+			r := float64(-0.5 * (float64(i) + 1))
+			b0[0] = float64(r * a0[0])
 			for m := 2; m <= i; m++ {
 				bsum := 0.0
 				for j := 1; j < m; j++ {
 					mmj := m - j
-					bsum += (float64(j)*r - float64(mmj)) * a0[j-1] * b0[mmj-1]
+					bsum += float64((float64(float64(j)*r) - float64(mmj)) * a0[j-1] * b0[mmj-1])
 				}
-				b0[m-1] = r*a0[m-1] + bsum/float64(m)
+				b0[m-1] = float64(r*a0[m-1]) + bsum/float64(m)
 			}
 			c[i-1] = b0[i-1] / (float64(i) + 1)
 			dsum := 0.0
 			for j := 1; j < i; j++ {
-				dsum += d[i-j-1] * c[j-1]
+				dsum += float64(d[i-j-1] * c[j-1])
 			}
 			d[i-1] = -(dsum + c[i-1])
 		}
-		j0 = e1*znm1 + (float64(n)-1)*j0
-		j1 = e1*zn + float64(n)*j1
-		znm1 *= z2
-		zn *= z2
-		w *= w0
-		t0 := d[n-1] * w * j0
-		w *= w0
-		t1 := d[n] * w * j1
+		j0 = float64(e1*znm1) + float64((float64(n)-1)*j0)
+		j1 = float64(e1*zn) + float64(float64(n)*j1)
+		znm1 = float64(znm1 * (z2))
+		zn = float64(zn * (z2))
+		w = float64(w * (w0))
+		t0 := float64(d[n-1] * w * j0)
+		w = float64(w * (w0))
+		t1 := float64(d[n] * w * j1)
 		sum += t0 + t1
 		if math.Abs(t0)+math.Abs(t1) <= eps*sum {
 			break
@@ -699,8 +700,8 @@ func ibetaBasym(a, b float64, lambda dd.DD, eps float64) float64 {
 	}
 	// u = exp(-bcorr(a, b)), bcorr = del(a) + del(b) - del(a+b) with del
 	// the Stirling series remainder.
-	u := math.Exp(-(stirlingSeries(a) + stirlingSeries(b) - stirlingSeries(a+b)))
-	return ibetaScale(tm, tk, e0*u*sum)
+	u := libm.Exp(-(stirlingSeries(a) + stirlingSeries(b) - stirlingSeries(a+b)))
+	return ibetaScale(tm, tk, float64(e0*u*sum))
 }
 
 // ibetaErfcx returns erfcx(z) = exp(z²) erfc(z) for a double-double
@@ -709,7 +710,7 @@ func ibetaErfcx(z, f dd.DD) float64 {
 	if z.Hi >= 0.5 {
 		return erfcxCorrected(z).Float()
 	}
-	return math.Exp(f.Hi) * erfcDD(z).Float()
+	return float64(libm.Exp(f.Hi) * erfcDD(z).Float())
 }
 
 // ibetaApser returns I_(1-x)(b, a) for a <= min(eps, eps·b), b·x <= 1,
@@ -727,7 +728,7 @@ func ibetaApser(a, b, x, eps float64) float64 {
 		c = dd.Add(dd.Add(dd.LogAccurate(x), digammaPos(b)), g)
 	}
 	c = dd.Add(c, t)
-	tol := 5 * eps * math.Abs(c.Hi) * 0x1p-8
+	tol := float64(5 * eps * math.Abs(c.Hi) * 0x1p-8)
 	s := dd.F(0)
 	for j := 2.0; j < 100000; j++ {
 		t = dd.Mul(t, dd.Sub(dd.F(x), igamDivF(bx, j)))
@@ -755,12 +756,12 @@ func ibetaFpser(a, b float64, v ibetaXY, eps float64) float64 {
 	s := t / an
 	for i := 0; i < 100000; i++ {
 		an++
-		t *= x
+		t = float64(t * (x))
 		c := t / an
 		s += c
 		if !(math.Abs(c) > tol) {
 			break
 		}
 	}
-	return ibetaScale(dd.MulF(m, b/a), k, 1+a*s)
+	return ibetaScale(dd.MulF(m, b/a), k, 1+float64(a*s))
 }

@@ -28,10 +28,10 @@ func (p ddc) inv() ddc {
 // by its exponent first, as mulRound).
 func mulRoundDD(m dd.DD, k int, t dd.DD) float64 {
 	if t.Hi == 0 || math.IsInf(m.Hi, 0) || m.Hi == 0 {
-		return m.Hi * t.Hi
+		return float64(m.Hi * t.Hi)
 	}
 	e := math.Ilogb(t.Hi)
-	return round(dd.Mul(m, dd.Ldexp(t, -e)), k+e, m.Hi*t.Hi)
+	return round(dd.Mul(m, dd.Ldexp(t, -e)), k+e, float64(m.Hi*t.Hi))
 }
 
 // Pow returns x**y, the base-x exponential of y, principal branch.

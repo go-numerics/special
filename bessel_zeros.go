@@ -1,6 +1,9 @@
 package special
 
-import "math"
+import (
+	"github.com/go-numerics/special/internal/libm"
+	"math"
+)
 
 // JnZeros returns the first nt positive zeros of the Bessel function J_n,
 // in increasing order. Since J_{-n} = (-1)^n J_n, a negative n gives the
@@ -31,35 +34,35 @@ func besselJZeroGuess(n, k int) float64 {
 	v := float64(n)
 	if n == 0 {
 		// McMahon, DLMF 10.21.19 with a = (k - 1/4) pi
-		a := (float64(k) - 0.25) * math.Pi
-		mu := 4 * v * v
+		a := float64((float64(k) - 0.25) * math.Pi)
+		mu := float64(4 * v * v)
 		m1 := mu - 1
 		e := 1 / (8 * a)
-		e2 := e * e
-		t3 := m1 * 4 * (7*mu - 31) / 3
-		t5 := m1 * 32 * ((83*mu-982)*mu + 3779) / 15
-		t7 := m1 * 64 * (((6949*mu-153855)*mu+1585743)*mu - 6277237) / 105
-		return a + ((((-t7*e2-t5)*e2-t3)*e2 - m1) * e)
+		e2 := float64(e * e)
+		t3 := m1 * 4 * (float64(7*mu) - 31) / 3
+		t5 := m1 * 32 * (float64((float64(83*mu)-982)*mu) + 3779) / 15
+		t7 := m1 * 64 * (float64((float64((float64(6949*mu)-153855)*mu)+1585743)*mu) - 6277237) / 105
+		return a + (float64((float64((float64((float64(-t7*e2)-t5)*e2)-t3)*e2) - m1) * e))
 	}
 	// Olver: j ~ v z(zeta), zeta = v^(-2/3) |a_k|, a_k the k-th zero of Ai,
 	// with (2/3) zeta^(3/2) = sqrt(z^2 - 1) - arcsec z.
-	t := 3 * math.Pi * (4*float64(k) - 1) / 8
+	t := float64(3 * math.Pi * (float64(4*float64(k)) - 1) / 8)
 	ti := 1 / (t * t)
-	ak := math.Pow(t, 2.0/3) * (1 + ti*(5.0/48+ti*(-5.0/36+ti*(77125.0/82944-ti*108056875.0/6967296))))
-	zeta := ak / math.Pow(v, 2.0/3)
-	w := 2.0 / 3 * zeta * math.Sqrt(zeta)
+	ak := float64(libm.Pow(t, 2.0/3) * (1 + float64(ti*(5.0/48+float64(ti*(-5.0/36+float64(ti*(77125.0/82944-ti*108056875.0/6967296))))))))
+	zeta := ak / libm.Pow(v, 2.0/3)
+	w := float64(2.0 / 3 * zeta * math.Sqrt(zeta))
 	b := -(w + math.Pi/2)
-	z := (-b + math.Sqrt(b*b-2)) / 2
+	z := float64((-b + math.Sqrt(float64(b*b)-2)) / 2)
 	for i := 0; i < 20; i++ {
-		s := math.Sqrt(z*z - 1)
-		f := s - math.Acos(1/z) - w
+		s := math.Sqrt(float64(z*z) - 1)
+		f := s - libm.Acos(1/z) - w
 		dz := f / (s / z)
 		z -= dz
 		if math.Abs(dz) < 1e-12*z {
 			break
 		}
 	}
-	return v * z
+	return float64(v * z)
 }
 
 // besselJZeroRefine runs Halley's iteration for J_n from x.
@@ -71,9 +74,9 @@ func besselJZeroRefine(n int, x float64) float64 {
 		if n == 0 {
 			d = -J1(x)
 		} else {
-			d = Jn(n-1, x) - v/x*f
+			d = Jn(n-1, x) - float64(v/x*f)
 		}
-		d2 := -d/x - (1-v*v/(x*x))*f
+		d2 := -d/x - float64((1-v*v/(x*x))*f)
 		dx := f / d / (1 - f*d2/(2*d*d))
 		x -= dx
 		if math.Abs(dx) <= 0x1p-53*x {

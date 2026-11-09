@@ -34,15 +34,15 @@ func pow2(k int) float64 { return math.Float64frombits(uint64(k+1023) << 52) }
 func expHL(xh, xl float64) (hi, lo float64, k int) {
 	kd := math.RoundToEven(xh * expInvLn2N)
 	ki := int(kd)
-	r := xh - kd*expC1  // exact
-	dr := xl - kd*expC2 // |dr| <= 2^-24, rounding below 2^-77
-	u := r + dr         //
-	ue := dr - (u - r)  // Fast2Sum (or below 2^-77 when |r| < |dr|)
-	u2 := u * u
+	r := xh - float64(kd*expC1)  // exact
+	dr := xl - float64(kd*expC2) // |dr| <= 2^-24, rounding below 2^-77
+	u := r + dr                  //
+	ue := dr - (u - r)           // Fast2Sum (or below 2^-77 when |r| < |dr|)
+	u2 := float64(u * u)
 	a := math.FMA(u, 1.0/6, 0.5)
 	b := math.FMA(u, 1.0/120, 1.0/24)
 	b = math.FMA(u2, 1.0/720, b)
-	p := u2 * math.FMA(u2, b, a) // exp(u) - 1 - u, |p| < 2^-17.4
+	p := float64(u2 * math.FMA(u2, b, a)) // exp(u) - 1 - u, |p| < 2^-17.4
 	t := &expT[ki&127]
 	th, tl := t[0], t[1]
 	// 2^(j/128)·(1 + u + ue + p) = th + [th·u + th·(ue+p) + tl·(1+u)]
@@ -71,7 +71,7 @@ func expHL(xh, xl float64) (hi, lo float64, k int) {
 // summed to r^8/8 (truncation below 2^-76).
 func logHL(x float64) (hi, lo float64) {
 	if math.Float64bits(x) < 1<<52 { // subnormal
-		return logHLk(x*0x1p54, -54)
+		return logHLk(float64(x*0x1p54), -54)
 	}
 	return logHLk(x, 0)
 }
@@ -85,21 +85,21 @@ func logHLk(x float64, ke int) (hi, lo float64) {
 	tmp := ix - 0x3fe8000000000000 // bits of 0.75
 	ke += int(int64(tmp) >> 52)
 	m := math.Float64frombits(ix - uint64(int64(tmp)>>52)<<52)
-	t := &logT[int(m*256+0.5)-192]
+	t := &logT[int(float64(m*256)+0.5)-192]
 	invc := t[0]
 	p := float64(m * invc) // float64(): not fused into r below
 	pe := math.FMA(m, invc, -p)
 	r := p - 1 // exact: p in [0.99, 1.01]
 	// log1p(r + pe) = r + pe(1 - r) + q(r), q = -r²/2 + r³/3 - ... - r^8/8
-	r2 := r * r
+	r2 := float64(r * r)
 	c0 := math.FMA(r, 1.0/3, -0.5)
 	c1 := math.FMA(r, 1.0/5, -0.25)
 	c2 := math.FMA(r, 1.0/7, -1.0/6)
 	c2 = math.FMA(r2, -1.0/8, c2)
 	c1 = math.FMA(r2, c2, c1)
-	q := r2 * math.FMA(r2, c1, c0)
+	q := float64(r2 * math.FMA(r2, c1, c0))
 	kf := float64(ke)
-	lh := kf*ln2Hi42 + t[1] // exact
+	lh := float64(kf*ln2Hi42) + t[1] // exact
 	// hi = lh + r: Fast2Sum (|lh| >= |r| unless lh = 0).
 	hi = lh + r
 	lo = (r - (hi - lh)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + q))

@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -30,18 +31,18 @@ func besselKSeries(nu, x float64) (m dd.DD, e int, ok bool) {
 		return dd.DD{}, 0, false
 	}
 	L, gs := besselLogPowGamma(nu, x) // log|(x/2)^nu/Gamma(nu+1)|
-	c := math.Pi / (2 * sinPi(nu)) * gs
+	c := float64(math.Pi / (2 * sinPi(nu)) * gs)
 	// |second/first| = |c| 2 nu exp(2L)
-	if math.Log(math.Abs(c)*2*nu)+2*L.Hi > math.Log(0.25) {
+	if libm.Log(float64(math.Abs(c)*2*nu))+float64(2*L.Hi) > libm.Log(0.25) {
 		return dd.DD{}, 0, false
 	}
-	q := x * x / 4
+	q := float64(x * x / 4)
 	ta, sa := 1.0, 0.0
 	tb, sb := 1.0, 0.0
 	for k := 1; k < 200; k++ {
 		fk := float64(k)
-		ta *= q / (fk * (fk - nu))
-		tb *= q / (fk * (fk + nu))
+		ta = float64(ta * (q / (fk * (fk - nu))))
+		tb = float64(tb * (q / (fk * (fk + nu))))
 		sa += ta
 		sb += tb
 		if math.Abs(ta) <= 0x1p-60 && math.Abs(tb) <= 0x1p-60 {
@@ -52,9 +53,9 @@ func besselKSeries(nu, x float64) (m dd.DD, e int, ok bool) {
 	nL := dd.Neg(L)
 	k := math.Floor(nL.Hi / dd.Ln2Hi)
 	k2 := dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo))
-	first := dd.DivF(dd.MulF(dd.AddF(dd.F(1), sa), dd.Exp(dd.Sub(nL, k2))), 2*nu)
+	first := dd.DivF(dd.MulF(dd.AddF(dd.F(1), sa), dd.Exp(dd.Sub(nL, k2))), float64(2*nu))
 	// second / 2^k = c exp(L - k ln2) (1+sb)
-	second := c * besselExpMul(dd.Sub(L, k2), 1+sb)
+	second := float64(c * besselExpMul(dd.Sub(L, k2), 1+sb))
 	return dd.AddF(first, -second), int(k), true
 }
 
@@ -62,36 +63,36 @@ func besselKSeries(nu, x float64) (m dd.DD, e int, ok bool) {
 // (Temme 1975; Boost temme_ik).
 func besselTemmeIK(u, x float64) (ku, ku1 float64) {
 	g1, g2 := besselRGammaPair(u)
-	rgp := g2 - u*g1 // 1/Gamma(1+u)
-	rgm := g2 + u*g1 // 1/Gamma(1-u)
+	rgp := g2 - float64(u*g1) // 1/Gamma(1+u)
+	rgm := g2 + float64(u*g1) // 1/Gamma(1-u)
 	a := besselLogHalf(x)
 	b := besselPowHalf(x, u)
-	sigma := -a * u
+	sigma := float64(-a * u)
 	c := 1.0
 	if math.Abs(u) >= 0x1p-52 {
 		c = sinPi(u) / (u * math.Pi)
 	}
 	d := 1.0
 	if math.Abs(sigma) >= 0x1p-52 {
-		d = math.Sinh(sigma) / sigma
+		d = libm.Sinh(sigma) / sigma
 	}
 	// Boost's gamma1 = g1, gamma2 = g2 (identically).
 	p := 1 / rgp / (2 * b)
-	q := 1 / rgm * b / 2
-	f := (math.Cosh(sigma)*g1 + d*(-a)*g2) / c
+	q := float64(1 / rgm * b / 2)
+	f := (float64(libm.Cosh(sigma)*g1) + float64(d*(-a)*g2)) / c
 	h := p
 	coef := 1.0
-	sum := coef * f
-	sum1 := coef * h
+	sum := float64(coef * f)
+	sum1 := float64(coef * h)
 	for k := 1; k < 1000; k++ {
 		fk := float64(k)
-		f = (fk*f + p + q) / (fk*fk - u*u)
+		f = (float64(fk*f) + p + q) / (float64(fk*fk) - float64(u*u))
 		p /= fk - u
 		q /= fk + u
-		h = p - fk*f
-		coef *= x * x / (4 * fk)
-		sum += coef * f
-		sum1 += coef * h
+		h = p - float64(fk*f)
+		coef = float64(coef * (x * x / (4 * fk)))
+		sum += float64(coef * f)
+		sum1 += float64(coef * h)
 		if math.Abs(coef*f) < math.Abs(sum)*0x1p-53 {
 			break
 		}
@@ -116,7 +117,7 @@ func besselCF1IK(v, x float64) dd.DD {
 		b := 2 * (v + float64(k)) / x
 		C = b + 1/C
 		D = 1 / (b + D)
-		if math.Abs(C*D-1) <= 0x1p-52 {
+		if math.Abs(float64(C*D)-1) <= 0x1p-52 {
 			break
 		}
 	}
@@ -133,7 +134,7 @@ func besselCF2IK(u, x float64) (ku, ku1 float64) {
 	// of S (the result needs no more), and the divisions are reciprocals
 	// with their FMA remainder (besselRecipDD) or divisions by a float64.
 	a := besselAddFS(dd.MulFF(u, u), -0.25)
-	b := dd.F(2 * (x + 1))
+	b := dd.F(float64(2 * (x + 1)))
 	D := besselRecipDD(b)
 	f, delta := D, D
 	prev, cur := dd.F(0), dd.F(1)
@@ -141,7 +142,7 @@ func besselCF2IK(u, x float64) (ku, ku1 float64) {
 	Q := C
 	S := besselAddS(dd.F(1), dd.Mul(Q, delta))
 	for k := 2; k < besselMaxIter; k++ {
-		a = besselAddFS(a, -2*float64(k-1))
+		a = besselAddFS(a, float64(-2*float64(k-1)))
 		b = besselAddFS(b, 2)
 		D = besselRecipDD(besselAddS(b, dd.Mul(a, D)))
 		delta = dd.Mul(delta, besselAddFS(dd.Mul(b, D), -1))
@@ -188,7 +189,7 @@ func besselAddFS(a dd.DD, b float64) dd.DD {
 // float64 reciprocal corrected by its FMA remainder.
 func besselRecipDD(w dd.DD) dd.DD {
 	r := 1 / w.Hi
-	h, l := dd.FastTwoSum(r, (math.FMA(-r, w.Hi, 1)-r*w.Lo)*r)
+	h, l := dd.FastTwoSum(r, float64((math.FMA(-r, w.Hi, 1)-float64(r*w.Lo))*r))
 	return dd.DD{Hi: h, Lo: l}
 }
 
@@ -201,7 +202,7 @@ func a0(u float64) dd.DD { return dd.AddF(dd.MulFF(u, u), -0.25) }
 // companion term (of relative size e^-2x) is neglected, so this is used
 // only for x > 20.
 func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
-	mu := 4 * v * v
+	mu := float64(4 * v * v)
 	sgn := 1.0
 	if which == 'I' {
 		sgn = -1
@@ -215,7 +216,7 @@ func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
 	prev := math.Inf(1)
 	for k := 1; k < 200; k++ {
 		o := float64(2*k - 1)
-		t *= sgn * (mu - o*o) / (float64(k) * 8 * x)
+		t = float64(t * (sgn * (mu - float64(o*o)) / (float64(k) * 8 * x)))
 		s += t
 		at := math.Abs(t)
 		if at < besselAsymTol*0x1p-6 {
@@ -226,9 +227,9 @@ func besselAsymIK(v, x float64, which byte) (r float64, ok bool) {
 			}
 			xs, sc := x, 1.0
 			if x > 0x1p1000 { // keep c/x normal
-				xs, sc = x*0x1p-200, 0x1p-100
+				xs, sc = float64(x*0x1p-200), 0x1p-100
 			}
-			return dd.Mul(dd.Sqrt(dd.DivF(c, xs)), dd.AddF(dd.F(1), s)).Float() * sc, true
+			return float64(dd.Mul(dd.Sqrt(dd.DivF(c, xs)), dd.AddF(dd.F(1), s)).Float() * sc), true
 		}
 		if at > prev {
 			break
@@ -283,15 +284,15 @@ func besselIKCore(v, x float64, needI, needK bool) (ie float64, ei int, ke float
 	e0 := 0
 	if a, ea, ok := besselKSeries(math.Abs(u), x); ok && x <= besselTemmeIKMaxX {
 		b, eb, _ := besselKSeries(1+u, x)
-		ex := math.Exp(x)
+		ex := libm.Exp(x)
 		Ku, Ku1, e0 = dd.MulF(a, ex), dd.MulF(besselScaleDD(b, eb-ea), ex), ea
 	} else {
 		var ku, ku1 float64
 		if x <= besselTemmeIKMaxX {
 			ku, ku1 = besselTemmeIK(u, x)
-			ex := math.Exp(x)
-			ku *= ex
-			ku1 *= ex
+			ex := libm.Exp(x)
+			ku = float64(ku * (ex))
+			ku1 = float64(ku1 * (ex))
 		} else {
 			ku, ku1 = besselCF2IK(u, x)
 		}
@@ -326,7 +327,7 @@ func besselIK(v, x float64, needI, needK, scaled bool) (I, K float64) {
 		m, e := besselSeries(v, x, 1, scaled)
 		return math.Ldexp(m, e), math.NaN()
 	}
-	if !needI && nu > 0 && x < 1 && LogGamma(nu)-nu*besselLogHalf(x)-math.Ln2 > 710 {
+	if !needI && nu > 0 && x < 1 && LogGamma(nu)-float64(nu*besselLogHalf(x))-math.Ln2 > 710 {
 		// K_nu(x) ~ Gamma(nu) (2/x)^nu / 2 (DLMF 10.30.2) overflows.
 		return math.NaN(), math.Inf(1)
 	}
@@ -338,8 +339,8 @@ func besselIK(v, x float64, needI, needK, scaled bool) (I, K float64) {
 	K = besselLdexpExp(ke, ek, -ex)
 	I = besselLdexpExp(ie, ei, ex)
 	if refl {
-		t := 2 / math.Pi * sinPi(nu) * ke
-		I += besselLdexpExp(t, ek, -2*x+ex)
+		t := float64(2 / math.Pi * sinPi(nu) * ke)
+		I += besselLdexpExp(t, ek, float64(-2*x)+ex)
 	}
 	return I, K
 }
@@ -377,8 +378,8 @@ func besselI0Tiny(x float64) float64 { return 1 + besselI0TinyTail(x) }
 
 // besselI0TinyTail is besselI0Tiny(x) - 1.
 func besselI0TinyTail(x float64) float64 {
-	q := x * x / 4
-	return q * (1 + q*(1.0/4+q*(1.0/36+q*(1.0/576+q*(1.0/14400)))))
+	q := float64(x * x / 4)
+	return float64(q * (1 + float64(q*(1.0/4+float64(q*(1.0/36+float64(q*(1.0/576+float64(q*(1.0/14400))))))))))
 }
 
 // besselI0eLarge is I0(x) e^-x for x >= 512 by the asymptotic series DLMF
@@ -400,7 +401,7 @@ func I0e(x float64) float64 {
 	case x < 0.125:
 		// e^-x (1 + T): one rounding of m (1 + T), m = e^-x from dd.ExpMant
 		m, k := dd.ExpMant(dd.DD{Hi: -x})
-		return math.Ldexp(m.Hi+(m.Lo+m.Hi*besselI0TinyTail(x)), k)
+		return math.Ldexp(m.Hi+(m.Lo+float64(m.Hi*besselI0TinyTail(x))), k)
 	}
 	if i := octIndex(x, besselI0eOctMin, besselI0eOctMax); i >= 0 {
 		q := &besselI0eOct[i]
@@ -422,11 +423,11 @@ func I1(x float64) float64 {
 	}
 	switch {
 	case math.IsNaN(x) || math.IsInf(x, 1):
-		return sign * x
+		return float64(sign * x)
 	case x < 7.75:
-		return sign * besselI1Small(x)
+		return float64(sign * besselI1Small(x))
 	}
-	return sign * besselLdexpExp(besselI1eLarge(x), 0, x)
+	return float64(sign * besselLdexpExp(besselI1eLarge(x), 0, x))
 }
 
 // besselI1eLarge is I1(x) e^-x for x >= 7.75 (as besselI0eLarge).
@@ -449,11 +450,11 @@ func I1e(x float64) float64 {
 	case math.IsNaN(x):
 		return x
 	case math.IsInf(x, 1):
-		return sign * 0
+		return float64(sign * 0)
 	case x < 7.75:
-		return sign * besselLdexpExp(besselI1Small(x), 0, -x)
+		return float64(sign * besselLdexpExp(besselI1Small(x), 0, -x))
 	}
-	return sign * besselI1eLarge(x)
+	return float64(sign * besselI1eLarge(x))
 }
 
 // Boost.Math bessel_i1.hpp (53-bit branch) coefficients.
@@ -472,7 +473,7 @@ func besselI1Small(x float64) float64 {
 			break
 		}
 	}
-	return dd.MulF(s, x/2).Float()
+	return dd.MulF(s, float64(x/2)).Float()
 }
 
 // Boost.Math bessel_k0.hpp (53-bit branch) coefficients.
@@ -485,9 +486,9 @@ var (
 // besselK0Small is K0 on (0, 1].
 func besselK0Small(x float64) float64 {
 	const Y = 1.137250900268554688
-	a := x * x / 4
-	a = (besselRational(besselK0P1[:], besselK0Q1[:], a)+Y)*a + 1
-	return besselPoly(besselK0P2[:], x*x) - besselLog(x)*a
+	a := float64(x * x / 4)
+	a = float64((besselRational(besselK0P1[:], besselK0Q1[:], a)+Y)*a) + 1
+	return besselPoly(besselK0P2[:], float64(x*x)) - float64(besselLog(x)*a)
 }
 
 // The octaves of besselK0eOct (zz_besselK0eOct_coeffs.go): x in [1, 512).
@@ -560,9 +561,9 @@ var (
 // besselK1Small is K1 on (0, 1].
 func besselK1Small(x float64) float64 {
 	const Y = 8.69547128677368164e-02
-	a := x * x / 4
-	a = ((besselRational(besselK1P1[:], besselK1Q1[:], a)+Y)*a*a + a/2 + 1) * x / 2
-	return besselRational(besselK1P2[:], besselK1Q2[:], x*x)*x + 1/x + besselLog(x)*a
+	a := float64(x * x / 4)
+	a = float64((float64((besselRational(besselK1P1[:], besselK1Q1[:], a)+Y)*a*a) + float64(a/2) + 1) * x / 2)
+	return float64(besselRational(besselK1P2[:], besselK1Q2[:], float64(x*x))*x) + 1/x + float64(besselLog(x)*a)
 }
 
 // besselK1Large is K1(x) e^x sqrt(x) for x > 1.
@@ -683,11 +684,11 @@ func Iv(v, x float64) float64 {
 		case 0:
 			return I0(x)
 		case 1:
-			return sign * I1(x)
+			return float64(sign * I1(x))
 		}
 	}
 	i, _ := besselIK(v, x, true, false, false)
-	return sign * i
+	return float64(sign * i)
 }
 
 // Ive returns Iv(v, x) e^-|x|, with the conventions of Iv; Ive(v, ±Inf)
@@ -711,11 +712,11 @@ func Ive(v, x float64) float64 {
 		case 0:
 			return I0e(x)
 		case 1:
-			return sign * I1e(x)
+			return float64(sign * I1e(x))
 		}
 	}
 	i, _ := besselIK(v, x, true, false, true)
-	return sign * i
+	return float64(sign * i)
 }
 
 // In returns the modified Bessel function of the first kind of integer

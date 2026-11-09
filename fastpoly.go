@@ -47,8 +47,8 @@ func estPieces(p []polyPiece) []estPiece {
 func (e *estPiece) eval(t float64) (hi, lo float64) {
 	s := t - e.c
 	q := &e.q
-	s2 := s * s
-	s4 := s2 * s2
+	s2 := float64(s * s)
+	s4 := float64(s2 * s2)
 	a0 := math.FMA(q[4], s, q[3])
 	a1 := math.FMA(q[6], s, q[5])
 	a2 := math.FMA(q[8], s, q[7])
@@ -73,7 +73,7 @@ func (e *estPiece) eval(t float64) (hi, lo float64) {
 func (e *estPiece) evalShort(t float64) (hi, lo float64) {
 	s := t - e.c
 	q := &e.q
-	s2 := s * s
+	s2 := float64(s * s)
 	a0 := math.FMA(q[4], s, q[3])
 	a1 := math.FMA(q[6], s, q[5])
 	a2 := math.FMA(q[8], s, q[7])

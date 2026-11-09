@@ -21,9 +21,9 @@ func coshSinh(ax float64) (ch, sh dd.DD, k int) {
 		return m, m, k - 1
 	}
 	if ax < 0x1p-16 {
-		t := ax * ax
-		c, ce := dd.FastTwoSum(1, t/2+(t*t)/24)
-		s, se := dd.FastTwoSum(ax, ax*(t/6+(t*t)/120))
+		t := float64(ax * ax)
+		c, ce := dd.FastTwoSum(1, float64(t/2)+(t*t)/24)
+		s, se := dd.FastTwoSum(ax, float64(ax*(t/6+(t*t)/120)))
 		return dd.DD{Hi: c, Lo: ce}, dd.DD{Hi: s, Lo: se}, 0
 	}
 	m, k := dd.ExpMant(dd.F(ax))
@@ -47,10 +47,10 @@ func Cosh(z complex128) complex128 {
 	if xfinite && yfinite {
 		ch, sh, k := coshSinh(math.Abs(x))
 		if y == 0 {
-			return complex(mulRound(ch, k, 1), x*y)
+			return complex(mulRound(ch, k, 1), float64(x*y))
 		}
 		s, c := sincos(y)
-		return complex(mulRound(ch, k, c), mulRound(sh, k, math.Copysign(1, x)*s))
+		return complex(mulRound(ch, k, c), mulRound(sh, k, float64(math.Copysign(1, x)*s)))
 	}
 	switch {
 	case x == 0 && !yfinite:
@@ -59,19 +59,19 @@ func Cosh(z complex128) complex128 {
 		return complex(y-y, math.Copysign(0, x*(y-y)))
 	case y == 0 && !xfinite:
 		// cosh(±Inf ± i0) = +Inf ± i0, cosh(NaN ± i0) = NaN ± i0.
-		return complex(x*x, math.Copysign(0, x)*y)
+		return complex(float64(x*x), float64(math.Copysign(0, x)*y))
 	case xfinite && !yfinite:
-		return complex(y-y, x*(y-y))
+		return complex(y-y, float64(x*(y-y)))
 	case math.IsInf(x, 0):
 		if !yfinite {
 			// cosh(±Inf ± i Inf) = +Inf + i NaN, cosh(±Inf + i NaN) = +Inf + i NaN.
-			return complex(x*x, x*(y-y))
+			return complex(float64(x*x), float64(x*(y-y)))
 		}
 		s, c := sincos(y)
-		return complex((x*x)*c, x*s)
+		return complex(float64((x*x)*c), float64(x*s))
 	}
 	// cosh(NaN + i y) = NaN + i NaN for y ≠ 0.
-	return complex((x*x)*(y-y), (x+x)*(y-y))
+	return complex(float64((x*x)*(y-y)), float64((x+x)*(y-y)))
 }
 
 // Sinh returns the hyperbolic sine of x: sinh re cos im + i cosh re sin im,
@@ -90,7 +90,7 @@ func Sinh(z complex128) complex128 {
 			return complex(mulRound(sh, k, sx), y)
 		}
 		s, c := sincos(y)
-		return complex(mulRound(sh, k, sx*c), mulRound(ch, k, s))
+		return complex(mulRound(sh, k, float64(sx*c)), mulRound(ch, k, s))
 	}
 	switch {
 	case x == 0 && !yfinite:
@@ -103,17 +103,17 @@ func Sinh(z complex128) complex128 {
 		}
 		return complex(x, math.Copysign(0, y)) // sinh(±Inf ± i0) = ±Inf ± i0
 	case xfinite && !yfinite:
-		return complex(y-y, x*(y-y))
+		return complex(y-y, float64(x*(y-y)))
 	case math.IsInf(x, 0):
 		if !yfinite {
 			// sinh(±Inf ± i Inf) = ±Inf + i NaN (sign of the real part
 			// unspecified), sinh(±Inf + i NaN) likewise.
-			return complex(x*x, x*(y-y))
+			return complex(float64(x*x), float64(x*(y-y)))
 		}
 		s, c := sincos(y)
-		return complex(x*c, math.Inf(1)*s)
+		return complex(float64(x*c), float64(math.Inf(1)*s))
 	}
-	return complex((x*x)*(y-y), (x+x)*(y-y))
+	return complex(float64((x*x)*(y-y)), float64((x+x)*(y-y)))
 }
 
 // Cos returns the cosine of x, Cosh(i x) (C11 G.6p7).

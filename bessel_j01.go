@@ -59,23 +59,23 @@ func besselCellEval(cells []besselCell, lut []uint16, x float64) float64 {
 	he, hl := dd.TwoSum(x-c.z, -c.zlo)
 	r := &c.r
 	t := r[0]
-	t = t*he + r[1]
-	t = t*he + r[2]
-	t = t*he + r[3]
-	t = t*he + r[4]
-	t = t*he + r[5]
-	t = t*he + r[6]
-	t = t*he + r[7]
-	t = t*he + r[8]
-	t = t*he + r[9]
-	t = t*he + r[10]
-	t = t*he + r[11]
+	t = float64(t*he) + r[1]
+	t = float64(t*he) + r[2]
+	t = float64(t*he) + r[3]
+	t = float64(t*he) + r[4]
+	t = float64(t*he) + r[5]
+	t = float64(t*he) + r[6]
+	t = float64(t*he) + r[7]
+	t = float64(t*he) + r[8]
+	t = float64(t*he) + r[9]
+	t = float64(t*he) + r[10]
+	t = float64(t*he) + r[11]
 	// w = a1 + h R(h); f = a0 + h w
 	wh, wl := dd.TwoSum(c.a1, float64(he*t))
 	wl += c.a1lo
 	p, pe := dd.TwoProd(he, wh)
 	s, se := dd.TwoSum(c.a0, p)
-	return s + (se + pe + he*wl + hl*wh + c.a0lo)
+	return s + (se + pe + float64(he*wl) + float64(hl*wh) + c.a0lo)
 }
 
 // besselRational evaluates (p[0] + p[1] z + ...)/(q[0] + q[1] z + ...)
@@ -88,7 +88,7 @@ func besselRational(p, q []float64, z float64) float64 {
 func besselPoly(p []float64, z float64) float64 {
 	s := 0.0
 	for i := len(p) - 1; i >= 0; i-- {
-		s = s*z + p[i]
+		s = float64(s*z) + p[i]
 	}
 	return s
 }
@@ -99,10 +99,10 @@ var besselEulerDD = dd.DD{Hi: 0.5772156649015329, Lo: -4.942915152430645e-18}
 // besselJ0Series is J0(x) = sum (-x^2/4)^k / (k!)^2 (DLMF 10.2.2) for
 // 0 <= x <= 1, where the terms fall by a factor 4 at least.
 func besselJ0Series(x float64) float64 {
-	m := -x * x / 4
+	m := float64(-x * x / 4)
 	t, s := 1.0, 0.0
 	for k := 1; k < 30; k++ {
-		t *= m / float64(k*k)
+		t = float64(t * (m / float64(k*k)))
 		s += t
 		if math.Abs(t) < 0x1p-60 {
 			break
@@ -114,29 +114,29 @@ func besselJ0Series(x float64) float64 {
 // besselJ1Series is J1(x) = (x/2) sum (-x^2/4)^k / (k! (k+1)!) for
 // 0 <= x <= 1.5.
 func besselJ1Series(x float64) float64 {
-	m := -x * x / 4
+	m := float64(-x * x / 4)
 	t, s := 1.0, 0.0
 	for k := 1; k < 30; k++ {
-		t *= m / float64(k*(k+1))
+		t = float64(t * (m / float64(k*(k+1))))
 		s += t
 		if math.Abs(t) < 0x1p-60 {
 			break
 		}
 	}
-	return x / 2 * (1 + s)
+	return float64(x / 2 * (1 + s))
 }
 
 // besselY0Series is Y0(x) for 0 < x <= 0.6 by DLMF 10.8.2:
 // Y0 = (2/pi) [(log(x/2) + gamma) J0(x) + sum_{k>=1} (-1)^(k+1) H_k (x^2/4)^k / (k!)^2],
 // with the logarithm and the constants in double-double.
 func besselY0Series(x float64) float64 {
-	q := x * x / 4
+	q := float64(x * x / 4)
 	t, s, H := 1.0, 0.0, 0.0
 	for k := 1; k < 30; k++ {
 		fk := float64(k)
 		H += 1 / fk
-		t *= -q / (fk * fk)
-		s -= H * t
+		t = float64(t * (-q / (fk * fk)))
+		s -= float64(H * t)
 		if math.Abs(t) < 0x1p-60 {
 			break
 		}
@@ -150,15 +150,15 @@ func besselY0Series(x float64) float64 {
 // Y1 = -2/(pi x) + (2/pi) log(x/2) J1(x)
 //   - (x/(2 pi)) sum (psi(k+1) + psi(k+2)) (-x^2/4)^k / (k! (k+1)!).
 func besselY1Series(x float64) float64 {
-	m := -x * x / 4
+	m := float64(-x * x / 4)
 	g := besselEulerDD.Hi
 	t, H := 1.0, 0.0
-	s := 1 - 2*g // k = 0: psi(1) + psi(2) = 1 - 2 gamma
+	s := 1 - float64(2*g) // k = 0: psi(1) + psi(2) = 1 - 2 gamma
 	for k := 1; k < 30; k++ {
 		fk := float64(k)
 		H += 1 / fk
-		t *= m / (fk * (fk + 1))
-		s += t * (2*H + 1/(fk+1) - 2*g)
+		t = float64(t * (m / (fk * (fk + 1))))
+		s += float64(t * (float64(2*H) + 1/(fk+1) - float64(2*g)))
 		if math.Abs(t) < 0x1p-60 {
 			break
 		}
@@ -170,10 +170,10 @@ func besselY1Series(x float64) float64 {
 		return math.Inf(-1)
 	}
 	r := dd.Add(inv, dd.MulF(lx, besselJ1Series(x)))
-	r = dd.AddF(r, -x/4*s)
+	r = dd.AddF(r, float64(-x/4*s))
 	if x < 0x1p-1000 {
 		// keep 2/(pi x) from overflowing in the double-double product
-		return r.Hi * besselTwoOverPiDD.Hi
+		return float64(r.Hi * besselTwoOverPiDD.Hi)
 	}
 	return dd.Mul(r, besselTwoOverPiDD).Float()
 }
@@ -222,10 +222,10 @@ func J1(x float64) float64 {
 	case math.IsInf(x, 0):
 		return 0
 	case x < besselZeroTaylorMax:
-		return sign * besselCellEval(besselJ1Cells[:], besselJ1CellsLUT[:], x)
+		return float64(sign * besselCellEval(besselJ1Cells[:], besselJ1CellsLUT[:], x))
 	}
 	j, _, _ := besselAsymJY(1, x, true, false)
-	return sign * j
+	return float64(sign * j)
 }
 
 // Y0 returns the Bessel function of the second kind of order zero,

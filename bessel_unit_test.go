@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"testing"
 
@@ -106,10 +107,10 @@ func TestBesselIntegerOrders(t *testing.T) {
 	// 2n/x K_n + K_{n-1} there.
 	x := 30.0
 	k49, k50, k51 := Kv(49, x), Kv(50, x), Kv(51, x)
-	if r := (2*50/x*k50 + k49) / k51; math.Abs(r-1) > 1e-14 {
+	if r := (float64(2*50/x*k50) + k49) / k51; math.Abs(r-1) > 1e-14 {
 		t.Errorf("K recurrence at n=50: ratio %v", r)
 	}
-	if v := Kve(60, 30); math.Abs(v/(Kv(60, 30)*math.Exp(30))-1) > 1e-14 {
+	if v := Kve(60, 30); math.Abs(v/(Kv(60, 30)*libm.Exp(30))-1) > 1e-14 {
 		t.Errorf("Kve(60,30) = %g", v)
 	}
 }
@@ -206,7 +207,7 @@ func TestBesselReduce(t *testing.T) {
 	for _, x := range []float64{1e22, 3.7e150, math.MaxFloat64} {
 		q, f := besselReduce(x)
 		s, _ := besselSinCosQuarter(q, f)
-		if w := math.Sin(x); math.Abs(s-w) > 1e-15 {
+		if w := libm.Sin(x); math.Abs(s-w) > 1e-15 {
 			t.Errorf("sin via besselReduce(%g) = %g, want %g", x, s, w)
 		}
 	}

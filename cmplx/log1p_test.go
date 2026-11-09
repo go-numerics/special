@@ -62,7 +62,7 @@ func TestLog1pDefects(t *testing.T) {
 	}
 	// |1+z|² - 1 = 2x + x² + y² cancels: z = -1e-8 + i sqrt(2e-8 - 1e-16).
 	x := -1e-8
-	y := math.Sqrt(-2*x - x*x)
+	y := math.Sqrt(float64(-2*x) - float64(x*x))
 	if w := Log1p(complex(x, y)); math.Abs(real(w)) > 1e-24 {
 		t.Errorf("Log1p(%v) real part %g, want |.| < 1e-24", complex(x, y), real(w))
 	}

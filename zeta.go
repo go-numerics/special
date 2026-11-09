@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -142,14 +143,14 @@ func hurwitzPos(s float64, q dd.DD) scaled {
 	pw := iw2 // w^-2j
 	tail := 0.0
 	for j := 1; j <= len(bernoulliOverFactorial); j++ {
-		t := bernoulliOverFactorial[j-1] * poch * pw
+		t := float64(bernoulliOverFactorial[j-1] * poch * pw)
 		tail += t
 		if math.Abs(t) < 0x1p-64*math.Abs(br.Hi) {
 			break
 		}
 		k := float64(2*j - 1)
-		poch *= (s + k) * (s + k + 1)
-		pw *= iw2
+		poch = float64(poch * (float64((s + k) * (s + k + 1))))
+		pw = float64(pw * (iw2))
 	}
 	br = dd.AddF(br, tail)
 	terms = append(terms, scaled{dd.Mul(wm, br), we})
@@ -199,7 +200,7 @@ func zetaMidFast(s float64) float64 {
 	bb := dh - s
 	dl := (s - (dh - bb)) + (-1 - bb)
 	q := 1 / dh
-	ql := (math.FMA(-q, dh, 1) - q*dl) * q // 1/(s-1) = q + ql
+	ql := float64((math.FMA(-q, dh, 1) - float64(q*dl)) * q) // 1/(s-1) = q + ql
 	rh, rl := zetaEst[min(int((s+1)*2), len(zetaEst)-1)].evalShort(s)
 	v := q + rh // TwoSum
 	bb = v - q
@@ -219,13 +220,13 @@ func zetaTailFast(s float64) float64 {
 		gh, gl = zetaTailEst[i-1].eval(s)
 	}
 	xh := float64(-s * ln2DD.Hi)
-	xl := math.FMA(-s, ln2DD.Hi, -xh) - s*ln2DD.Lo
+	xl := math.FMA(-s, ln2DD.Hi, -xh) - float64(s*ln2DD.Lo)
 	eh, el, k := expHL(xh, xl)
 	sc := pow2(k) // k >= -65
 	th := float64(eh * gh)
 	tl := math.FMA(eh, gh, -th) + math.FMA(eh, gl, el*gh)
-	th *= sc
-	tl *= sc
+	th = float64(th * (sc))
+	tl = float64(tl * (sc))
 	r := 1 + th // Fast2Sum: ζ(s) - 1 < 0.02
 	return r + (((1 - r) + th) + tl)
 }
@@ -237,7 +238,7 @@ func zetaTailFast(s float64) float64 {
 func zetaAbove2(s float64) dd.DD {
 	switch {
 	case s >= 64:
-		return dd.AddF(dd.F(1), math.Exp2(-s))
+		return dd.AddF(dd.F(1), libm.Exp2(-s))
 	case s <= 6:
 		return dd.Add(recipDD(s-1), evalPiecesDD(zetaPieces[:], s)) // s-1 exact
 	}
@@ -248,7 +249,7 @@ func zetaAbove2(s float64) dd.DD {
 
 // zetaReflect returns ζ(s) for s < -1 by the reflection formula.
 func zetaReflect(s float64) float64 {
-	sn := sinPiDD(s / 2) // s/2 exact
+	sn := sinPiDD(float64(s / 2)) // s/2 exact
 	if sn.Hi == 0 {
 		return 0 // trivial zero
 	}
@@ -320,36 +321,36 @@ func powNegHL(yh, yl, s float64) (hi, lo float64) {
 	tmp := iyb - 0x3fe8000000000000
 	kf := float64(int64(tmp) >> 52)
 	m := math.Float64frombits(iyb - uint64(int64(tmp)>>52)<<52)
-	t := &logT[int(m*256+0.5)-192]
+	t := &logT[int(float64(m*256)+0.5)-192]
 	invc := t[0]
 	p := float64(m * invc) // float64(): not fused into r below
 	pe := math.FMA(m, invc, -p)
 	r := p - 1
-	r2 := r * r
+	r2 := float64(r * r)
 	q0 := math.FMA(r, 1.0/3, -0.5)
 	q1 := math.FMA(r, 1.0/5, -0.25)
 	q2 := math.FMA(r, 1.0/7, -1.0/6)
 	q2 = math.FMA(r2, -1.0/8, q2)
 	q1 = math.FMA(r2, q2, q1)
-	q := r2 * math.FMA(r2, q1, q0)
-	l0 := kf*ln2Hi42 + t[1]
+	q := float64(r2 * math.FMA(r2, q1, q0))
+	l0 := float64(kf*ln2Hi42) + t[1]
 	lh := l0 + r
 	ll := (r - (lh - l0)) + (math.FMA(kf, ln2Lo42, t[2]) + (math.FMA(pe, -r, pe) + q)) + yl/yh
 	ph := float64(-s * lh)
-	pl := math.FMA(-s, lh, -ph) - s*ll
+	pl := math.FMA(-s, lh, -ph) - float64(s*ll)
 	xh := ph + pl // normalised for the reduction
 	xl := pl - (xh - ph)
 	kd := math.RoundToEven(xh * expInvLn2N)
 	ki := int(kd)
-	er := xh - kd*expC1
-	dr := xl - kd*expC2
+	er := xh - float64(kd*expC1)
+	dr := xl - float64(kd*expC2)
 	u := er + dr
 	ue := dr - (u - er)
-	u2 := u * u
+	u2 := float64(u * u)
 	pa := math.FMA(u, 1.0/6, 0.5)
 	pb := math.FMA(u, 1.0/120, 1.0/24)
 	pb = math.FMA(u2, 1.0/720, pb)
-	pu := u2 * math.FMA(u2, pb, pa)
+	pu := float64(u2 * math.FMA(u2, pb, pa))
 	et := &expT[ki&127]
 	th, tl := et[0], et[1]
 	tu := float64(th * u)
@@ -358,7 +359,7 @@ func powNegHL(yh, yl, s float64) (hi, lo float64) {
 	h1 := h0 + el
 	el -= h1 - h0
 	sc := pow2(ki >> 7)
-	return h1 * sc, el * sc
+	return float64(h1 * sc), float64(el * sc)
 }
 
 // hurwitzFast is hurwitzPos for the common range, in float64 kernels:
@@ -378,7 +379,7 @@ func hurwitzFast(s, q float64) (float64, bool) {
 	// 20, 34.8 at 64), a much shorter direct sum than hurwitzPos's
 	// 0.7(s+30) with 15 terms, which allows for s > 64 (the bound is
 	// checked by TestHurwitzShiftBound).
-	w0 := 7.3 + 0.5*s
+	w0 := 7.3 + float64(0.5*s)
 	n := 0.0
 	if q < w0 {
 		n = math.Ceil(w0 - q)
@@ -417,29 +418,29 @@ func hurwitzFast(s, q float64) (float64, bool) {
 	bb = dh - s
 	dl := (s - (dh - bb)) + (-1 - bb)
 	bh := wh / dh
-	bl := (math.FMA(-bh, dh, wh) + wl - bh*dl) / dh
+	bl := (math.FMA(-bh, dh, wh) + wl - float64(bh*dl)) / dh
 	iw := 1 / wh
-	iw2 := iw * iw
+	iw2 := float64(iw * iw)
 	// The first Bernoulli term t1 = s/(12w) apart, as hi + lo, the others (below
 	// t1 s²/(30 w²)) summed in float64: summing them onto 1/2 would leave
 	// the rounding of 1/2's ulp at every step.
-	iwl := (math.FMA(-iw, wh, 1) - iw*wl) * iw // 1/w = iw + iwl
+	iwl := float64((math.FMA(-iw, wh, 1) - float64(iw*wl)) * iw) // 1/w = iw + iwl
 	sw := float64(s * iw)
-	swl := math.FMA(s, iw, -sw) + s*iwl // s/w = sw + swl
+	swl := math.FMA(s, iw, -sw) + float64(s*iwl) // s/w = sw + swl
 	t1 := float64(sw * (1.0 / 12))
-	t1l := math.FMA(sw, 1.0/12, -t1) + (swl*(1.0/12) + sw*4.625929269271485e-18) // 1/12 - RN(1/12)
-	poch := s * (s + 1) * (s + 2)                                                // (s)_{2j-1}
-	pw := iw * iw2                                                               // w^(1-2j)
+	t1l := math.FMA(sw, 1.0/12, -t1) + (float64(swl*(1.0/12)) + float64(sw*4.625929269271485e-18)) // 1/12 - RN(1/12)
+	poch := float64(s * (s + 1) * (s + 2))                                                         // (s)_{2j-1}
+	pw := float64(iw * iw2)                                                                        // w^(1-2j)
 	rest := 0.0
 	for j := 2; j <= len(bernoulliOverFactorial25); j++ {
-		t := bernoulliOverFactorial25[j-1] * poch * pw
+		t := float64(bernoulliOverFactorial25[j-1] * poch * pw)
 		rest += t
 		if math.Abs(t) < 0x1p-64*bh {
 			break // converged (TestHurwitzShiftBound: always by j = 25)
 		}
 		kk := float64(2*j - 1)
-		poch *= (s + kk) * (s + kk + 1)
-		pw *= iw2
+		poch = float64(poch * (float64((s + kk) * (s + kk + 1))))
+		pw = float64(pw * (iw2))
 	}
 	c1 := bh + 0.5 // Fast2Sum: w/(s-1) > 1
 	e1 := (bh - c1) + 0.5
@@ -506,7 +507,7 @@ func Polygamma(n int, x float64) float64 {
 		sign = -1
 	}
 	if x <= 0 && x == math.Trunc(x) {
-		return sign * math.Inf(1)
+		return float64(sign * math.Inf(1))
 	}
 	if n == 1 && x < -10 {
 		return trigammaReflect(x)
@@ -524,7 +525,7 @@ func Polygamma(n int, x float64) float64 {
 		f = scaled{m, e}
 	}
 	m := dd.Mul(h.m, f.m)
-	return sign * math.Ldexp(m.Float(), h.e+f.e)
+	return float64(sign * math.Ldexp(m.Float(), h.e+f.e))
 }
 
 // polygamma1 is Polygamma(1, x) (the scalar function behind TrigammaTo).
@@ -556,9 +557,9 @@ func trigamma(x float64) float64 {
 		bb := yh - x
 		yl := (x - (yh - bb)) + (k - bb)
 		q := 1 / yh
-		ql := (math.FMA(-q, yh, 1) - q*yl) * q // 1/(x+k) = q + ql
+		ql := float64((math.FMA(-q, yh, 1) - float64(q*yl)) * q) // 1/(x+k) = q + ql
 		th := float64(q * q)
-		tl := math.FMA(q, q, -th) + 2*q*ql
+		tl := math.FMA(q, q, -th) + float64(2*q*ql)
 		v := sh + th // TwoSum
 		bb = v - sh
 		sl += ((sh - (v - bb)) + (th - bb)) + tl
@@ -569,7 +570,7 @@ func trigamma(x float64) float64 {
 	yl := (x - (yh - bb)) + (n - bb)
 	ah, al := trigammaAsym(yh)
 	iy := 1 / yh
-	al -= yl * iy * iy * (1 + iy*(1+0.5*iy)) // ψ''(y) yl, ψ''(y) = -(1/y² + 1/y³ + 1/(2y⁴)) + O(y^-6)
+	al -= float64(yl * iy * iy * (1 + float64(iy*(1+float64(0.5*iy))))) // ψ''(y) yl, ψ''(y) = -(1/y² + 1/y³ + 1/(2y⁴)) + O(y^-6)
 	v := sh + ah
 	bb = v - sh
 	ve := (sh - (v - bb)) + (ah - bb)
@@ -591,24 +592,24 @@ func trigammaReflect(x float64) float64 {
 	yl := (1 - (yh - bb)) + (-x - bb)
 	ah, al := trigammaAsym(yh)
 	iy := 1 / yh
-	al -= yl * iy * iy * (1 + iy*(1+0.5*iy)) // ψ''(y) yl
-	v := q.Hi - ah                           // Fast2Sum: q > 9.8 > ψ'(1-x)
+	al -= float64(yl * iy * iy * (1 + float64(iy*(1+float64(0.5*iy))))) // ψ''(y) yl
+	v := q.Hi - ah                                                      // Fast2Sum: q > 9.8 > ψ'(1-x)
 	return v + (((q.Hi - v) - ah) + (q.Lo - al))
 }
 
 // trigammaAsym returns ψ'(x) as hi + lo for x >= 10 (see trigamma).
 func trigammaAsym(x float64) (hi, lo float64) {
 	q := 1 / x
-	ql := math.FMA(-q, x, 1) * q // 1/x = q + ql
+	ql := float64(math.FMA(-q, x, 1) * q) // 1/x = q + ql
 	zh := float64(q * q)
-	zl := math.FMA(q, q, -zh) + 2*q*ql // 1/x² = zh + zl
-	z2 := zh * zh
-	z4 := z2 * z2
+	zl := math.FMA(q, q, -zh) + float64(2*q*ql) // 1/x² = zh + zl
+	z2 := float64(zh * zh)
+	z4 := float64(z2 * z2)
 	a := math.FMA(math.FMA(-1.0/30, zh, 1.0/42), z2, math.FMA(-1.0/30, zh, 1.0/6))
 	b := math.FMA(math.FMA(-3617.0/510, zh, 7.0/6), z2, math.FMA(-691.0/2730, zh, 5.0/66))
 	c := math.FMA(math.FMA(-236364091.0/2730, zh, 854513.0/138), z2, math.FMA(-174611.0/330, zh, 43867.0/798))
-	ser := math.FMA(math.FMA(c, z4, b), z4, a) * zh * q
-	h := 0.5 * zh
+	ser := float64(math.FMA(math.FMA(c, z4, b), z4, a) * zh * q)
+	h := float64(0.5 * zh)
 	hi = q + h // Fast2Sum: 1/(2x²) < 1/x
-	return hi, ((q - hi) + h) + (ql + 0.5*zl + ser)
+	return hi, ((q - hi) + h) + (ql + float64(0.5*zl) + ser)
 }

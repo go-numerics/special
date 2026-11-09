@@ -1,6 +1,7 @@
 package dd
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/big"
 	"testing"
@@ -61,9 +62,9 @@ func bigLog(x float64) *big.Float {
 func TestLog(t *testing.T) {
 	worst := 0.0
 	for i := 0; i < 3000; i++ {
-		x := math.Exp(-700 + 1400*float64(i)/3000 + 1e-3*float64(i%11))
+		x := libm.Exp(-700 + 1400*float64(i)/3000 + float64(1e-3*float64(i%11)))
 		if i%3 == 0 {
-			x = 1 + float64(i-1500)*1e-6
+			x = 1 + float64(float64(i-1500)*1e-6)
 		}
 		want := bigLog(x)
 		if want.Sign() == 0 {
@@ -105,8 +106,8 @@ func bigExp(a *big.Float) *big.Float {
 func TestExp(t *testing.T) {
 	worst := 0.0
 	for i := 0; i < 4000; i++ {
-		hi := -740 + 1449*float64(i)/4000 + 1e-4*float64(i%13)
-		a := DD{hi, hi * 0x1p-60 * float64(i%5-2)}
+		hi := -740 + 1449*float64(i)/4000 + float64(1e-4*float64(i%13))
+		a := DD{hi, float64(hi * 0x1p-60 * float64(i%5-2))}
 		a = AddF(a, 0) // normalise
 		want, _ := bigExp(bf(a)).Float64()
 		got := Exp(a)
@@ -143,8 +144,8 @@ func TestExp(t *testing.T) {
 func TestExpMant(t *testing.T) {
 	worst := 0.0
 	for i := 0; i < 2000; i++ {
-		hi := -700 + 1400*float64(i)/2000 + 1e-4*float64(i%13)
-		a := DD{hi, hi * 0x1p-58 * float64(i%5-2)}
+		hi := -700 + 1400*float64(i)/2000 + float64(1e-4*float64(i%13))
+		a := DD{hi, float64(hi * 0x1p-58 * float64(i%5-2))}
 		a = AddF(a, 0)
 		m, k := ExpMant(a)
 		got := new(big.Float).SetPrec(400).SetMantExp(bf(m), k)
@@ -172,7 +173,7 @@ func TestSpecials(t *testing.T) {
 	if s := Sqrt(DD{-1, 0}); s.Hi == s.Hi {
 		t.Errorf("Sqrt(-1) = %v", s)
 	}
-	if s := Sqrt(DD{2, 0}); math.Abs(s.Hi*s.Hi-2) > 1e-15 {
+	if s := Sqrt(DD{2, 0}); math.Abs(float64(s.Hi*s.Hi)-2) > 1e-15 {
 		t.Errorf("Sqrt(2) = %v", s)
 	}
 	if l := Log(0); !math.IsInf(l.Hi, -1) {
@@ -202,15 +203,15 @@ func TestExpReductionMargin(t *testing.T) {
 		t.Errorf("margin at boundary = %g, want 0", m)
 	}
 	for i := 0; i < 2000; i++ {
-		x := (float64(i) - 1000) * 0.0137
+		x := float64((float64(i) - 1000) * 0.0137)
 		m := ExpReductionMargin(x)
 		if m < 0 || m > 0.5 {
 			t.Fatalf("margin(%g) = %g outside [0, 0.5]", x, m)
 		}
-		n := math.Floor(x*(1/ln2o64Hi) + 0.5)
+		n := math.Floor(float64(x*(1/ln2o64Hi)) + 0.5)
 		for _, s := range []float64{-0.99, 0.99} {
-			y := x + s*m*ln2o64Hi
-			if ny := math.Floor(y*(1/ln2o64Hi) + 0.5); ny != n {
+			y := x + float64(s*m*ln2o64Hi)
+			if ny := math.Floor(float64(y*(1/ln2o64Hi)) + 0.5); ny != n {
 				t.Fatalf("x=%g margin %g: reduction moved %g -> %g", x, m, n, ny)
 			}
 		}

@@ -13,10 +13,10 @@ import (
 func mulRound(m dd.DD, k int, t float64) float64 {
 	if math.IsInf(m.Hi, 0) || m.Hi == 0 {
 		// dd.ExpMant beyond its range (|x| > 1e7): +Inf or 0.
-		return m.Hi * t
+		return float64(m.Hi * t)
 	}
 	ft, et := math.Frexp(t)
-	return round(dd.MulF(m, ft), k+et, m.Hi*t)
+	return round(dd.MulF(m, ft), k+et, float64(m.Hi*t))
 }
 
 // scaledCis returns e^x·c·2^shift and e^x·s·2^shift, each rounded once:
@@ -65,13 +65,13 @@ func Exp(x complex128) complex128 {
 			return x
 		case finite(i):
 			s, c := sincos(i)
-			return complex(r*c, r*s)
+			return complex(float64(r*c), float64(r*s))
 		}
 		return complex(r, math.NaN()) // ±Inf + iNaN: sign of the real part unspecified
 	default: // -Inf
 		if finite(i) {
 			s, c := sincos(i)
-			return complex(0*c, 0*s)
+			return complex(float64(0*c), float64(0*s))
 		}
 		// ±0 ± i0: signs unspecified; the imaginary zero takes the sign of
 		// im so that Exp(conj z) = conj Exp(z) holds here too.

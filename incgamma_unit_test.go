@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/rand"
 	"testing"
@@ -98,7 +99,7 @@ func TestIncGammaInternals(t *testing.T) {
 func TestIncRobustness(t *testing.T) {
 	r := rand.New(rand.NewSource(1))
 	lu := func(lo, hi float64) float64 {
-		return math.Exp(math.Log(lo) + r.Float64()*(math.Log(hi)-math.Log(lo)))
+		return libm.Exp(libm.Log(lo) + float64(r.Float64()*(libm.Log(hi)-libm.Log(lo))))
 	}
 	for i := 0; i < 30000; i++ {
 		a, b := lu(1e-300, 1e300), lu(1e-300, 1e300)

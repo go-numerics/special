@@ -1,6 +1,7 @@
 package special
 
 import (
+	"github.com/go-numerics/special/internal/libm"
 	"math"
 
 	"github.com/go-numerics/special/dd"
@@ -66,13 +67,13 @@ func besselLogPowGamma(v, x float64) (dd.DD, float64) {
 // series 1/Gamma(z) = sum c_k z^k (A&S 6.1.34): g1 = -sum c_{2m} u^(2m-2),
 // g2 = sum c_{2m+1} u^(2m). Both are free of cancellation.
 func besselRGammaPair(u float64) (g1, g2 float64) {
-	u2 := u * u
+	u2 := float64(u * u)
 	c := besselRGammaTaylor[:]
 	for k := len(c) - 1; k >= 1; k -= 2 { // c[k] = c_{k+1}: even index k+1
-		g1 = g1*u2 + c[k]
+		g1 = float64(g1*u2) + c[k]
 	}
 	for k := len(c) - 2; k >= 0; k -= 2 {
-		g2 = g2*u2 + c[k]
+		g2 = float64(g2*u2) + c[k]
 	}
 	return -g1, g2
 }
@@ -81,17 +82,17 @@ func besselRGammaPair(u float64) (g1, g2 float64) {
 // 0 < x <= 2 by Temme's series (Temme 1976; Boost temme_jy).
 func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 	g1, g2 := besselRGammaPair(u)
-	rgp := g2 - u*g1 // 1/Gamma(1+u)
-	rgm := g2 + u*g1 // 1/Gamma(1-u)
-	spv2 := sinPi(u / 2)
+	rgp := g2 - float64(u*g1) // 1/Gamma(1+u)
+	rgm := g2 + float64(u*g1) // 1/Gamma(1-u)
+	spv2 := sinPi(float64(u / 2))
 	xp := besselPowHalf(x, u)
 	a := besselLogHalf(x)
-	sigma := -a * u
+	sigma := float64(-a * u)
 	d := 1.0
 	if math.Abs(sigma) >= 0x1p-52 {
-		d = math.Sinh(sigma) / sigma
+		d = libm.Sinh(sigma) / sigma
 	}
-	e := u * math.Pi * math.Pi / 2
+	e := float64(u * math.Pi * math.Pi / 2)
 	if math.Abs(u) >= 0x1p-52 {
 		e = 2 * spv2 * spv2 / u
 	}
@@ -99,26 +100,26 @@ func besselTemmeJY(u, x float64) (yu, yu1 float64) {
 	if math.Abs(u) >= 0x1p-52 {
 		vspv = u / sinPi(u)
 	}
-	f := (g1*math.Cosh(sigma) - g2*a*d) * 2 * vspv
-	p := vspv / xp * rgm
-	q := vspv * xp * rgp
-	g := f + e*q
+	f := float64((float64(g1*libm.Cosh(sigma)) - float64(g2*a*d)) * 2 * vspv)
+	p := float64(vspv / xp * rgm)
+	q := float64(vspv * xp * rgp)
+	g := f + float64(e*q)
 	h := p
 	coef := 1.0
-	sum := coef * g
-	sum1 := coef * h
-	v2 := u * u
-	cm := -x * x / 4
+	sum := float64(coef * g)
+	sum1 := float64(coef * h)
+	v2 := float64(u * u)
+	cm := float64(-x * x / 4)
 	for k := 1; k < 1000; k++ {
 		fk := float64(k)
-		f = (fk*f + p + q) / (fk*fk - v2)
+		f = (float64(fk*f) + p + q) / (float64(fk*fk) - v2)
 		p /= fk - u
 		q /= fk + u
-		g = f + e*q
-		h = p - fk*g
-		coef *= cm / fk
-		sum += coef * g
-		sum1 += coef * h
+		g = f + float64(e*q)
+		h = p - float64(fk*g)
+		coef = float64(coef * (cm / fk))
+		sum += float64(coef * g)
+		sum1 += float64(coef * h)
 		if math.Abs(coef*g) < math.Abs(sum)*0x1p-53 {
 			break
 		}
@@ -145,7 +146,7 @@ func besselCF1JY(v, x float64) (fv dd.DD, s int) {
 		if D < 0 {
 			s = -s
 		}
-		if math.Abs(C*D-1) < 0x1p-52 {
+		if math.Abs(float64(C*D)-1) < 0x1p-52 {
 			break
 		}
 	}
@@ -166,23 +167,23 @@ func besselCF1Tail(v, x float64, n int, sg float64) dd.DD {
 	if n > 100000 {
 		r := 0.0
 		for j := n; j >= 1; j-- {
-			r = 1 / (2*(v+float64(j))/x + sg*r)
+			r = 1 / (2*(v+float64(j))/x + float64(sg*r))
 		}
 		return dd.F(r)
 	}
 	ix := 1 / x
-	ixl := math.FMA(-ix, x, 1) * ix // 1/x = ix + ixl to about 2^-104
+	ixl := float64(math.FMA(-ix, x, 1) * ix) // 1/x = ix + ixl to about 2^-104
 	rh, rl := 0.0, 0.0
 	for j := n; j >= 1; j-- {
 		h, l := dd.TwoSum(v, float64(j))
-		h, l = 2*h, 2*l
+		h, l = float64(2*h), float64(2*l)
 		bh := float64(h * ix) // rounded: it feeds the TwoSum below
-		bl := math.FMA(h, ix, -bh) + (h*ixl + l*ix)
-		wh, we := dd.TwoSum(bh, sg*rh)
+		bl := math.FMA(h, ix, -bh) + (float64(h*ixl) + float64(l*ix))
+		wh, we := dd.TwoSum(bh, float64(sg*rh))
 		// renormalised: b_j and r cancel next to a zero of the function
-		wh, wl := dd.FastTwoSum(wh, we+bl+sg*rl)
+		wh, wl := dd.FastTwoSum(wh, we+bl+float64(sg*rl))
 		rh = 1 / wh
-		rl = (math.FMA(-rh, wh, 1) - rh*wl) * rh
+		rl = float64((math.FMA(-rh, wh, 1) - float64(rh*wl)) * rh)
 	}
 	h, l := dd.FastTwoSum(rh, rl)
 	return dd.DD{Hi: h, Lo: l}
@@ -196,28 +197,28 @@ func besselCF2JY(v, x float64) (p, q dd.DD) {
 	// the double-double evaluation from (four times) that depth.
 	fr, fi := -0.5/x, 1.0
 	Cr, Ci := fr, fi
-	v2 := v * v
+	v2 := float64(v * v)
 	a := (0.25 - v2) / x
-	br, bi := 2*x, 2.0
-	temp := Cr*Cr + 1
+	br, bi := float64(2*x), 2.0
+	temp := float64(Cr*Cr) + 1
 	Ci = bi + a*Cr/temp
 	Cr = br + a/temp
 	Dr, Di := br, bi
 	k := 2
 	for ; k < besselMaxIter; k++ {
 		a = float64(k) - 0.5
-		a = a*a - v2
+		a = float64(a*a) - v2
 		bi += 2
-		temp = Cr*Cr + Ci*Ci
+		temp = float64(Cr*Cr) + float64(Ci*Ci)
 		Cr = br + a*Cr/temp
 		Ci = bi - a*Ci/temp
-		Dr = br + a*Dr
-		Di = bi + a*Di
-		temp = Dr*Dr + Di*Di
+		Dr = br + float64(a*Dr)
+		Di = bi + float64(a*Di)
+		temp = float64(Dr*Dr) + float64(Di*Di)
 		Dr = Dr / temp
 		Di = -Di / temp
-		dr := Cr*Dr - Ci*Di
-		di := Ci*Dr + Cr*Di
+		dr := float64(Cr*Dr) - float64(Ci*Di)
+		di := float64(Ci*Dr) + float64(Cr*Di)
 		if math.Abs(dr-1)+math.Abs(di) < 0x1p-52 {
 			break
 		}
@@ -244,31 +245,31 @@ func besselCF2JY(v, x float64) (p, q dd.DD) {
 // operations.
 func besselCF2Tail(v, x float64, n int) (p, q dd.DD) {
 	v2h, v2l := dd.TwoProd(v, v)
-	x2 := 2 * x
+	x2 := float64(2 * x)
 	trh, trl, tih, til := 0.0, 0.0, 0.0, 0.0
 	for k := n; k >= 1; k-- {
 		h := float64(k) - 0.5
-		ah, ae := dd.TwoSum(h*h, -v2h) // h² exact for k < 2^26
+		ah, ae := dd.TwoSum(float64(h*h), -v2h) // h² exact for k < 2^26
 		al := ae - v2l
 		dr, dre := dd.TwoSum(trh, x2)
 		dr, drl := dd.FastTwoSum(dr, dre+trl)
-		di, die := dd.TwoSum(tih, 2*float64(k))
+		di, die := dd.TwoSum(tih, float64(2*float64(k)))
 		di, dil := dd.FastTwoSum(di, die+til)
 		// m = |d|²
 		m1, m1e := dd.TwoProd(dr, dr)
 		m2, m2e := dd.TwoProd(di, di)
 		mh, me := dd.TwoSum(m1, m2)
-		ml := me + m1e + m2e + 2*(dr*drl+di*dil)
+		ml := me + m1e + m2e + float64(2*(float64(dr*drl)+float64(di*dil)))
 		rm := 1 / mh
 		// a·dr and a·di
 		nr, nre := dd.TwoProd(ah, dr)
-		nrl := nre + ah*drl + al*dr
+		nrl := nre + float64(ah*drl) + float64(al*dr)
 		ni, nie := dd.TwoProd(ah, di)
-		nim := nie + ah*dil + al*di
+		nim := nie + float64(ah*dil) + float64(al*di)
 		qr := float64(nr * rm)
-		qrl := (math.FMA(-qr, mh, nr) + nrl - qr*ml) * rm
+		qrl := float64((math.FMA(-qr, mh, nr) + nrl - float64(qr*ml)) * rm)
 		qi := float64(ni * rm)
-		qil := (math.FMA(-qi, mh, ni) + nim - qi*ml) * rm
+		qil := float64((math.FMA(-qi, mh, ni) + nim - float64(qi*ml)) * rm)
 		trh, trl = qr, qrl
 		tih, til = -qi, -qil
 	}
@@ -291,13 +292,13 @@ func besselSeries(v, x, sg float64, scaled bool) (m float64, e int) {
 	}
 	switch { // beyond any representable value (keeps int(k) small)
 	case L.Hi > 1e5:
-		return gs * math.Inf(1), 0
+		return float64(gs * math.Inf(1)), 0
 	case L.Hi < -1e5:
 		return 0, 0
 	}
 	// terms and sum in double-double: for I the terms may grow a long way
 	// before they fall, and one rounding per term would add up
-	q := dd.MulF(dd.MulFF(x, x), sg/4)
+	q := dd.MulF(dd.MulFF(x, x), float64(sg/4))
 	t, s := dd.F(1), dd.F(1)
 	for k := 1; k < 100000; k++ {
 		fk := float64(k)
@@ -310,7 +311,7 @@ func besselSeries(v, x, sg float64, scaled bool) (m float64, e int) {
 	}
 	k := math.Floor(L.Hi / dd.Ln2Hi)
 	r := dd.Sub(L, dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
-	return gs * dd.MulF(s, dd.Exp(r)).Float(), int(k)
+	return float64(gs * dd.MulF(s, dd.Exp(r)).Float()), int(k)
 }
 
 // besselJSeries returns J_v(x) by its power series (see besselSeries).
@@ -343,9 +344,9 @@ func besselExpMul(L dd.DD, s float64) float64 {
 	// beyond any representable product (keeps int(k) small on 32-bit)
 	switch {
 	case L.Hi > 1e5:
-		return s * math.Inf(1)
+		return float64(s * math.Inf(1))
 	case L.Hi < -1e5:
-		return s * 0
+		return float64(s * 0)
 	}
 	k := math.Floor(L.Hi / dd.Ln2Hi)
 	r := dd.Sub(L, dd.Add(dd.MulFF(k, dd.Ln2Hi), dd.MulFF(k, dd.Ln2Lo)))
@@ -375,13 +376,13 @@ func besselLdexpExp(m float64, e int, t float64) float64 {
 // the first or both are accurate.
 func besselYSeries(v, x float64) float64 {
 	L, _ := besselLogPowGamma(v, x)
-	m := -x * x / 4
+	m := float64(-x * x / 4)
 	ta, sa := 1.0, 0.0 // tails after the leading 1, added once at the end
 	tb, sb := 1.0, 0.0
 	for k := 1; k < 1000; k++ {
 		fk := float64(k)
-		ta *= m / (fk * (fk - v))
-		tb *= m / (fk * (fk + v))
+		ta = float64(ta * (m / (fk * (fk - v))))
+		tb = float64(tb * (m / (fk * (fk + v))))
 		sa += ta
 		sb += tb
 		if math.Abs(ta) <= 0x1p-56*math.Abs(1+sa) && math.Abs(tb) <= 0x1p-56*math.Abs(1+sb) {
@@ -414,12 +415,12 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 	}
 	if v > besselMaxOrder {
 		// Only the series is available this far out.
-		if 2*besselLogHalf(x)-besselLog(v) < -1 {
+		if float64(2*besselLogHalf(x))-besselLog(v) < -1 {
 			return besselJSeries(v, x), math.Inf(-1)
 		}
 		return math.NaN(), math.NaN()
 	}
-	if needY && x < 1 && v >= 1 && LogGamma(v)-v*besselLogHalf(x)-math.Log(math.Pi) > 710.5 {
+	if needY && x < 1 && v >= 1 && LogGamma(v)-float64(v*besselLogHalf(x))-libm.Log(math.Pi) > 710.5 {
 		// |Y_v(x)| ~ Gamma(v) (2/x)^v / pi overflows (DLMF 10.7.4).
 		J = math.NaN()
 		if needJ {
@@ -432,7 +433,7 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 	// The two power series of Y (besselYSeries) where the second, of
 	// relative size (x/2)^(2v) cot(v pi), is negligible or nearly so;
 	// Temme's sum loses accuracy there through exp(+-u log(x/2)).
-	if x < 1 && u != 0 && 2*v*besselLogHalf(x)+math.Log1p(math.Abs(cosPi(v)/sinPi(v))) < -10 {
+	if x < 1 && u != 0 && float64(2*v*besselLogHalf(x))+libm.Log1p(math.Abs(cosPi(v)/sinPi(v))) < -10 {
 		J = math.NaN()
 		if needJ {
 			J = besselJSeries(v, x)
@@ -460,7 +461,7 @@ func besselJYPos(v, x float64, needJ, needY bool) (J, Y float64) {
 		// oscillatory region, where it would accumulate error.
 		fv, s := besselCF1JY(v, x)
 		j, g, _, _ := besselSteed(v, x, fv)
-		return float64(s) * j.Float(), float64(s) * dd.Mul(g, j).Float()
+		return float64(float64(s) * j.Float()), float64(float64(s) * dd.Mul(g, j).Float())
 	}
 	// x < v: CF1 at v, backward recurrence (J is minimal there) down to u,
 	// Steed's method at u, forward recurrence for Y (Boost bessel_jy).
@@ -507,7 +508,7 @@ func besselSteed(nu, x float64, fv dd.DD) (j, gamma, p, q dd.DD) {
 func besselRecur(u, x float64, n int, a, b dd.DD, sg float64) (fn, fn1 dd.DD, e int) {
 	for k := 1; k <= n; k++ {
 		h, l := dd.TwoSum(u, float64(k))
-		f := igamDivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
+		f := igamDivF(dd.DD{Hi: float64(2 * h), Lo: float64(2 * l)}, x)
 		if math.Abs(b.Hi)*f.Hi > 0x1p1000 || math.Abs(a.Hi) > 0x1p1000 {
 			ex := math.Ilogb(b.Hi)
 			a, b = besselScaleDD(a, -ex), besselScaleDD(b, -ex)
@@ -529,7 +530,7 @@ func besselRecur(u, x float64, n int, a, b dd.DD, sg float64) (fn, fn1 dd.DD, e 
 func besselRecurDown(u, x float64, n int, a, b dd.DD) (ju1, ju dd.DD, e int) {
 	for k := n; k >= 1; k-- {
 		h, l := dd.TwoSum(u, float64(k))
-		f := igamDivF(dd.DD{Hi: 2 * h, Lo: 2 * l}, x)
+		f := igamDivF(dd.DD{Hi: float64(2 * h), Lo: float64(2 * l)}, x)
 		if math.Abs(b.Hi)*f.Hi > 0x1p1000 || math.Abs(a.Hi) > 0x1p1000 {
 			ex := math.Ilogb(b.Hi)
 			a, b = besselScaleDD(a, -ex), besselScaleDD(b, -ex)
@@ -560,15 +561,15 @@ func besselJYRefl(v, x float64, needJ, needY bool) (J, Y float64) {
 		// it avoids the cancellation of the reflection formula.
 		fv, s := besselCF1JY(v, x)
 		j, g, _, _ := besselSteed(v, x, fv)
-		return float64(s) * j.Float(), float64(s) * dd.Mul(g, j).Float()
+		return float64(float64(s) * j.Float()), float64(float64(s) * dd.Mul(g, j).Float())
 	}
 	nu := -v
 	jn, yn := besselJYPos(nu, x, true, true)
 	c, s := cosPi(nu), sinPi(nu)
-	J = c*jn - s*yn
-	Y = s*jn + c*yn
+	J = float64(c*jn) - float64(s*yn)
+	Y = float64(s*jn) + float64(c*yn)
 	if c == 0 {
-		Y = s * jn
+		Y = float64(s * jn)
 	}
 	return J, Y
 }
@@ -701,20 +702,20 @@ func Jn(n int, x float64) float64 {
 	case math.IsNaN(x):
 		return x
 	case n == 0:
-		return sign * J0(x)
+		return float64(sign * J0(x))
 	case n == 1:
-		return sign * J1(x)
+		return float64(sign * J1(x))
 	case math.IsInf(x, 0):
 		return 0
 	case x == 0:
-		return sign * 0
+		return float64(sign * 0)
 	}
 	v := float64(n)
 	if besselSeriesOK(v, x, besselJSeriesRatio) {
-		return sign * besselJSeries(v, x)
+		return float64(sign * besselJSeries(v, x))
 	}
 	j, _ := besselJYPos(v, x, true, false)
-	return sign * j
+	return float64(sign * j)
 }
 
 // Yn returns the Bessel function of the second kind of integer order n for
@@ -739,14 +740,14 @@ func Yn(n int, x float64) float64 {
 	case n == 0:
 		return Y0(x)
 	case x == 0:
-		return sign * math.Inf(-1)
+		return float64(sign * math.Inf(-1))
 	case n == 1:
-		return sign * Y1(x)
+		return float64(sign * Y1(x))
 	case math.IsInf(x, 1):
 		return 0
 	}
 	_, y := besselJYPos(float64(n), x, false, true)
-	return sign * y
+	return float64(sign * y)
 }
 
 // besselPowHalf returns (x/2)^u as exp(u log(x/2)) with the logarithm in
