@@ -36,6 +36,8 @@ F = {
     'ellipe': lambda m: mp.ellipe(m),
     'i0e': lambda x: wp(mp.prec + 40, lambda: mp.besseli(0, x) * mp.exp(-x)),
     'k0e': lambda x: wp(mp.prec + 40, lambda: mp.besselk(0, x) * mp.exp(x)),
+    'i1e': lambda x: wp(mp.prec + 40, lambda: mp.besseli(1, x) * mp.exp(-x)),
+    'k1e': lambda x: wp(mp.prec + 40, lambda: mp.besselk(1, x) * mp.exp(x)),
     'besselj': lambda n, x, d: mp.besselj(n, x, derivative=d),
     'bessely': lambda n, x, d: mp.bessely(n, x, derivative=d),
     'besseljzero': lambda n, k, d: mp.besseljzero(n, k, derivative=d),
