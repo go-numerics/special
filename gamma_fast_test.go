@@ -111,15 +111,15 @@ func gammaRegions() []gammaRegion {
 }
 
 // TestGammaFastEqualsReference checks fast == reference bit for bit on
-// 10^7 points (5·10^5 with -short), Gamma == reference on the same points,
+// 10^7 points (2·10^5 with -short or -race), Gamma == reference on the same points,
 // and logs the fallback rate of each region.
 func TestGammaFastEqualsReference(t *testing.T) {
 	rng := rand.New(rand.NewPCG(1, 2))
 	total := 0
 	for _, reg := range gammaRegions() {
 		n := reg.count
-		if testing.Short() {
-			n /= 20
+		if testing.Short() || raceEnabled {
+			n /= 50
 		}
 		fallbacks, tested, bad := 0, 0, 0
 		for i := 0; i < n; i++ {
@@ -186,7 +186,11 @@ func TestMod2(t *testing.T) {
 		}
 	}
 	rng := rand.New(rand.NewPCG(3, 4))
-	for i := 0; i < 1_000_000; i++ {
+	n := 1_000_000
+	if testing.Short() || raceEnabled {
+		n /= 50
+	}
+	for i := 0; i < n; i++ {
 		check(math.Float64frombits(rng.Uint64() &^ (1 << 63) % 0x7ff0000000000000))
 		check(float64(rng.IntN(1<<20)) + rng.Float64())
 	}

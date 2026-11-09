@@ -169,11 +169,10 @@ func gammaReflFast(x float64) (float64, bool) {
 
 // gammaUnit returns Γ(x) for 0 < x < 1 (non-integer by definition).
 func gammaUnit(x float64) float64 {
-	if x < 0x1p-56 {
-		return gammaTiny(x).Float() // as gammaPos
-	}
-	if v, ok := gammaRecipFast(x); ok {
-		return v
+	if x >= 0x1p-56 {
+		if v, ok := gammaRecipFast(x); ok {
+			return v
+		}
 	}
 	return gammaPos(x).Float()
 }
