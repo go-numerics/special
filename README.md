@@ -82,19 +82,22 @@ Full method, sources of every algorithm, negative control and limitations:
 ## Speed
 
 Accuracy has a price. Measured against SciPy 1.18.1 on one core (refbench,
-tag v0.5.7, 10 000-point calls, host load 5.1–7.1, valid run; ratios are Go
-time over SciPy time):
+tag v0.6.0, 2026-11-10, 10 000-point calls, host load 4.8–7.9, valid run;
+ratios are Go time over SciPy time):
 
-- the elementwise families are 1.1–1.5x slower: Gamma 1.13 (15.6 vs 13.8
-  ns/element), LogGamma 1.36, Erfc 1.23, Ndtr 1.15, Ndtri 1.49, Expit 1.22,
-  Logit 1.38, GammaP 1.17;
-- faster than SciPy: the order 0 and 1 Bessel functions (J0 0.75, I0e 0.30,
-  I1 0.96, K1 0.92, K1e 0.37), the elliptic integrals (0.37–0.44), Zeta 0.64,
-  Polygamma 0.05, Comb 0.85, Factorial2 0.02;
+- faster than SciPy: Gamma 0.85 (8.11 vs 9.59 ns/element; `nd.Gamma` 0.84),
+  LogGamma 0.76, Digamma 0.80, Beta 0.83, the order 0 and 1 Bessel functions
+  (J0 0.76, I0e 0.30, I1 0.96, K1 0.93, K1e 0.37), the elliptic integrals
+  (0.37–0.44), Zeta 0.64, Polygamma 0.05, Comb 0.85, Factorial2 0.03; the
+  `…To` forms of Gamma and LogGamma are 0.79 and 0.67;
+- still 1.1–1.5x slower, the elementwise families: Erf 1.12, Erfc 1.23,
+  Ndtr 1.15, Ndtri 1.45, LogNdtr 1.23, Expit 1.23, Logit 1.39, GammaP 1.17,
+  GammaQ 1.15, GammaSign 1.21, LogBeta 1.20, Jv 1.27, Perm 1.26;
 - several times slower, where a double-double continued fraction or series
-  produces the rounded result: Yn 33.4, Iv 7.9, Softmax 6.75, Binom 5.5, In
-  5.2, LogSoftmax 4.1, BetaIncInv 3.5, Kv 2.3, Xlog1py 2.2, BetaInc 2.1
-  (open defects, #33).
+  produces the rounded result: Yn 33.5, Iv 7.9, Binom 5.6, In 5.3, Softmax
+  5.1, LogSoftmax 4.1, BetaIncInv 3.5, Kv 2.3, Xlog1py 2.2, BetaInc 2.1
+  (open defects, #33). The run is on v0.6.0; v0.6.1's certified `Binom`
+  fast path (#50) is not in these numbers.
 
 Since v0.5.6, `I1`, `I1e`, `K1` and `K1e` use the same fitted octave
 interpolants as `I0e` and `K0e` (and are more accurate: worst case against
