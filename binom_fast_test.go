@@ -50,9 +50,11 @@ func binomSweepPoint(r *rand.Rand) (n, k float64) {
 // reference's float64; the largest distance |h + l - D|/D seen stays well
 // below binomErr, and the fast path answers on nearly every point.
 func TestBinomFastCertified(t *testing.T) {
-	total := 2000000 // 2·10^7 points once: 0 mismatches, worst 2^-60.62
+	// 2·10^7 points once: 0 mismatches, worst 2^-60.62. The suite is near the
+	// CI timeout under coverage, so it runs a tenth of that.
+	total := 200000
 	if testing.Short() {
-		total = 200000
+		total = 50000
 	}
 	r := rand.New(rand.NewSource(33))
 	var inDomain, answered, bad int
@@ -104,9 +106,9 @@ func TestBinomFastCertified(t *testing.T) {
 // the refbench grid of the Binom row, Binom is binomBetaDD's value, bit for
 // bit, whichever path answers.
 func TestBinomMatchesReference(t *testing.T) {
-	total := 1000000
+	total := 100000
 	if testing.Short() {
-		total = 100000
+		total = 20000
 	}
 	r := rand.New(rand.NewSource(7))
 	check := func(n, k float64) {

@@ -199,6 +199,7 @@ corrections for the rounding of a and b from the same `Digamma` calls.
 
 Evidence (`binom_fast_test.go`): 2·10^7 points over the covered region,
 0 mismatches with the reference, worst |h + l - D|/D = 2^-60.62 against
-the 2^-58 bound (margin 5), 4.5 % of the points fall back; 10^6 wide random
-points and the refbench grid through the public function, equal to the
-reference.
+the 2^-58 bound (margin 5), 4.5 % of the points fall back (the suite runs a
+tenth of that sweep: it is near the CI timeout under coverage); 10^5 wide
+random points and the refbench grid through the public function, equal to
+the reference.
