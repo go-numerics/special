@@ -70,6 +70,7 @@ var helpers = map[string]bool{
 	"hurwitzFast": true, "powNegHL": true,
 	"logBetaHL": true, "logBetaHL10": true, "logBetaDirect": true, "logGammaDiffHL": true,
 	"logGammaDiffSeries": true, "logGammaDiffRest": true, "betaSmall": true, "gammaHLsmall": true,
+	"erfcTabHL": true, "ndtrNegHL": true, "ndtrPosHL": true, "estPiece.evalTab": true,
 	"estPiece.eval": true, "estPiece.evalLow": true, "estPiece.evalShort": true,
 }
 
