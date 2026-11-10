@@ -5,3 +5,10 @@ testdata/** text eol=lf
 *.json text eol=lf
 *.md text eol=lf
 *.yml text eol=lf
+# Compressed and image files are bytes, never text: the testdata/** rule above
+# would otherwise rewrite the CR bytes inside the gzip fixtures on the next add.
+# These lines come last so they override it.
+*.gz binary
+*.zst binary
+*.png binary
+*.pdf binary
