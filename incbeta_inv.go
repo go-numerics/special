@@ -172,7 +172,7 @@ func ibetaInvGuessX(a, b, p, q float64, lb dd.DD) float64 {
 	}
 	if a >= 1 && b >= 1 && a+b >= 10 {
 		s := a + b
-		x := a/s + float64(Ndtri(p)*math.Sqrt(a*b/(s*s*(s+1))))
+		x := a/s + float64(ndtriSlow(p)*math.Sqrt(a*b/(s*s*(s+1))))
 		if x > 0 && x < 1 {
 			return x
 		}
