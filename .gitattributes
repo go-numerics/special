@@ -1,0 +1,7 @@
+# Byte-exact comparisons (fmalint --genlibm, testdata, goldens) need LF on every platform.
+* text=auto eol=lf
+*.go text eol=lf
+testdata/** text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
