@@ -49,32 +49,37 @@ go test -run TestPerf -cpu 1 -perf.run .       # timing (writes perf.json and th
 go test -run TestPerf -cpu 1 -perf.record .    # allocation counts only
 ```
 
-## Status: the first valid run (2026-11-09, tag v0.5.7)
+## Status: the valid run of v0.6.0 (2026-11-10)
 
 `perf.json` and [perf-table.md](perf-table.md) are a **valid** timing run: tag
-v0.5.7 (commit 466f05c9b03b7c85774a4c86e1cc0a0669aa5961), darwin/arm64, 16
+v0.6.0 (commit f398d831c6451ca2cafac2a84c6e0bfc280c3916), darwin/arm64, 16
 CPUs, Go 1.27.3, SciPy 1.18.1, refbench v0.1.2, 1-minute load over the rounds
-min 5.08, median 5.80, max 7.05 (gate 8). Ratios are Go time over SciPy time;
+min 4.79, median 6.43, max 7.87 (gate 8). Ratios are Go time over SciPy time;
 above 1 the Go loop is slower. They are single-core ratios on 10 000-point
 calls; the `nd/` rows run on one goroutine here and sit within a few percent
-of their scalar rows.
+of their scalar rows. It replaces the run of v0.5.7 (2026-11-09), where `Gamma`
+was 1.13 and `LogGamma` 1.36. Code of v0.6.1 (`Binom` fast path, #50) is not in
+this run.
 
-- **Faster than SciPy** (ratio below 1): `Digamma` 0.79, `Beta` 0.83,
-  `Erfcx` 0.99, `Log1pExp` 0.91, `Zeta` 0.64, `HurwitzZeta` 0.66,
-  `Polygamma` 0.05, `J0`/`J1`/`Y0`/`Y1` 0.72–0.75, `I0` 0.91, `I0e` 0.30,
-  `I1` 0.96, `I1e` 0.35, `K0` 0.97, `K0e` 0.43, `K1` 0.92, `K1e` 0.37, the
+- **Faster than SciPy** (ratio below 1): `Gamma` 0.85 (8.11 against 9.59 ns
+  per element), `nd.Gamma` 0.84, `LogGamma` 0.76, `GammaTo` 0.79,
+  `LogGammaTo` 0.67, `Digamma` 0.80, `Beta` 0.83, `Erfcx` 1.00 (a tie;
+  `nd.Erfcx` 0.92), `Log1pExp` 0.91, `Zeta` 0.64, `HurwitzZeta` 0.66,
+  `Polygamma` 0.05, `J0`/`J1`/`Y0`/`Y1` 0.73–0.76, `I0` 0.91, `I0e` 0.30,
+  `I1` 0.96, `I1e` 0.35, `K0` 0.98, `K0e` 0.43, `K1` 0.93, `K1e` 0.37, the
   complete elliptic integrals 0.37–0.44, `Comb` 0.85, `Factorial` of
-  integers 0.08, `Factorial2` 0.02, `JnZeros` 0.96.
-- **1.1 to 1.5 times slower**, the elementwise families: `Gamma` 1.13 (15.6
-  against 13.8 ns per element), `LogGamma` 1.36, `GammaSign` 1.18, `LogBeta`
-  1.21, `Erf` 1.11, `Erfc` 1.23, `ErfInv` 1.12, `ErfcInv` 1.25, `Ndtr` 1.15,
-  `Ndtri` 1.49, `LogNdtr` 1.23, `Expit` 1.22, `Logit` 1.38, `GammaP` 1.17,
-  `GammaQ` 1.15, `Jv` 1.28, `Yv` 1.22, `Perm` 1.24, `LogSumExp` 1.44, `Jn` 1.51.
+  integers 0.08, `Factorial2` 0.03, `JnZeros` 0.96.
+- **Still 1.1 to 1.5 times slower**, the elementwise families: `GammaSign`
+  1.21, `LogBeta` 1.20, `Erf` 1.12, `Erfc` 1.23, `ErfInv` 1.11, `ErfcInv`
+  1.25, `Ndtr` 1.15, `Ndtri` 1.45, `LogNdtr` 1.23, `Expit` 1.23, `Logit`
+  1.39, `LogExpit` 1.08, `Xlogy` 1.09, `GammaP` 1.17, `GammaQ` 1.15, `Jv`
+  1.27, `Yv` 1.22, `Perm` 1.26, `LogSumExp` 1.48, `Jn` 1.51,
+  `GammaPInv`/`GammaQInv` 1.5.
 - **Open gaps** (each a double-double evaluation whose result is correctly
-  rounded; see #33 for the profile of each): `Yn` 33.4, `Iv` 7.9, `Softmax`
-  6.75, `Binom` 5.5, `In` 5.2, `LogSoftmax` 4.1, `BetaIncInv`/`BetaIncCInv`
-  3.5, `Kv`/`Kve` 2.3, `Xlog1py` 2.2, `BetaInc`/`BetaIncC` 2.1, `Factorial` of
-  non-integers 1.86, `Kn` 1.88, `Ive` 1.71, `GammaPInv`/`GammaQInv` 1.5.
+  rounded; see #33 for the profile of each): `Yn` 33.5, `Iv` 7.9, `Binom`
+  5.6, `In` 5.3, `Softmax` 5.1, `LogSoftmax` 4.1, `BetaIncInv`/`BetaIncCInv`
+  3.5, `Kv`/`Kve` 2.3, `Xlog1py` 2.2, `BetaInc`/`BetaIncC` 2.1, `Factorial`
+  of non-integers 1.87, `Kn` 1.88, `Ive` 1.70.
 
 Allocations: `BetaIncInv` and `BetaIncCInv` allocate nothing
 (`TestBetaIncInvAllocatesNothing`), `Softmax` since v0.5.6; the `nd/` rows
@@ -101,9 +106,10 @@ allocate 7 to 20 objects per array call.
 
 ## Reading the table
 
-A plain Go loop is within 1.1–1.5 times SciPy's C on the elementwise
-families, faster on the Bessel functions of order 0 and 1 and on the
-elliptic, zeta and polygamma functions, and several times slower where the
+A plain Go loop is faster than SciPy's C on `Gamma`, `LogGamma` and `Digamma`
+since v0.6.0 (table kernels, #33), within 1.1–1.5 times on the other
+elementwise families, faster on the Bessel functions of order 0 and 1 and on
+the elliptic, zeta and polygamma functions, and several times slower where the
 result needs a double-double continued fraction or series (integer-order
 `Y`, `I`, `K`, the incomplete beta function and its inverses, the softmax
 reductions). That gap is the price of results rounded correctly where SciPy's
