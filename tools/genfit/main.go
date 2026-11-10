@@ -37,6 +37,19 @@ type job struct {
 	edges []float64
 }
 
+// tolBits: the interpolation tolerance (relative, as a power of two) of the
+// jobs that do not use the default 2^-64.
+var tolBits = map[string]int{
+	// log Φ(x) = L(-x) - x²/2 with x² >= 64: the relative error of L may be
+	// 2^-57 (a few units of 2^-57 against an ulp of 2^-47 of the result)
+	"logNdtrTailPieces": 57,
+}
+
+// padded lists the jobs whose pieces are widened by 2^-40 (relative) on both
+// sides when fitting: their table index is computed in float64 (x*x), so a
+// point can land in the neighbouring piece by an ulp.
+var padded = map[string]bool{"erfcPieces": true, "ndtrNegPieces": true, "ndtrPosPieces": true}
+
 var jobs = []job{
 	{"erfcxPieces", "erfcxPieces: erfcx(x) = exp(x²) erfc(x) on [0.5, 8].",
 		func(t *big.Float) (string, uint) { return "mp.exp(t * t) * mp.erfc(t)", prec + 60 },
@@ -91,6 +104,55 @@ func init() {
 			return "(lambda x: -mp.sqrt(2) * x / (t - mpf(1) / 2))(mp.findroot(lambda x: mp.log(mp.erfc(x)) - mp.log(2 * t), mp.erfinv(1 - 2 * t), tol=mpf(2) ** -(mp.prec + 20)))", prec + 60
 		},
 		ndtriEdges()})
+}
+
+// gaussEdges: the pieces of the erfc-like tables, uniform in z² = (x/scale)²
+// with step 1/4 for z² < 16 (index int(4z²)) and step 1 beyond (index
+// int(z²) + 48): edges scale·sqrt(i/4), i = 1..64, then scale·sqrt(j),
+// j = 17..jmax+1. The piece of index i covers [edge[i-1], edge[i]].
+func gaussEdges(scale float64, jmax int) []float64 {
+	var e []float64
+	for i := 1; i <= 64; i++ {
+		e = append(e, scale*math.Sqrt(float64(i)/4))
+	}
+	for j := 17; j <= jmax+1; j++ {
+		e = append(e, scale*math.Sqrt(float64(j)))
+	}
+	return e
+}
+
+func init() {
+	jobs = append(jobs,
+		job{"erfcPieces", "erfcPieces: erfc(x) on [1/2, 25.02], uniform in x² (step 1/4 for x < 4, 1 beyond; piece i = min(int(4x²), int(x²)+48)).",
+			func(t *big.Float) (string, uint) { return "mp.erfc(t)", prec + 60 },
+			gaussEdges(1, 625)},
+		// Φ(-t) = erfc(t/√2)/2 for t >= 0.7: z² = t²/2, so the edges are √2 times those of erfc
+		job{"ndtrNegPieces", "ndtrNegPieces: Φ(-t) = erfc(t/√2)/2 on [0.7, 36.03], uniform in t²/2 (piece i = min(int(2t²), int(t²/2)+48)).",
+			func(t *big.Float) (string, uint) { return "mp.erfc(t / mp.sqrt(2)) / 2", prec + 60 },
+			gaussEdges(math.Sqrt2, 648)},
+		job{"ndtrPosPieces", "ndtrPosPieces: Φ(x) on [-3/4, 8.5], pieces of width 1/8 (piece int((x+3/4)·8)).",
+			func(t *big.Float) (string, uint) { return "mp.erfc(-t / mp.sqrt(2)) / 2", prec + 60 },
+			seq(-0.75, 0.125, 75)})
+}
+
+// octaveEdges: eight equal pieces per octave of t on [2^lo, 2^(hi+1)], the
+// index being the top bits of the float64 pattern (as ndtriEdges).
+func octaveEdges(lo, hi int) []float64 {
+	var e []float64
+	for k := lo; k <= hi; k++ {
+		for j := 0; j < 8; j++ {
+			e = append(e, math.Ldexp(1+float64(j)/8, k))
+		}
+	}
+	return append(e, math.Ldexp(1, hi+1))
+}
+
+func init() {
+	jobs = append(jobs, job{"logNdtrTailPieces", "logNdtrTailPieces: L(t) = log Φ(-t) + t²/2 on [8, 2048], 8 pieces per octave of t; log Φ(x) = L(-x) - x²/2.",
+		func(t *big.Float) (string, uint) {
+			return "mp.log(mp.erfc(t / mp.sqrt(2)) / 2) + t * t / 2", prec + 120
+		},
+		octaveEdges(3, 10)})
 }
 
 // seq returns a + step*k, k = 0..n-1, in float64 as Python computes it.
@@ -166,6 +228,11 @@ func chebInterp(j job, a, b float64, n int) (*big.Float, []*big.Float) {
 	af, bf := nf().SetFloat64(a), nf().SetFloat64(b)
 	c := nf().Quo(nf().Add(af, bf), big.NewFloat(2))
 	h := nf().Quo(nf().Sub(bf, af), big.NewFloat(2))
+	if padded[j.name] {
+		// the evaluation subtracts the float64 c: expand about exactly that
+		// point (otherwise the offset costs about 2x² ulp at x)
+		c = nf().SetFloat64(mporacle.Float64(c))
+	}
 	var ne []string
 	for k := 0; k <= n; k++ {
 		ne = append(ne, fmt.Sprintf("mp.cos(mp.pi * (%d + mpf(1) / 2) / (%d + 1))", k, n))
@@ -231,7 +298,11 @@ func chebInterp(j job, a, b float64, n int) (*big.Float, []*big.Float) {
 }
 
 func fit(j job, a, b float64) (*big.Float, []*big.Float, int, *big.Float) {
-	tol := new(big.Float).SetMantExp(big.NewFloat(1), -64)
+	bits := 64
+	if b, ok := tolBits[j.name]; ok {
+		bits = b
+	}
+	tol := new(big.Float).SetMantExp(big.NewFloat(1), -bits)
 	af, bf := nf().SetFloat64(a), nf().SetFloat64(b)
 	ts := make([]*big.Float, 401)
 	for k := range ts {
@@ -294,12 +365,23 @@ func main() {
 		w("var %s = [...]polyPiece{", j.name)
 		for i := 0; i+1 < len(j.edges); i++ {
 			a, bb := j.edges[i], j.edges[i+1]
-			c, co, n, worst := fit(j, a, bb)
+			pad := 0.0
+			if padded[j.name] {
+				pad = math.Ldexp(1, -40)
+			}
+			c, co, n, worst := fit(j, a-pad*math.Abs(a), bb+pad*math.Abs(bb))
 			ws := o.String(prec, "mpmath.nstr(w, 3)", map[string]*big.Float{"w": worst})
 			w("\t// [%s, %s]: degree %d, max interpolation error %s", r(a), r(bb), n, ws)
 			c0lo := mporacle.Float64(nf().Sub(co[0], nf().SetFloat64(mporacle.Float64(co[0]))))
 			c1lo := mporacle.Float64(nf().Sub(co[1], nf().SetFloat64(mporacle.Float64(co[1]))))
-			w("\t{lo: %s, hi: %s, c: %s, c0lo: %s, c1lo: %s, coef: []float64{", r(a), r(bb), r(mporacle.Float64(c)), r(c0lo), r(c1lo))
+			extra := ""
+			if padded[j.name] { // the Gaussian-tail tables carry the quadratic and cubic coefficients' low parts too
+				lo := func(i int) string {
+					return r(mporacle.Float64(nf().Sub(co[i], nf().SetFloat64(mporacle.Float64(co[i])))))
+				}
+				extra = fmt.Sprintf(" c2lo: %s, c3lo: %s,", lo(2), lo(3))
+			}
+			w("\t{lo: %s, hi: %s, c: %s, c0lo: %s, c1lo: %s,%s coef: []float64{", r(a), r(bb), r(mporacle.Float64(c)), r(c0lo), r(c1lo), extra)
 			for k := len(co) - 1; k >= 0; k-- {
 				w("\t\t%s,", r(mporacle.Float64(co[k])))
 			}

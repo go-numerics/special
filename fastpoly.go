@@ -18,6 +18,7 @@ import "math"
 type estPiece struct {
 	c, c0, c0lo float64
 	c1lo        float64 // low part of q[0] (zero for tables that do not emit it)
+	c2lo, c3lo  float64 // low parts of q[1], q[2] (the Gaussian-tail tables only)
 	q           [16]float64
 }
 
@@ -29,6 +30,7 @@ func estPieces(p []polyPiece) []estPiece {
 		n := len(p[i].coef) - 1
 		e := &out[i]
 		e.c, e.c0, e.c0lo, e.c1lo = p[i].c, p[i].coef[n], p[i].c0lo, p[i].c1lo
+		e.c2lo, e.c3lo = p[i].c2lo, p[i].c3lo
 		for k := 0; k < n; k++ {
 			e.q[k] = p[i].coef[n-1-k]
 		}

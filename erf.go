@@ -270,10 +270,7 @@ func Erf(x float64) float64 {
 		eh, el := erfSmallEst[0].evalShort(float64(x * x))
 		return math.FMA(x, eh, x*el)
 	case ax < 6:
-		h, l, k := erfcHLmain(ax, 0)
-		s := pow2(k)
-		h = float64(h * (s))
-		l = float64(l * (s))
+		h, l := erfcTabHL(ax)
 		// 1 - erfc: Fast2Sum (erfc(1/2) < 1/2).
 		v := 1 - h
 		return math.Copysign(v+(((1-v)-h)-l), x)
@@ -294,18 +291,18 @@ func Erf(x float64) float64 {
 // |x| < 1/2, 1 - erf(x) in double-double; for x <= -1/2, 2 - erfc(-x).
 func Erfc(x float64) float64 {
 	switch {
-	case x >= 0.5 && x <= 26.5:
-		h, l, k := erfcHL(x, 0)
+	case x >= 0.5 && x <= 25:
+		h, l := erfcTabHL(x)
+		return h + l
+	case x > 25 && x <= 26.5:
+		h, l, k := erfcHLtail(x, 0)
 		return float64((h + l) * pow2(k)) // erfc(26.5) > 2^-1020: normal
 	case x > -0.5 && x < 0.5:
 		eh, el := erfSmallHL(x)
 		v := 1 - eh // Fast2Sum: |erf| < 1/2
 		return v + (((1 - v) - eh) - el)
 	case x <= -0.5 && x > -6:
-		h, l, k := erfcHLmain(-x, 0) // -x < 6
-		s := pow2(k)
-		h = float64(h * (s))
-		l = float64(l * (s))
+		h, l := erfcTabHL(-x) // -x < 6
 		v := 2 - h
 		return v + (((2 - v) - h) - l)
 	}
@@ -394,6 +391,20 @@ func ndtrZ(x float64) dd.DD {
 // implementations computing erfc(-x*M_SQRT1_2) (an error growing like
 // x² ulp) does not occur.
 func Ndtr(x float64) float64 {
+	switch {
+	case x >= -0.75 && x < 8.5:
+		h, l := ndtrPosHL(x)
+		return h + l
+	case x < -0.75 && x >= -36:
+		h, l := ndtrNegHL(-x)
+		return h + l
+	}
+	return ndtrOld(x)
+}
+
+// ndtrOld is Ndtr in the previous formulation (erfc by exponential and
+// erfcx), kept for x < -36 (results below 2^-960), x >= 8.5 and NaN.
+func ndtrOld(x float64) float64 {
 	if !(x > -37.4 && x < 8.5) {
 		return ndtrTail(x)
 	}
@@ -458,6 +469,22 @@ func ndtrTail(x float64) float64 {
 // z = -x/sqrt(2) in double-double; for x >= 1/sqrt(2), log1p(-Φ(-x)) with
 // Φ(-x) in double-double; in between, the logarithm of Φ in double-double.
 func LogNdtr(x float64) float64 {
+	if x <= -8 && x > -2048 {
+		// log Φ(x) = L(-x) - x²/2, L fitted (logNdtrTailPieces), x² exact
+		i := int(math.Float64bits(-x)>>49) - logNdtrTailBase
+		hh, hl := logNdtrTailEst[i].evalShort(-x)
+		sh := float64(x * x)
+		sl := math.FMA(x, x, -sh)
+		a := float64(-0.5 * sh)
+		v := a + hh // Fast2Sum: |a| >= 32 > |hh|; one rounding of the whole sum
+		return v + ((hh - (v - a)) + (hl - float64(0.5*sl)))
+	}
+	return logNdtrOld(x)
+}
+
+// logNdtrOld is LogNdtr in the previous formulation (log erfcx fitted, log
+// z written out), for x > -8, x <= -2048 and NaN.
+func logNdtrOld(x float64) float64 {
 	if !(x > -1e150 && x < 37) {
 		return logNdtrTail(x)
 	}
@@ -519,10 +546,16 @@ func LogNdtr(x float64) float64 {
 		return v + (ve + (ae + (cl - sl - ln2DD.Lo)))
 	case zh <= -0.5:
 		// log1p(-Φ(-x)), Φ(-x) = erfc(-z)/2 < 1/4
-		h, l, k := erfcHL(-zh, -zl)
-		s := pow2(k - 1)
-		h = float64(h * (s))
-		l = float64(l * (s))
+		var h, l float64
+		if x >= 0.75 && x <= 36 {
+			h, l = ndtrNegHL(x)
+		} else {
+			var k int
+			h, l, k = erfcHL(-zh, -zl)
+			s := pow2(k - 1)
+			h = float64(h * (s))
+			l = float64(l * (s))
+		}
 		if h < 0x1p-20 {
 			// -q - q²/2 - q³/3 - q⁴/4 (next term below 2^-80 q)
 			return -h - (l + float64(h*h*math.FMA(h, math.FMA(h, 0.25, 1.0/3), 0.5)))
