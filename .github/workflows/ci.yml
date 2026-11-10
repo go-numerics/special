@@ -52,10 +52,10 @@ jobs:
           COVERPKG=$(go list ./... | grep -v /internal/libm | paste -sd, -)
           go test -race -coverpkg="$COVERPKG" -coverprofile=cover.out ./...
           go tool cover -func=cover.out | tail -n 40
-          cov=$(go tool cover -func=cover.out | tail -1 | awk '{print $3}' | tr -d '%')
-          echo "coverage: ${cov}%"
-          awk -v t="$cov" 'BEGIN { exit !(t+0 >= 100.0) }' || {
-            echo "::error::coverage ${cov}% < 100%"; exit 1; }
+          # go tool cover's total is rounded to one decimal (99.95 reads 100.0);
+          # covblocks counts the blocks the profile never entered (exit 1 if
+          # any, exit 2 on an empty or unreadable profile).
+          go run github.com/go-fleettools/fleettools/cmd/covblocks@v0.104.0 cover.out
 
   arch-native:
     name: arch ${{ matrix.label }}
