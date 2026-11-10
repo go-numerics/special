@@ -2025,25 +2025,89 @@ func NdtriTo(ζdst, ζx []float64) {
 	for ζi := range ζdst {
 		pζ0 := ζx[ζi]
 		{
-			var hζ0, lζ0 float64
+			qζ0 := min(pζ0, 1-pζ0)
+			iζ0 := math.Float64bits(qζ0)>>49 - ndtriBase
+			if iζ0 >= ndtriN {
+				ζdst[ζi] = float64(ndtriSlow(pζ0))
+				continue ζloop
+			}
+			eζ0 := &ndtriEst[iζ0&255]
+			sζ0 := qζ0 - eζ0.c
+			kζ0 := &eζ0.q
+			s2ζ0 := float64(sζ0 * sζ0)
+			s4ζ0 := float64(s2ζ0 * s2ζ0)
+			a0ζ0 := math.FMA(kζ0[5], sζ0, kζ0[4])
+			a1ζ0 := math.FMA(kζ0[7], sζ0, kζ0[6])
+			a2ζ0 := math.FMA(kζ0[9], sζ0, kζ0[8])
+			a3ζ0 := math.FMA(kζ0[11], sζ0, kζ0[10])
+			a4ζ0 := math.FMA(kζ0[13], sζ0, kζ0[12])
+			a5ζ0 := math.FMA(kζ0[15], sζ0, kζ0[14])
+			b0ζ0 := math.FMA(a1ζ0, s2ζ0, a0ζ0)
+			b1ζ0 := math.FMA(a3ζ0, s2ζ0, a2ζ0)
+			b2ζ0 := math.FMA(a5ζ0, s2ζ0, a4ζ0)
+			rζ0 := math.FMA(b2ζ0, s4ζ0*s4ζ0, math.FMA(b1ζ0, s4ζ0, b0ζ0))
+			rζ0 = math.FMA(math.FMA(math.FMA(rζ0, sζ0, kζ0[3]), sζ0, kζ0[2]), sζ0, kζ0[1])
+			r1ζ0 := float64(sζ0 * kζ0[0])
+			r1lζ0 := math.FMA(sζ0, kζ0[0], -r1ζ0) + float64(sζ0*eζ0.c1lo)
+			ghζ0 := eζ0.c0 + r1ζ0
+			glζ0 := (r1ζ0 - (ghζ0 - eζ0.c0)) + (r1lζ0 + math.FMA(s2ζ0, rζ0, eζ0.c0lo))
+			mhζ0 := qζ0 - 0.5
+			mlζ0 := qζ0 - (mhζ0 + 0.5)
+			vζ0 := float64(mhζ0 * ghζ0)
+			loζ0 := math.FMA(mhζ0, ghζ0, -vζ0) + math.FMA(mhζ0, glζ0, float64(mlζ0*ghζ0))
+			ζdst[ζi] = float64(math.Float64frombits(math.Float64bits(vζ0+loζ0) ^ (math.Float64bits(0.5-pζ0) & (1 << 63))))
+			continue ζloop
+		}
+	}
+}
+
+// LogNdtrTo sets dst[i] = LogNdtr(x[i]) for i < len(dst) (x at least as long),
+// bit-identical to the scalar function, in one loop with no call per
+// element: the loop of the nd functions.
+func LogNdtrTo(ζdst, ζx []float64) {
+	ζx = ζx[:len(ζdst)]
+ζloop:
+	for ζi := range ζdst {
+		xζ0 := ζx[ζi]
+		{
+			if !(xζ0 > -1e150 && xζ0 < 37) {
+				ζdst[ζi] = float64(logNdtrTail(xζ0))
+				continue ζloop
+			}
+			var ζr94_0 float64
+			var ζr94_1 float64
+			{
+				xζ94 := float64(xζ0)
+				var hiζ94 float64
+				_ = hiζ94
+				var loζ94 float64
+				_ = loζ94
+				hiζ94 = float64(-xζ94 * invSqrt2.Hi)
+				ζr94_0 = float64(hiζ94)
+				ζr94_1 = float64(math.FMA(-xζ94, invSqrt2.Hi, -hiζ94) - float64(xζ94*invSqrt2.Lo))
+				goto ζL94
+			}
+		ζL94:
+			zhζ0, zlζ0 := ζr94_0, ζr94_1
 			switch {
-			case pζ0 > 0.25 && pζ0 < 0.75:
-				tζ0 := float64(2*pζ0) - 1
-				var ζr94_0 float64
-				var ζr94_1 float64
-				{
-					pζ94 := float64(math.Abs(tζ0))
-					var hiζ94 float64
-					_ = hiζ94
-					var loζ94 float64
-					_ = loζ94
-					tζ94 := float64(pζ94 * pζ94)
+			case zhζ0 >= 0.5:
+				var chζ0, clζ0 float64
+				if zhζ0 < 8 {
+					var iζ0 int
+					switch {
+					case zhζ0 < 2:
+						iζ0 = int((zhζ0 - 0.5) * 2)
+					case zhζ0 < 4:
+						iζ0 = 3 + int(zhζ0-2)
+					default:
+						iζ0 = 5 + int((zhζ0-4)*0.5)
+					}
 					var ζr95_0 float64
 					var ζr95_1 float64
 					{
-						eζ95 := &erfInvSmallEst[min(int(tζ94*8), 1)]
-						tζ95 := float64(tζ94)
-						tlζ95 := float64(math.FMA(pζ94, pζ94, -tζ94))
+						eζ95 := &logErfcxEst[iζ0]
+						tζ95 := float64(zhζ0)
+						tlζ95 := float64(zlζ0)
 						var hiζ95 float64
 						_ = hiζ95
 						var loζ95 float64
@@ -2072,422 +2136,38 @@ func NdtriTo(ζdst, ζx []float64) {
 						goto ζL95
 					}
 				ζL95:
-					rhζ94, rlζ94 := ζr95_0, ζr95_1
-					hiζ94 = float64(pζ94 * rhζ94)
-					ζr94_0 = float64(hiζ94)
-					ζr94_1 = float64(math.FMA(pζ94, rhζ94, -hiζ94) + float64(pζ94*rlζ94))
-					goto ζL94
-				}
-			ζL94:
-				hζ0, lζ0 = ζr94_0, ζr94_1
-				if tζ0 < 0 {
-					hζ0, lζ0 = -hζ0, -lζ0
-				}
-			case pζ0 > 0 && pζ0 <= 0.25:
-				var ζr96_0 float64
-				var ζr96_1 float64
-				{
-					qζ96 := float64(float64(2 * pζ0))
-					var hiζ96 float64
-					_ = hiζ96
-					var loζ96 float64
-					_ = loζ96
-					var ζr97_0 float64
-					var ζr97_1 float64
-					{
-						xζ97 := float64(qζ96)
-						var hiζ97 float64
-						_ = hiζ97
-						var loζ97 float64
-						_ = loζ97
-						if math.Float64bits(xζ97) < 1<<52 {
-							var ζr100_0 float64
-							var ζr100_1 float64
-							{
-								xζ100 := float64(float64(xζ97 * 0x1p54))
-								keζ100 := int(-54)
-								var hiζ100 float64
-								_ = hiζ100
-								var loζ100 float64
-								_ = loζ100
-								ixζ100 := math.Float64bits(xζ100)
-								tmpζ100 := ixζ100 - 0x3fe8000000000000
-								keζ100 += int(int64(tmpζ100) >> 52)
-								mζ100 := math.Float64frombits(ixζ100 - uint64(int64(tmpζ100)>>52)<<52)
-								tζ100 := &logT[int(float64(mζ100*256)+0.5)-192]
-								invcζ100 := tζ100[0]
-								pζ100 := float64(mζ100 * invcζ100)
-								peζ100 := math.FMA(mζ100, invcζ100, -pζ100)
-								rζ100 := pζ100 - 1
-								r2ζ100 := float64(rζ100 * rζ100)
-								c0ζ100 := math.FMA(rζ100, 1.0/3, -0.5)
-								c1ζ100 := math.FMA(rζ100, 1.0/5, -0.25)
-								c2ζ100 := math.FMA(rζ100, 1.0/7, -1.0/6)
-								c2ζ100 = math.FMA(r2ζ100, -1.0/8, c2ζ100)
-								c1ζ100 = math.FMA(r2ζ100, c2ζ100, c1ζ100)
-								qζ100 := float64(r2ζ100 * math.FMA(r2ζ100, c1ζ100, c0ζ100))
-								kfζ100 := float64(keζ100)
-								lhζ100 := float64(kfζ100*ln2Hi42) + tζ100[1]
-								hiζ100 = lhζ100 + rζ100
-								loζ100 = (rζ100 - (hiζ100 - lhζ100)) + (math.FMA(kfζ100, ln2Lo42, tζ100[2]) + (math.FMA(peζ100, -rζ100, peζ100) + qζ100))
-								ζr100_0 = float64(hiζ100)
-								ζr100_1 = float64(loζ100)
-								goto ζL100
-							}
-						ζL100:
-							ζt98, ζt99 := ζr100_0, ζr100_1
-							ζr97_0 = float64(ζt98)
-							ζr97_1 = float64(ζt99)
-							goto ζL97
-						}
-						var ζr103_0 float64
-						var ζr103_1 float64
-						{
-							xζ103 := float64(xζ97)
-							keζ103 := int(0)
-							var hiζ103 float64
-							_ = hiζ103
-							var loζ103 float64
-							_ = loζ103
-							ixζ103 := math.Float64bits(xζ103)
-							tmpζ103 := ixζ103 - 0x3fe8000000000000
-							keζ103 += int(int64(tmpζ103) >> 52)
-							mζ103 := math.Float64frombits(ixζ103 - uint64(int64(tmpζ103)>>52)<<52)
-							tζ103 := &logT[int(float64(mζ103*256)+0.5)-192]
-							invcζ103 := tζ103[0]
-							pζ103 := float64(mζ103 * invcζ103)
-							peζ103 := math.FMA(mζ103, invcζ103, -pζ103)
-							rζ103 := pζ103 - 1
-							r2ζ103 := float64(rζ103 * rζ103)
-							c0ζ103 := math.FMA(rζ103, 1.0/3, -0.5)
-							c1ζ103 := math.FMA(rζ103, 1.0/5, -0.25)
-							c2ζ103 := math.FMA(rζ103, 1.0/7, -1.0/6)
-							c2ζ103 = math.FMA(r2ζ103, -1.0/8, c2ζ103)
-							c1ζ103 = math.FMA(r2ζ103, c2ζ103, c1ζ103)
-							qζ103 := float64(r2ζ103 * math.FMA(r2ζ103, c1ζ103, c0ζ103))
-							kfζ103 := float64(keζ103)
-							lhζ103 := float64(kfζ103*ln2Hi42) + tζ103[1]
-							hiζ103 = lhζ103 + rζ103
-							loζ103 = (rζ103 - (hiζ103 - lhζ103)) + (math.FMA(kfζ103, ln2Lo42, tζ103[2]) + (math.FMA(peζ103, -rζ103, peζ103) + qζ103))
-							ζr103_0 = float64(hiζ103)
-							ζr103_1 = float64(loζ103)
-							goto ζL103
-						}
-					ζL103:
-						ζt101, ζt102 := ζr103_0, ζr103_1
-						ζr97_0 = float64(ζt101)
-						ζr97_1 = float64(ζt102)
-						goto ζL97
-					}
-				ζL97:
-					lhζ96, llζ96 := ζr97_0, ζr97_1
-					var ζr106_0 float64
-					var ζr106_1 float64
-					{
-						lhζ106 := float64(lhζ96)
-						llζ106 := float64(llζ96)
-						var hiζ106 float64
-						_ = hiζ106
-						var loζ106 float64
-						_ = loζ106
-						sζ106 := lhζ106 + llζ106
-						eζ106 := llζ106 - (sζ106 - lhζ106)
-						whζ106 := math.Sqrt(-sζ106)
-						wlζ106 := (math.FMA(-whζ106, whζ106, -sζ106) - eζ106) / (2 * whζ106)
-						uζ106 := whζ106 - 0.0625
-						tζ106 := &erfcInvIdx[int(uζ106)]
-						var ζr109_0 float64
-						var ζr109_1 float64
-						{
-							eζ109 := &erfcInvEst[int(tζ106[2])+int((uζ106-tζ106[0])*tζ106[1])]
-							tζ109 := float64(whζ106)
-							tlζ109 := float64(wlζ106)
-							var hiζ109 float64
-							_ = hiζ109
-							var loζ109 float64
-							_ = loζ109
-							sζ109 := tζ109 - eζ109.c
-							qζ109 := &eζ109.q
-							s2ζ109 := float64(sζ109 * sζ109)
-							s4ζ109 := float64(s2ζ109 * s2ζ109)
-							a0ζ109 := math.FMA(qζ109[5], sζ109, qζ109[4])
-							a1ζ109 := math.FMA(qζ109[7], sζ109, qζ109[6])
-							a2ζ109 := math.FMA(qζ109[9], sζ109, qζ109[8])
-							a3ζ109 := math.FMA(qζ109[11], sζ109, qζ109[10])
-							a4ζ109 := math.FMA(qζ109[13], sζ109, qζ109[12])
-							a5ζ109 := math.FMA(qζ109[15], sζ109, qζ109[14])
-							b0ζ109 := math.FMA(a1ζ109, s2ζ109, a0ζ109)
-							b1ζ109 := math.FMA(a3ζ109, s2ζ109, a2ζ109)
-							b2ζ109 := math.FMA(a5ζ109, s2ζ109, a4ζ109)
-							pζ109 := math.FMA(b2ζ109, s4ζ109*s4ζ109, math.FMA(b1ζ109, s4ζ109, b0ζ109))
-							pζ109 = math.FMA(math.FMA(math.FMA(pζ109, sζ109, qζ109[3]), sζ109, qζ109[2]), sζ109, qζ109[1])
-							r1ζ109 := float64(sζ109 * qζ109[0])
-							r1lζ109 := math.FMA(sζ109, qζ109[0], -r1ζ109) + math.FMA(sζ109, eζ109.c1lo, tlζ109*math.FMA(2*sζ109, qζ109[1], qζ109[0]))
-							hiζ109 = eζ109.c0 + r1ζ109
-							loζ109 = (r1ζ109 - (hiζ109 - eζ109.c0)) + (r1lζ109 + math.FMA(s2ζ109, pζ109, eζ109.c0lo))
-							ζr109_0 = float64(hiζ109)
-							ζr109_1 = float64(loζ109)
-							goto ζL109
-						}
-					ζL109:
-						ζt107, ζt108 := ζr109_0, ζr109_1
-						ζr106_0 = float64(ζt107)
-						ζr106_1 = float64(ζt108)
-						goto ζL106
-					}
-				ζL106:
-					ζt104, ζt105 := ζr106_0, ζr106_1
-					ζr96_0 = float64(ζt104)
-					ζr96_1 = float64(ζt105)
-					goto ζL96
-				}
-			ζL96:
-				hζ0, lζ0 = ζr96_0, ζr96_1
-				hζ0, lζ0 = -hζ0, -lζ0
-			case pζ0 >= 0.75 && pζ0 < 1:
-				var ζr110_0 float64
-				var ζr110_1 float64
-				{
-					qζ110 := float64(float64(2 * (1 - pζ0)))
-					var hiζ110 float64
-					_ = hiζ110
-					var loζ110 float64
-					_ = loζ110
-					var ζr111_0 float64
-					var ζr111_1 float64
-					{
-						xζ111 := float64(qζ110)
-						var hiζ111 float64
-						_ = hiζ111
-						var loζ111 float64
-						_ = loζ111
-						var ζr114_0 float64
-						var ζr114_1 float64
-						{
-							xζ114 := float64(xζ111)
-							keζ114 := int(0)
-							var hiζ114 float64
-							_ = hiζ114
-							var loζ114 float64
-							_ = loζ114
-							ixζ114 := math.Float64bits(xζ114)
-							tmpζ114 := ixζ114 - 0x3fe8000000000000
-							keζ114 += int(int64(tmpζ114) >> 52)
-							mζ114 := math.Float64frombits(ixζ114 - uint64(int64(tmpζ114)>>52)<<52)
-							tζ114 := &logT[int(float64(mζ114*256)+0.5)-192]
-							invcζ114 := tζ114[0]
-							pζ114 := float64(mζ114 * invcζ114)
-							peζ114 := math.FMA(mζ114, invcζ114, -pζ114)
-							rζ114 := pζ114 - 1
-							r2ζ114 := float64(rζ114 * rζ114)
-							c0ζ114 := math.FMA(rζ114, 1.0/3, -0.5)
-							c1ζ114 := math.FMA(rζ114, 1.0/5, -0.25)
-							c2ζ114 := math.FMA(rζ114, 1.0/7, -1.0/6)
-							c2ζ114 = math.FMA(r2ζ114, -1.0/8, c2ζ114)
-							c1ζ114 = math.FMA(r2ζ114, c2ζ114, c1ζ114)
-							qζ114 := float64(r2ζ114 * math.FMA(r2ζ114, c1ζ114, c0ζ114))
-							kfζ114 := float64(keζ114)
-							lhζ114 := float64(kfζ114*ln2Hi42) + tζ114[1]
-							hiζ114 = lhζ114 + rζ114
-							loζ114 = (rζ114 - (hiζ114 - lhζ114)) + (math.FMA(kfζ114, ln2Lo42, tζ114[2]) + (math.FMA(peζ114, -rζ114, peζ114) + qζ114))
-							ζr114_0 = float64(hiζ114)
-							ζr114_1 = float64(loζ114)
-							goto ζL114
-						}
-					ζL114:
-						ζt112, ζt113 := ζr114_0, ζr114_1
-						ζr111_0 = float64(ζt112)
-						ζr111_1 = float64(ζt113)
-						goto ζL111
-					}
-				ζL111:
-					lhζ110, llζ110 := ζr111_0, ζr111_1
-					var ζr117_0 float64
-					var ζr117_1 float64
-					{
-						lhζ117 := float64(lhζ110)
-						llζ117 := float64(llζ110)
-						var hiζ117 float64
-						_ = hiζ117
-						var loζ117 float64
-						_ = loζ117
-						sζ117 := lhζ117 + llζ117
-						eζ117 := llζ117 - (sζ117 - lhζ117)
-						whζ117 := math.Sqrt(-sζ117)
-						wlζ117 := (math.FMA(-whζ117, whζ117, -sζ117) - eζ117) / (2 * whζ117)
-						uζ117 := whζ117 - 0.0625
-						tζ117 := &erfcInvIdx[int(uζ117)]
-						var ζr120_0 float64
-						var ζr120_1 float64
-						{
-							eζ120 := &erfcInvEst[int(tζ117[2])+int((uζ117-tζ117[0])*tζ117[1])]
-							tζ120 := float64(whζ117)
-							tlζ120 := float64(wlζ117)
-							var hiζ120 float64
-							_ = hiζ120
-							var loζ120 float64
-							_ = loζ120
-							sζ120 := tζ120 - eζ120.c
-							qζ120 := &eζ120.q
-							s2ζ120 := float64(sζ120 * sζ120)
-							s4ζ120 := float64(s2ζ120 * s2ζ120)
-							a0ζ120 := math.FMA(qζ120[5], sζ120, qζ120[4])
-							a1ζ120 := math.FMA(qζ120[7], sζ120, qζ120[6])
-							a2ζ120 := math.FMA(qζ120[9], sζ120, qζ120[8])
-							a3ζ120 := math.FMA(qζ120[11], sζ120, qζ120[10])
-							a4ζ120 := math.FMA(qζ120[13], sζ120, qζ120[12])
-							a5ζ120 := math.FMA(qζ120[15], sζ120, qζ120[14])
-							b0ζ120 := math.FMA(a1ζ120, s2ζ120, a0ζ120)
-							b1ζ120 := math.FMA(a3ζ120, s2ζ120, a2ζ120)
-							b2ζ120 := math.FMA(a5ζ120, s2ζ120, a4ζ120)
-							pζ120 := math.FMA(b2ζ120, s4ζ120*s4ζ120, math.FMA(b1ζ120, s4ζ120, b0ζ120))
-							pζ120 = math.FMA(math.FMA(math.FMA(pζ120, sζ120, qζ120[3]), sζ120, qζ120[2]), sζ120, qζ120[1])
-							r1ζ120 := float64(sζ120 * qζ120[0])
-							r1lζ120 := math.FMA(sζ120, qζ120[0], -r1ζ120) + math.FMA(sζ120, eζ120.c1lo, tlζ120*math.FMA(2*sζ120, qζ120[1], qζ120[0]))
-							hiζ120 = eζ120.c0 + r1ζ120
-							loζ120 = (r1ζ120 - (hiζ120 - eζ120.c0)) + (r1lζ120 + math.FMA(s2ζ120, pζ120, eζ120.c0lo))
-							ζr120_0 = float64(hiζ120)
-							ζr120_1 = float64(loζ120)
-							goto ζL120
-						}
-					ζL120:
-						ζt118, ζt119 := ζr120_0, ζr120_1
-						ζr117_0 = float64(ζt118)
-						ζr117_1 = float64(ζt119)
-						goto ζL117
-					}
-				ζL117:
-					ζt115, ζt116 := ζr117_0, ζr117_1
-					ζr110_0 = float64(ζt115)
-					ζr110_1 = float64(ζt116)
-					goto ζL110
-				}
-			ζL110:
-				hζ0, lζ0 = ζr110_0, ζr110_1
-			case pζ0 == 0:
-				ζdst[ζi] = float64(math.Inf(-1))
-				continue ζloop
-			case pζ0 == 1:
-				ζdst[ζi] = float64(math.Inf(1))
-				continue ζloop
-			default:
-				ζdst[ζi] = float64(math.NaN())
-				continue ζloop
-			}
-			vζ0 := float64(math.Sqrt2 * hζ0)
-			ζdst[ζi] = float64(vζ0 + (math.FMA(math.Sqrt2, hζ0, -vζ0) + math.FMA(math.Sqrt2, lζ0, sqrt2Lo*hζ0)))
-			continue ζloop
-		}
-	}
-}
-
-// LogNdtrTo sets dst[i] = LogNdtr(x[i]) for i < len(dst) (x at least as long),
-// bit-identical to the scalar function, in one loop with no call per
-// element: the loop of the nd functions.
-func LogNdtrTo(ζdst, ζx []float64) {
-	ζx = ζx[:len(ζdst)]
-ζloop:
-	for ζi := range ζdst {
-		xζ0 := ζx[ζi]
-		{
-			if !(xζ0 > -1e150 && xζ0 < 37) {
-				ζdst[ζi] = float64(logNdtrTail(xζ0))
-				continue ζloop
-			}
-			var ζr121_0 float64
-			var ζr121_1 float64
-			{
-				xζ121 := float64(xζ0)
-				var hiζ121 float64
-				_ = hiζ121
-				var loζ121 float64
-				_ = loζ121
-				hiζ121 = float64(-xζ121 * invSqrt2.Hi)
-				ζr121_0 = float64(hiζ121)
-				ζr121_1 = float64(math.FMA(-xζ121, invSqrt2.Hi, -hiζ121) - float64(xζ121*invSqrt2.Lo))
-				goto ζL121
-			}
-		ζL121:
-			zhζ0, zlζ0 := ζr121_0, ζr121_1
-			switch {
-			case zhζ0 >= 0.5:
-				var chζ0, clζ0 float64
-				if zhζ0 < 8 {
-					var iζ0 int
-					switch {
-					case zhζ0 < 2:
-						iζ0 = int((zhζ0 - 0.5) * 2)
-					case zhζ0 < 4:
-						iζ0 = 3 + int(zhζ0-2)
-					default:
-						iζ0 = 5 + int((zhζ0-4)*0.5)
-					}
-					var ζr122_0 float64
-					var ζr122_1 float64
-					{
-						eζ122 := &logErfcxEst[iζ0]
-						tζ122 := float64(zhζ0)
-						tlζ122 := float64(zlζ0)
-						var hiζ122 float64
-						_ = hiζ122
-						var loζ122 float64
-						_ = loζ122
-						sζ122 := tζ122 - eζ122.c
-						qζ122 := &eζ122.q
-						s2ζ122 := float64(sζ122 * sζ122)
-						s4ζ122 := float64(s2ζ122 * s2ζ122)
-						a0ζ122 := math.FMA(qζ122[5], sζ122, qζ122[4])
-						a1ζ122 := math.FMA(qζ122[7], sζ122, qζ122[6])
-						a2ζ122 := math.FMA(qζ122[9], sζ122, qζ122[8])
-						a3ζ122 := math.FMA(qζ122[11], sζ122, qζ122[10])
-						a4ζ122 := math.FMA(qζ122[13], sζ122, qζ122[12])
-						a5ζ122 := math.FMA(qζ122[15], sζ122, qζ122[14])
-						b0ζ122 := math.FMA(a1ζ122, s2ζ122, a0ζ122)
-						b1ζ122 := math.FMA(a3ζ122, s2ζ122, a2ζ122)
-						b2ζ122 := math.FMA(a5ζ122, s2ζ122, a4ζ122)
-						pζ122 := math.FMA(b2ζ122, s4ζ122*s4ζ122, math.FMA(b1ζ122, s4ζ122, b0ζ122))
-						pζ122 = math.FMA(math.FMA(math.FMA(pζ122, sζ122, qζ122[3]), sζ122, qζ122[2]), sζ122, qζ122[1])
-						r1ζ122 := float64(sζ122 * qζ122[0])
-						r1lζ122 := math.FMA(sζ122, qζ122[0], -r1ζ122) + math.FMA(sζ122, eζ122.c1lo, tlζ122*math.FMA(2*sζ122, qζ122[1], qζ122[0]))
-						hiζ122 = eζ122.c0 + r1ζ122
-						loζ122 = (r1ζ122 - (hiζ122 - eζ122.c0)) + (r1lζ122 + math.FMA(s2ζ122, pζ122, eζ122.c0lo))
-						ζr122_0 = float64(hiζ122)
-						ζr122_1 = float64(loζ122)
-						goto ζL122
-					}
-				ζL122:
-					chζ0, clζ0 = ζr122_0, ζr122_1
+					chζ0, clζ0 = ζr95_0, ζr95_1
 				} else {
 					izζ0 := 1 / zhζ0
 					uζ0 := float64(izζ0 * izζ0)
-					var ζr123_0 float64
-					var ζr123_1 float64
+					var ζr96_0 float64
+					var ζr96_1 float64
 					{
-						eζ123 := &logErfcxTailEst[min(int(uζ0*128), 1)]
-						tζ123 := float64(uζ0)
-						var hiζ123 float64
-						_ = hiζ123
-						var loζ123 float64
-						_ = loζ123
-						sζ123 := tζ123 - eζ123.c
-						qζ123 := &eζ123.q
-						s2ζ123 := float64(sζ123 * sζ123)
-						a0ζ123 := math.FMA(qζ123[4], sζ123, qζ123[3])
-						a1ζ123 := math.FMA(qζ123[6], sζ123, qζ123[5])
-						a2ζ123 := math.FMA(qζ123[8], sζ123, qζ123[7])
-						b0ζ123 := math.FMA(a1ζ123, s2ζ123, a0ζ123)
-						b1ζ123 := math.FMA(qζ123[9], s2ζ123, a2ζ123)
-						pζ123 := math.FMA(b1ζ123, s2ζ123*s2ζ123, b0ζ123)
-						pζ123 = math.FMA(math.FMA(math.FMA(pζ123, sζ123, qζ123[2]), sζ123, qζ123[1]), sζ123, qζ123[0])
-						rζ123 := float64(sζ123 * pζ123)
-						hiζ123 = eζ123.c0 + rζ123
-						loζ123 = (rζ123 - (hiζ123 - eζ123.c0)) + (math.FMA(sζ123, pζ123, -rζ123) + eζ123.c0lo)
-						ζr123_0 = float64(hiζ123)
-						ζr123_1 = float64(loζ123)
-						goto ζL123
+						eζ96 := &logErfcxTailEst[min(int(uζ0*128), 1)]
+						tζ96 := float64(uζ0)
+						var hiζ96 float64
+						_ = hiζ96
+						var loζ96 float64
+						_ = loζ96
+						sζ96 := tζ96 - eζ96.c
+						qζ96 := &eζ96.q
+						s2ζ96 := float64(sζ96 * sζ96)
+						a0ζ96 := math.FMA(qζ96[4], sζ96, qζ96[3])
+						a1ζ96 := math.FMA(qζ96[6], sζ96, qζ96[5])
+						a2ζ96 := math.FMA(qζ96[8], sζ96, qζ96[7])
+						b0ζ96 := math.FMA(a1ζ96, s2ζ96, a0ζ96)
+						b1ζ96 := math.FMA(qζ96[9], s2ζ96, a2ζ96)
+						pζ96 := math.FMA(b1ζ96, s2ζ96*s2ζ96, b0ζ96)
+						pζ96 = math.FMA(math.FMA(math.FMA(pζ96, sζ96, qζ96[2]), sζ96, qζ96[1]), sζ96, qζ96[0])
+						rζ96 := float64(sζ96 * pζ96)
+						hiζ96 = eζ96.c0 + rζ96
+						loζ96 = (rζ96 - (hiζ96 - eζ96.c0)) + (math.FMA(sζ96, pζ96, -rζ96) + eζ96.c0lo)
+						ζr96_0 = float64(hiζ96)
+						ζr96_1 = float64(loζ96)
+						goto ζL96
 					}
-				ζL123:
-					hhζ0, hlζ0 := ζr123_0, ζr123_1
+				ζL96:
+					hhζ0, hlζ0 := ζr96_0, ζr96_1
 					ixbζ0 := math.Float64bits(zhζ0)
 					tmpζ0 := ixbζ0 - 0x3fe8000000000000
 					kfζ0 := float64(int64(tmpζ0) >> 52)
@@ -2523,170 +2203,170 @@ func LogNdtrTo(ζdst, ζx []float64) {
 				ζdst[ζi] = float64(vζ0 + (veζ0 + (aeζ0 + (clζ0 - slζ0 - ln2DD.Lo))))
 				continue ζloop
 			case zhζ0 <= -0.5:
-				var ζr124_0 float64
-				var ζr124_1 float64
-				var ζr124_2 int
+				var ζr97_0 float64
+				var ζr97_1 float64
+				var ζr97_2 int
 				{
-					zhζ124 := float64(-zhζ0)
-					zlζ124 := float64(-zlζ0)
-					var hiζ124 float64
-					_ = hiζ124
-					var loζ124 float64
-					_ = loζ124
-					var kζ124 int
-					_ = kζ124
-					if zhζ124 < 8 {
-						var ζr128_0 float64
-						var ζr128_1 float64
-						var ζr128_2 int
+					zhζ97 := float64(-zhζ0)
+					zlζ97 := float64(-zlζ0)
+					var hiζ97 float64
+					_ = hiζ97
+					var loζ97 float64
+					_ = loζ97
+					var kζ97 int
+					_ = kζ97
+					if zhζ97 < 8 {
+						var ζr101_0 float64
+						var ζr101_1 float64
+						var ζr101_2 int
 						{
-							zhζ128 := float64(zhζ124)
-							zlζ128 := float64(zlζ124)
-							var hiζ128 float64
-							_ = hiζ128
-							var loζ128 float64
-							_ = loζ128
-							var kζ128 int
-							_ = kζ128
-							shζ128 := float64(zhζ128 * zhζ128)
-							slζ128 := math.FMA(zhζ128, zhζ128, -shζ128) + float64(2*zhζ128*zlζ128)
-							kdζ128 := math.RoundToEven(-shζ128 * expInvLn2N)
-							kiζ128 := int(kdζ128)
-							rζ128 := -shζ128 - float64(kdζ128*expC1)
-							drζ128 := -slζ128 - float64(kdζ128*expC2)
-							uζ128 := rζ128 + drζ128
-							ueζ128 := drζ128 - (uζ128 - rζ128)
-							u2ζ128 := float64(uζ128 * uζ128)
-							paζ128 := math.FMA(uζ128, 1.0/6, 0.5)
-							pbζ128 := math.FMA(uζ128, 1.0/120, 1.0/24)
-							pbζ128 = math.FMA(u2ζ128, 1.0/720, pbζ128)
-							puζ128 := float64(u2ζ128 * math.FMA(u2ζ128, pbζ128, paζ128))
-							tζ128 := &expT[kiζ128&127]
-							thζ128, tlζ128 := tζ128[0], tζ128[1]
-							tuζ128 := float64(thζ128 * uζ128)
-							e0ζ128 := thζ128 + tuζ128
-							elζ128 := ((tuζ128 - (e0ζ128 - thζ128)) + math.FMA(thζ128, uζ128, -tuζ128)) + math.FMA(thζ128, ueζ128+puζ128, math.FMA(tlζ128, uζ128, tlζ128))
-							ehζ128 := e0ζ128 + elζ128
-							elζ128 -= ehζ128 - e0ζ128
-							var chζ128, clζ128 float64
+							zhζ101 := float64(zhζ97)
+							zlζ101 := float64(zlζ97)
+							var hiζ101 float64
+							_ = hiζ101
+							var loζ101 float64
+							_ = loζ101
+							var kζ101 int
+							_ = kζ101
+							shζ101 := float64(zhζ101 * zhζ101)
+							slζ101 := math.FMA(zhζ101, zhζ101, -shζ101) + float64(2*zhζ101*zlζ101)
+							kdζ101 := math.RoundToEven(-shζ101 * expInvLn2N)
+							kiζ101 := int(kdζ101)
+							rζ101 := -shζ101 - float64(kdζ101*expC1)
+							drζ101 := -slζ101 - float64(kdζ101*expC2)
+							uζ101 := rζ101 + drζ101
+							ueζ101 := drζ101 - (uζ101 - rζ101)
+							u2ζ101 := float64(uζ101 * uζ101)
+							paζ101 := math.FMA(uζ101, 1.0/6, 0.5)
+							pbζ101 := math.FMA(uζ101, 1.0/120, 1.0/24)
+							pbζ101 = math.FMA(u2ζ101, 1.0/720, pbζ101)
+							puζ101 := float64(u2ζ101 * math.FMA(u2ζ101, pbζ101, paζ101))
+							tζ101 := &expT[kiζ101&127]
+							thζ101, tlζ101 := tζ101[0], tζ101[1]
+							tuζ101 := float64(thζ101 * uζ101)
+							e0ζ101 := thζ101 + tuζ101
+							elζ101 := ((tuζ101 - (e0ζ101 - thζ101)) + math.FMA(thζ101, uζ101, -tuζ101)) + math.FMA(thζ101, ueζ101+puζ101, math.FMA(tlζ101, uζ101, tlζ101))
+							ehζ101 := e0ζ101 + elζ101
+							elζ101 -= ehζ101 - e0ζ101
+							var chζ101, clζ101 float64
 							{
-								eζ128 := &erfcxEst[int((zhζ128-0.5)*2)]
-								sζ128 := zhζ128 - eζ128.c
-								qζ128 := &eζ128.q
-								s2ζ128 := float64(sζ128 * sζ128)
-								s4ζ128 := float64(s2ζ128 * s2ζ128)
-								a0ζ128 := math.FMA(qζ128[5], sζ128, qζ128[4])
-								a1ζ128 := math.FMA(qζ128[7], sζ128, qζ128[6])
-								a2ζ128 := math.FMA(qζ128[9], sζ128, qζ128[8])
-								a3ζ128 := math.FMA(qζ128[11], sζ128, qζ128[10])
-								a4ζ128 := math.FMA(qζ128[13], sζ128, qζ128[12])
-								a5ζ128 := math.FMA(qζ128[15], sζ128, qζ128[14])
-								b0ζ128 := math.FMA(a1ζ128, s2ζ128, a0ζ128)
-								b1ζ128 := math.FMA(a3ζ128, s2ζ128, a2ζ128)
-								b2ζ128 := math.FMA(a5ζ128, s2ζ128, a4ζ128)
-								pζ128 := math.FMA(b2ζ128, s4ζ128*s4ζ128, math.FMA(b1ζ128, s4ζ128, b0ζ128))
-								pζ128 = math.FMA(math.FMA(math.FMA(pζ128, sζ128, qζ128[3]), sζ128, qζ128[2]), sζ128, qζ128[1])
-								r1ζ128 := float64(sζ128 * qζ128[0])
-								chζ128 = eζ128.c0 + r1ζ128
-								clζ128 = (r1ζ128 - (chζ128 - eζ128.c0)) + ((math.FMA(sζ128, qζ128[0], -r1ζ128) + float64(sζ128*eζ128.c1lo)) + math.FMA(s2ζ128, pζ128, eζ128.c0lo))
+								eζ101 := &erfcxEst[int((zhζ101-0.5)*2)]
+								sζ101 := zhζ101 - eζ101.c
+								qζ101 := &eζ101.q
+								s2ζ101 := float64(sζ101 * sζ101)
+								s4ζ101 := float64(s2ζ101 * s2ζ101)
+								a0ζ101 := math.FMA(qζ101[5], sζ101, qζ101[4])
+								a1ζ101 := math.FMA(qζ101[7], sζ101, qζ101[6])
+								a2ζ101 := math.FMA(qζ101[9], sζ101, qζ101[8])
+								a3ζ101 := math.FMA(qζ101[11], sζ101, qζ101[10])
+								a4ζ101 := math.FMA(qζ101[13], sζ101, qζ101[12])
+								a5ζ101 := math.FMA(qζ101[15], sζ101, qζ101[14])
+								b0ζ101 := math.FMA(a1ζ101, s2ζ101, a0ζ101)
+								b1ζ101 := math.FMA(a3ζ101, s2ζ101, a2ζ101)
+								b2ζ101 := math.FMA(a5ζ101, s2ζ101, a4ζ101)
+								pζ101 := math.FMA(b2ζ101, s4ζ101*s4ζ101, math.FMA(b1ζ101, s4ζ101, b0ζ101))
+								pζ101 = math.FMA(math.FMA(math.FMA(pζ101, sζ101, qζ101[3]), sζ101, qζ101[2]), sζ101, qζ101[1])
+								r1ζ101 := float64(sζ101 * qζ101[0])
+								chζ101 = eζ101.c0 + r1ζ101
+								clζ101 = (r1ζ101 - (chζ101 - eζ101.c0)) + ((math.FMA(sζ101, qζ101[0], -r1ζ101) + float64(sζ101*eζ101.c1lo)) + math.FMA(s2ζ101, pζ101, eζ101.c0lo))
 							}
-							exζ128 := chζ128 + clζ128
-							clζ128 += float64(zlζ128 * math.FMA(2*zhζ128, exζ128, -twoOverSqrtPi.Hi))
-							phζ128 := float64(ehζ128 * chζ128)
-							plζ128 := math.FMA(ehζ128, chζ128, -phζ128) + math.FMA(ehζ128, clζ128, elζ128*chζ128)
-							hiζ128 = phζ128 + plζ128
-							ζr128_0 = float64(hiζ128)
-							ζr128_1 = float64(plζ128 - (hiζ128 - phζ128))
-							ζr128_2 = int(kiζ128 >> 7)
-							goto ζL128
+							exζ101 := chζ101 + clζ101
+							clζ101 += float64(zlζ101 * math.FMA(2*zhζ101, exζ101, -twoOverSqrtPi.Hi))
+							phζ101 := float64(ehζ101 * chζ101)
+							plζ101 := math.FMA(ehζ101, chζ101, -phζ101) + math.FMA(ehζ101, clζ101, elζ101*chζ101)
+							hiζ101 = phζ101 + plζ101
+							ζr101_0 = float64(hiζ101)
+							ζr101_1 = float64(plζ101 - (hiζ101 - phζ101))
+							ζr101_2 = int(kiζ101 >> 7)
+							goto ζL101
 						}
-					ζL128:
-						ζt125, ζt126, ζt127 := ζr128_0, ζr128_1, ζr128_2
-						ζr124_0 = float64(ζt125)
-						ζr124_1 = float64(ζt126)
-						ζr124_2 = int(ζt127)
-						goto ζL124
+					ζL101:
+						ζt98, ζt99, ζt100 := ζr101_0, ζr101_1, ζr101_2
+						ζr97_0 = float64(ζt98)
+						ζr97_1 = float64(ζt99)
+						ζr97_2 = int(ζt100)
+						goto ζL97
 					}
-					var ζr132_0 float64
-					var ζr132_1 float64
-					var ζr132_2 int
+					var ζr105_0 float64
+					var ζr105_1 float64
+					var ζr105_2 int
 					{
-						zhζ132 := float64(zhζ124)
-						zlζ132 := float64(zlζ124)
-						var hiζ132 float64
-						_ = hiζ132
-						var loζ132 float64
-						_ = loζ132
-						var kζ132 int
-						_ = kζ132
-						shζ132 := float64(zhζ132 * zhζ132)
-						slζ132 := math.FMA(zhζ132, zhζ132, -shζ132) + float64(2*zhζ132*zlζ132)
-						kdζ132 := math.RoundToEven(-shζ132 * expInvLn2N)
-						kiζ132 := int(kdζ132)
-						rζ132 := -shζ132 - float64(kdζ132*expC1)
-						drζ132 := -slζ132 - float64(kdζ132*expC2)
-						uζ132 := rζ132 + drζ132
-						ueζ132 := drζ132 - (uζ132 - rζ132)
-						u2ζ132 := float64(uζ132 * uζ132)
-						paζ132 := math.FMA(uζ132, 1.0/6, 0.5)
-						pbζ132 := math.FMA(uζ132, 1.0/120, 1.0/24)
-						pbζ132 = math.FMA(u2ζ132, 1.0/720, pbζ132)
-						puζ132 := float64(u2ζ132 * math.FMA(u2ζ132, pbζ132, paζ132))
-						tζ132 := &expT[kiζ132&127]
-						thζ132, tlζ132 := tζ132[0], tζ132[1]
-						tuζ132 := float64(thζ132 * uζ132)
-						e0ζ132 := thζ132 + tuζ132
-						elζ132 := ((tuζ132 - (e0ζ132 - thζ132)) + math.FMA(thζ132, uζ132, -tuζ132)) + math.FMA(thζ132, ueζ132+puζ132, math.FMA(tlζ132, uζ132, tlζ132))
-						ehζ132 := e0ζ132 + elζ132
-						elζ132 -= ehζ132 - e0ζ132
-						var chζ132, clζ132 float64
+						zhζ105 := float64(zhζ97)
+						zlζ105 := float64(zlζ97)
+						var hiζ105 float64
+						_ = hiζ105
+						var loζ105 float64
+						_ = loζ105
+						var kζ105 int
+						_ = kζ105
+						shζ105 := float64(zhζ105 * zhζ105)
+						slζ105 := math.FMA(zhζ105, zhζ105, -shζ105) + float64(2*zhζ105*zlζ105)
+						kdζ105 := math.RoundToEven(-shζ105 * expInvLn2N)
+						kiζ105 := int(kdζ105)
+						rζ105 := -shζ105 - float64(kdζ105*expC1)
+						drζ105 := -slζ105 - float64(kdζ105*expC2)
+						uζ105 := rζ105 + drζ105
+						ueζ105 := drζ105 - (uζ105 - rζ105)
+						u2ζ105 := float64(uζ105 * uζ105)
+						paζ105 := math.FMA(uζ105, 1.0/6, 0.5)
+						pbζ105 := math.FMA(uζ105, 1.0/120, 1.0/24)
+						pbζ105 = math.FMA(u2ζ105, 1.0/720, pbζ105)
+						puζ105 := float64(u2ζ105 * math.FMA(u2ζ105, pbζ105, paζ105))
+						tζ105 := &expT[kiζ105&127]
+						thζ105, tlζ105 := tζ105[0], tζ105[1]
+						tuζ105 := float64(thζ105 * uζ105)
+						e0ζ105 := thζ105 + tuζ105
+						elζ105 := ((tuζ105 - (e0ζ105 - thζ105)) + math.FMA(thζ105, uζ105, -tuζ105)) + math.FMA(thζ105, ueζ105+puζ105, math.FMA(tlζ105, uζ105, tlζ105))
+						ehζ105 := e0ζ105 + elζ105
+						elζ105 -= ehζ105 - e0ζ105
+						var chζ105, clζ105 float64
 						{
-							invζ132 := 1 / zhζ132
-							uζ132 := float64(invζ132 * invζ132)
-							eζ132 := &erfcxTailEst[min(int(uζ132*128), 1)]
-							sζ132 := uζ132 - eζ132.c
-							qζ132 := &eζ132.q
-							s2ζ132 := float64(sζ132 * sζ132)
-							a0ζ132 := math.FMA(qζ132[4], sζ132, qζ132[3])
-							a1ζ132 := math.FMA(qζ132[6], sζ132, qζ132[5])
-							a2ζ132 := math.FMA(qζ132[8], sζ132, qζ132[7])
-							b0ζ132 := math.FMA(a1ζ132, s2ζ132, a0ζ132)
-							b1ζ132 := math.FMA(qζ132[9], s2ζ132, a2ζ132)
-							pζ132 := math.FMA(b1ζ132, s2ζ132*s2ζ132, b0ζ132)
-							pζ132 = math.FMA(math.FMA(math.FMA(pζ132, sζ132, qζ132[2]), sζ132, qζ132[1]), sζ132, qζ132[0])
-							rrζ132 := float64(sζ132 * pζ132)
-							ghζ132 := eζ132.c0 + rrζ132
-							glζ132 := (rrζ132 - (ghζ132 - eζ132.c0)) + eζ132.c0lo
-							chζ132 = float64(ghζ132 * invζ132)
-							clζ132 = float64((math.FMA(-chζ132, zhζ132, ghζ132) + glζ132) * invζ132)
+							invζ105 := 1 / zhζ105
+							uζ105 := float64(invζ105 * invζ105)
+							eζ105 := &erfcxTailEst[min(int(uζ105*128), 1)]
+							sζ105 := uζ105 - eζ105.c
+							qζ105 := &eζ105.q
+							s2ζ105 := float64(sζ105 * sζ105)
+							a0ζ105 := math.FMA(qζ105[4], sζ105, qζ105[3])
+							a1ζ105 := math.FMA(qζ105[6], sζ105, qζ105[5])
+							a2ζ105 := math.FMA(qζ105[8], sζ105, qζ105[7])
+							b0ζ105 := math.FMA(a1ζ105, s2ζ105, a0ζ105)
+							b1ζ105 := math.FMA(qζ105[9], s2ζ105, a2ζ105)
+							pζ105 := math.FMA(b1ζ105, s2ζ105*s2ζ105, b0ζ105)
+							pζ105 = math.FMA(math.FMA(math.FMA(pζ105, sζ105, qζ105[2]), sζ105, qζ105[1]), sζ105, qζ105[0])
+							rrζ105 := float64(sζ105 * pζ105)
+							ghζ105 := eζ105.c0 + rrζ105
+							glζ105 := (rrζ105 - (ghζ105 - eζ105.c0)) + eζ105.c0lo
+							chζ105 = float64(ghζ105 * invζ105)
+							clζ105 = float64((math.FMA(-chζ105, zhζ105, ghζ105) + glζ105) * invζ105)
 						}
-						exζ132 := chζ132 + clζ132
-						clζ132 += float64(zlζ132 * math.FMA(2*zhζ132, exζ132, -twoOverSqrtPi.Hi))
-						phζ132 := float64(ehζ132 * chζ132)
-						plζ132 := math.FMA(ehζ132, chζ132, -phζ132) + math.FMA(ehζ132, clζ132, elζ132*chζ132)
-						hiζ132 = phζ132 + plζ132
-						ζr132_0 = float64(hiζ132)
-						ζr132_1 = float64(plζ132 - (hiζ132 - phζ132))
-						ζr132_2 = int(kiζ132 >> 7)
-						goto ζL132
+						exζ105 := chζ105 + clζ105
+						clζ105 += float64(zlζ105 * math.FMA(2*zhζ105, exζ105, -twoOverSqrtPi.Hi))
+						phζ105 := float64(ehζ105 * chζ105)
+						plζ105 := math.FMA(ehζ105, chζ105, -phζ105) + math.FMA(ehζ105, clζ105, elζ105*chζ105)
+						hiζ105 = phζ105 + plζ105
+						ζr105_0 = float64(hiζ105)
+						ζr105_1 = float64(plζ105 - (hiζ105 - phζ105))
+						ζr105_2 = int(kiζ105 >> 7)
+						goto ζL105
 					}
-				ζL132:
-					ζt129, ζt130, ζt131 := ζr132_0, ζr132_1, ζr132_2
-					ζr124_0 = float64(ζt129)
-					ζr124_1 = float64(ζt130)
-					ζr124_2 = int(ζt131)
-					goto ζL124
+				ζL105:
+					ζt102, ζt103, ζt104 := ζr105_0, ζr105_1, ζr105_2
+					ζr97_0 = float64(ζt102)
+					ζr97_1 = float64(ζt103)
+					ζr97_2 = int(ζt104)
+					goto ζL97
 				}
-			ζL124:
-				hζ0, lζ0, kζ0 := ζr124_0, ζr124_1, ζr124_2
-				var ζr133_0 float64
+			ζL97:
+				hζ0, lζ0, kζ0 := ζr97_0, ζr97_1, ζr97_2
+				var ζr106_0 float64
 				{
-					kζ133 := int(kζ0 - 1)
-					ζr133_0 = float64(math.Float64frombits(uint64(kζ133+1023) << 52))
-					goto ζL133
+					kζ106 := int(kζ0 - 1)
+					ζr106_0 = float64(math.Float64frombits(uint64(kζ106+1023) << 52))
+					goto ζL106
 				}
-			ζL133:
-				sζ0 := ζr133_0
+			ζL106:
+				sζ0 := ζr106_0
 				hζ0 = float64(hζ0 * (sζ0))
 				lζ0 = float64(lζ0 * (sζ0))
 				if hζ0 < 0x1p-20 {
@@ -2695,153 +2375,153 @@ func LogNdtrTo(ζdst, ζx []float64) {
 				}
 				whζ0 := 1 - hζ0
 				wlζ0 := ((1 - whζ0) - hζ0) - lζ0
-				var ζr134_0 float64
-				var ζr134_1 float64
+				var ζr107_0 float64
+				var ζr107_1 float64
 				{
-					xζ134 := float64(whζ0)
-					var hiζ134 float64
-					_ = hiζ134
-					var loζ134 float64
-					_ = loζ134
-					var ζr137_0 float64
-					var ζr137_1 float64
+					xζ107 := float64(whζ0)
+					var hiζ107 float64
+					_ = hiζ107
+					var loζ107 float64
+					_ = loζ107
+					var ζr110_0 float64
+					var ζr110_1 float64
 					{
-						xζ137 := float64(xζ134)
-						keζ137 := int(0)
-						var hiζ137 float64
-						_ = hiζ137
-						var loζ137 float64
-						_ = loζ137
-						ixζ137 := math.Float64bits(xζ137)
-						tmpζ137 := ixζ137 - 0x3fe8000000000000
-						keζ137 += int(int64(tmpζ137) >> 52)
-						mζ137 := math.Float64frombits(ixζ137 - uint64(int64(tmpζ137)>>52)<<52)
-						tζ137 := &logT[int(float64(mζ137*256)+0.5)-192]
-						invcζ137 := tζ137[0]
-						pζ137 := float64(mζ137 * invcζ137)
-						peζ137 := math.FMA(mζ137, invcζ137, -pζ137)
-						rζ137 := pζ137 - 1
-						r2ζ137 := float64(rζ137 * rζ137)
-						c0ζ137 := math.FMA(rζ137, 1.0/3, -0.5)
-						c1ζ137 := math.FMA(rζ137, 1.0/5, -0.25)
-						c2ζ137 := math.FMA(rζ137, 1.0/7, -1.0/6)
-						c2ζ137 = math.FMA(r2ζ137, -1.0/8, c2ζ137)
-						c1ζ137 = math.FMA(r2ζ137, c2ζ137, c1ζ137)
-						qζ137 := float64(r2ζ137 * math.FMA(r2ζ137, c1ζ137, c0ζ137))
-						kfζ137 := float64(keζ137)
-						lhζ137 := float64(kfζ137*ln2Hi42) + tζ137[1]
-						hiζ137 = lhζ137 + rζ137
-						loζ137 = (rζ137 - (hiζ137 - lhζ137)) + (math.FMA(kfζ137, ln2Lo42, tζ137[2]) + (math.FMA(peζ137, -rζ137, peζ137) + qζ137))
-						ζr137_0 = float64(hiζ137)
-						ζr137_1 = float64(loζ137)
-						goto ζL137
+						xζ110 := float64(xζ107)
+						keζ110 := int(0)
+						var hiζ110 float64
+						_ = hiζ110
+						var loζ110 float64
+						_ = loζ110
+						ixζ110 := math.Float64bits(xζ110)
+						tmpζ110 := ixζ110 - 0x3fe8000000000000
+						keζ110 += int(int64(tmpζ110) >> 52)
+						mζ110 := math.Float64frombits(ixζ110 - uint64(int64(tmpζ110)>>52)<<52)
+						tζ110 := &logT[int(float64(mζ110*256)+0.5)-192]
+						invcζ110 := tζ110[0]
+						pζ110 := float64(mζ110 * invcζ110)
+						peζ110 := math.FMA(mζ110, invcζ110, -pζ110)
+						rζ110 := pζ110 - 1
+						r2ζ110 := float64(rζ110 * rζ110)
+						c0ζ110 := math.FMA(rζ110, 1.0/3, -0.5)
+						c1ζ110 := math.FMA(rζ110, 1.0/5, -0.25)
+						c2ζ110 := math.FMA(rζ110, 1.0/7, -1.0/6)
+						c2ζ110 = math.FMA(r2ζ110, -1.0/8, c2ζ110)
+						c1ζ110 = math.FMA(r2ζ110, c2ζ110, c1ζ110)
+						qζ110 := float64(r2ζ110 * math.FMA(r2ζ110, c1ζ110, c0ζ110))
+						kfζ110 := float64(keζ110)
+						lhζ110 := float64(kfζ110*ln2Hi42) + tζ110[1]
+						hiζ110 = lhζ110 + rζ110
+						loζ110 = (rζ110 - (hiζ110 - lhζ110)) + (math.FMA(kfζ110, ln2Lo42, tζ110[2]) + (math.FMA(peζ110, -rζ110, peζ110) + qζ110))
+						ζr110_0 = float64(hiζ110)
+						ζr110_1 = float64(loζ110)
+						goto ζL110
 					}
-				ζL137:
-					ζt135, ζt136 := ζr137_0, ζr137_1
-					ζr134_0 = float64(ζt135)
-					ζr134_1 = float64(ζt136)
-					goto ζL134
+				ζL110:
+					ζt108, ζt109 := ζr110_0, ζr110_1
+					ζr107_0 = float64(ζt108)
+					ζr107_1 = float64(ζt109)
+					goto ζL107
 				}
-			ζL134:
-				lhζ0, llζ0 := ζr134_0, ζr134_1
+			ζL107:
+				lhζ0, llζ0 := ζr107_0, ζr107_1
 				ζdst[ζi] = float64(lhζ0 + (llζ0 + wlζ0/whζ0))
 				continue ζloop
 			}
-			var ζr138_0 float64
-			var ζr138_1 float64
+			var ζr111_0 float64
+			var ζr111_1 float64
 			{
-				xζ138 := float64(zhζ0)
-				var hiζ138 float64
-				_ = hiζ138
-				var loζ138 float64
-				_ = loζ138
-				var ζr139_0 float64
-				var ζr139_1 float64
+				xζ111 := float64(zhζ0)
+				var hiζ111 float64
+				_ = hiζ111
+				var loζ111 float64
+				_ = loζ111
+				var ζr112_0 float64
+				var ζr112_1 float64
 				{
-					eζ139 := &erfSmallEst[0]
-					tζ139 := float64(float64(xζ138 * xζ138))
-					var hiζ139 float64
-					_ = hiζ139
-					var loζ139 float64
-					_ = loζ139
-					sζ139 := tζ139 - eζ139.c
-					qζ139 := &eζ139.q
-					s2ζ139 := float64(sζ139 * sζ139)
-					a0ζ139 := math.FMA(qζ139[4], sζ139, qζ139[3])
-					a1ζ139 := math.FMA(qζ139[6], sζ139, qζ139[5])
-					a2ζ139 := math.FMA(qζ139[8], sζ139, qζ139[7])
-					b0ζ139 := math.FMA(a1ζ139, s2ζ139, a0ζ139)
-					b1ζ139 := math.FMA(qζ139[9], s2ζ139, a2ζ139)
-					pζ139 := math.FMA(b1ζ139, s2ζ139*s2ζ139, b0ζ139)
-					pζ139 = math.FMA(math.FMA(math.FMA(pζ139, sζ139, qζ139[2]), sζ139, qζ139[1]), sζ139, qζ139[0])
-					rζ139 := float64(sζ139 * pζ139)
-					hiζ139 = eζ139.c0 + rζ139
-					loζ139 = (rζ139 - (hiζ139 - eζ139.c0)) + (math.FMA(sζ139, pζ139, -rζ139) + eζ139.c0lo)
-					ζr139_0 = float64(hiζ139)
-					ζr139_1 = float64(loζ139)
-					goto ζL139
+					eζ112 := &erfSmallEst[0]
+					tζ112 := float64(float64(xζ111 * xζ111))
+					var hiζ112 float64
+					_ = hiζ112
+					var loζ112 float64
+					_ = loζ112
+					sζ112 := tζ112 - eζ112.c
+					qζ112 := &eζ112.q
+					s2ζ112 := float64(sζ112 * sζ112)
+					a0ζ112 := math.FMA(qζ112[4], sζ112, qζ112[3])
+					a1ζ112 := math.FMA(qζ112[6], sζ112, qζ112[5])
+					a2ζ112 := math.FMA(qζ112[8], sζ112, qζ112[7])
+					b0ζ112 := math.FMA(a1ζ112, s2ζ112, a0ζ112)
+					b1ζ112 := math.FMA(qζ112[9], s2ζ112, a2ζ112)
+					pζ112 := math.FMA(b1ζ112, s2ζ112*s2ζ112, b0ζ112)
+					pζ112 = math.FMA(math.FMA(math.FMA(pζ112, sζ112, qζ112[2]), sζ112, qζ112[1]), sζ112, qζ112[0])
+					rζ112 := float64(sζ112 * pζ112)
+					hiζ112 = eζ112.c0 + rζ112
+					loζ112 = (rζ112 - (hiζ112 - eζ112.c0)) + (math.FMA(sζ112, pζ112, -rζ112) + eζ112.c0lo)
+					ζr112_0 = float64(hiζ112)
+					ζr112_1 = float64(loζ112)
+					goto ζL112
 				}
-			ζL139:
-				ehζ138, elζ138 := ζr139_0, ζr139_1
-				hiζ138 = float64(xζ138 * ehζ138)
-				ζr138_0 = float64(hiζ138)
-				ζr138_1 = float64(math.FMA(xζ138, ehζ138, -hiζ138) + float64(xζ138*elζ138))
-				goto ζL138
+			ζL112:
+				ehζ111, elζ111 := ζr112_0, ζr112_1
+				hiζ111 = float64(xζ111 * ehζ111)
+				ζr111_0 = float64(hiζ111)
+				ζr111_1 = float64(math.FMA(xζ111, ehζ111, -hiζ111) + float64(xζ111*elζ111))
+				goto ζL111
 			}
-		ζL138:
-			ehζ0, elζ0 := ζr138_0, ζr138_1
+		ζL111:
+			ehζ0, elζ0 := ζr111_0, ζr111_1
 			elζ0 += float64(zlζ0 * erfDeriv(zhζ0))
 			phζ0 := 1 - ehζ0
 			plζ0 := ((1 - phζ0) - ehζ0) - elζ0
-			var ζr140_0 float64
-			var ζr140_1 float64
+			var ζr113_0 float64
+			var ζr113_1 float64
 			{
-				xζ140 := float64(phζ0)
-				var hiζ140 float64
-				_ = hiζ140
-				var loζ140 float64
-				_ = loζ140
-				var ζr143_0 float64
-				var ζr143_1 float64
+				xζ113 := float64(phζ0)
+				var hiζ113 float64
+				_ = hiζ113
+				var loζ113 float64
+				_ = loζ113
+				var ζr116_0 float64
+				var ζr116_1 float64
 				{
-					xζ143 := float64(xζ140)
-					keζ143 := int(0)
-					var hiζ143 float64
-					_ = hiζ143
-					var loζ143 float64
-					_ = loζ143
-					ixζ143 := math.Float64bits(xζ143)
-					tmpζ143 := ixζ143 - 0x3fe8000000000000
-					keζ143 += int(int64(tmpζ143) >> 52)
-					mζ143 := math.Float64frombits(ixζ143 - uint64(int64(tmpζ143)>>52)<<52)
-					tζ143 := &logT[int(float64(mζ143*256)+0.5)-192]
-					invcζ143 := tζ143[0]
-					pζ143 := float64(mζ143 * invcζ143)
-					peζ143 := math.FMA(mζ143, invcζ143, -pζ143)
-					rζ143 := pζ143 - 1
-					r2ζ143 := float64(rζ143 * rζ143)
-					c0ζ143 := math.FMA(rζ143, 1.0/3, -0.5)
-					c1ζ143 := math.FMA(rζ143, 1.0/5, -0.25)
-					c2ζ143 := math.FMA(rζ143, 1.0/7, -1.0/6)
-					c2ζ143 = math.FMA(r2ζ143, -1.0/8, c2ζ143)
-					c1ζ143 = math.FMA(r2ζ143, c2ζ143, c1ζ143)
-					qζ143 := float64(r2ζ143 * math.FMA(r2ζ143, c1ζ143, c0ζ143))
-					kfζ143 := float64(keζ143)
-					lhζ143 := float64(kfζ143*ln2Hi42) + tζ143[1]
-					hiζ143 = lhζ143 + rζ143
-					loζ143 = (rζ143 - (hiζ143 - lhζ143)) + (math.FMA(kfζ143, ln2Lo42, tζ143[2]) + (math.FMA(peζ143, -rζ143, peζ143) + qζ143))
-					ζr143_0 = float64(hiζ143)
-					ζr143_1 = float64(loζ143)
-					goto ζL143
+					xζ116 := float64(xζ113)
+					keζ116 := int(0)
+					var hiζ116 float64
+					_ = hiζ116
+					var loζ116 float64
+					_ = loζ116
+					ixζ116 := math.Float64bits(xζ116)
+					tmpζ116 := ixζ116 - 0x3fe8000000000000
+					keζ116 += int(int64(tmpζ116) >> 52)
+					mζ116 := math.Float64frombits(ixζ116 - uint64(int64(tmpζ116)>>52)<<52)
+					tζ116 := &logT[int(float64(mζ116*256)+0.5)-192]
+					invcζ116 := tζ116[0]
+					pζ116 := float64(mζ116 * invcζ116)
+					peζ116 := math.FMA(mζ116, invcζ116, -pζ116)
+					rζ116 := pζ116 - 1
+					r2ζ116 := float64(rζ116 * rζ116)
+					c0ζ116 := math.FMA(rζ116, 1.0/3, -0.5)
+					c1ζ116 := math.FMA(rζ116, 1.0/5, -0.25)
+					c2ζ116 := math.FMA(rζ116, 1.0/7, -1.0/6)
+					c2ζ116 = math.FMA(r2ζ116, -1.0/8, c2ζ116)
+					c1ζ116 = math.FMA(r2ζ116, c2ζ116, c1ζ116)
+					qζ116 := float64(r2ζ116 * math.FMA(r2ζ116, c1ζ116, c0ζ116))
+					kfζ116 := float64(keζ116)
+					lhζ116 := float64(kfζ116*ln2Hi42) + tζ116[1]
+					hiζ116 = lhζ116 + rζ116
+					loζ116 = (rζ116 - (hiζ116 - lhζ116)) + (math.FMA(kfζ116, ln2Lo42, tζ116[2]) + (math.FMA(peζ116, -rζ116, peζ116) + qζ116))
+					ζr116_0 = float64(hiζ116)
+					ζr116_1 = float64(loζ116)
+					goto ζL116
 				}
-			ζL143:
-				ζt141, ζt142 := ζr143_0, ζr143_1
-				ζr140_0 = float64(ζt141)
-				ζr140_1 = float64(ζt142)
-				goto ζL140
+			ζL116:
+				ζt114, ζt115 := ζr116_0, ζr116_1
+				ζr113_0 = float64(ζt114)
+				ζr113_1 = float64(ζt115)
+				goto ζL113
 			}
-		ζL140:
-			lhζ0, llζ0 := ζr140_0, ζr140_1
+		ζL113:
+			lhζ0, llζ0 := ζr113_0, ζr113_1
 			aζ0 := lhζ0 - ln2DD.Hi
 			bbζ0 := aζ0 - lhζ0
 			aeζ0 := (lhζ0 - (aζ0 - bbζ0)) + (-ln2DD.Hi - bbζ0)
@@ -2883,14 +2563,14 @@ func ExpitTo(ζdst, ζx []float64) {
 			lζ0 := ((tuζ0 - (h0ζ0 - thζ0)) + math.FMA(thζ0, uζ0, -tuζ0)) + math.FMA(thζ0, ueζ0+puζ0, math.FMA(tlζ0, uζ0, tlζ0))
 			hζ0 := h0ζ0 + lζ0
 			lζ0 -= hζ0 - h0ζ0
-			var ζr144_0 float64
+			var ζr117_0 float64
 			{
-				kζ144 := int(kiζ0 >> 7)
-				ζr144_0 = float64(math.Float64frombits(uint64(kζ144+1023) << 52))
-				goto ζL144
+				kζ117 := int(kiζ0 >> 7)
+				ζr117_0 = float64(math.Float64frombits(uint64(kζ117+1023) << 52))
+				goto ζL117
 			}
-		ζL144:
-			sζ0 := ζr144_0
+		ζL117:
+			sζ0 := ζr117_0
 			hζ0 = float64(hζ0 * (sζ0))
 			lζ0 = float64(lζ0 * (sζ0))
 			dhζ0 := 1 + hζ0
@@ -2935,168 +2615,168 @@ func LogitTo(ζdst, ζx []float64) {
 			if pζ0 < 0.25 || pζ0 > 0.75 {
 				yζ0 := pζ0 / qhζ0
 				rζ0 := (math.FMA(-yζ0, qhζ0, pζ0) - float64(yζ0*qlζ0)) / qhζ0
-				var ζr145_0 float64
-				var ζr145_1 float64
+				var ζr118_0 float64
+				var ζr118_1 float64
 				{
-					xζ145 := float64(yζ0)
-					var hiζ145 float64
-					_ = hiζ145
-					var loζ145 float64
-					_ = loζ145
-					if math.Float64bits(xζ145) < 1<<52 {
-						var ζr148_0 float64
-						var ζr148_1 float64
+					xζ118 := float64(yζ0)
+					var hiζ118 float64
+					_ = hiζ118
+					var loζ118 float64
+					_ = loζ118
+					if math.Float64bits(xζ118) < 1<<52 {
+						var ζr121_0 float64
+						var ζr121_1 float64
 						{
-							xζ148 := float64(float64(xζ145 * 0x1p54))
-							keζ148 := int(-54)
-							var hiζ148 float64
-							_ = hiζ148
-							var loζ148 float64
-							_ = loζ148
-							ixζ148 := math.Float64bits(xζ148)
-							tmpζ148 := ixζ148 - 0x3fe8000000000000
-							keζ148 += int(int64(tmpζ148) >> 52)
-							mζ148 := math.Float64frombits(ixζ148 - uint64(int64(tmpζ148)>>52)<<52)
-							tζ148 := &logT[int(float64(mζ148*256)+0.5)-192]
-							invcζ148 := tζ148[0]
-							pζ148 := float64(mζ148 * invcζ148)
-							peζ148 := math.FMA(mζ148, invcζ148, -pζ148)
-							rζ148 := pζ148 - 1
-							r2ζ148 := float64(rζ148 * rζ148)
-							c0ζ148 := math.FMA(rζ148, 1.0/3, -0.5)
-							c1ζ148 := math.FMA(rζ148, 1.0/5, -0.25)
-							c2ζ148 := math.FMA(rζ148, 1.0/7, -1.0/6)
-							c2ζ148 = math.FMA(r2ζ148, -1.0/8, c2ζ148)
-							c1ζ148 = math.FMA(r2ζ148, c2ζ148, c1ζ148)
-							qζ148 := float64(r2ζ148 * math.FMA(r2ζ148, c1ζ148, c0ζ148))
-							kfζ148 := float64(keζ148)
-							lhζ148 := float64(kfζ148*ln2Hi42) + tζ148[1]
-							hiζ148 = lhζ148 + rζ148
-							loζ148 = (rζ148 - (hiζ148 - lhζ148)) + (math.FMA(kfζ148, ln2Lo42, tζ148[2]) + (math.FMA(peζ148, -rζ148, peζ148) + qζ148))
-							ζr148_0 = float64(hiζ148)
-							ζr148_1 = float64(loζ148)
-							goto ζL148
+							xζ121 := float64(float64(xζ118 * 0x1p54))
+							keζ121 := int(-54)
+							var hiζ121 float64
+							_ = hiζ121
+							var loζ121 float64
+							_ = loζ121
+							ixζ121 := math.Float64bits(xζ121)
+							tmpζ121 := ixζ121 - 0x3fe8000000000000
+							keζ121 += int(int64(tmpζ121) >> 52)
+							mζ121 := math.Float64frombits(ixζ121 - uint64(int64(tmpζ121)>>52)<<52)
+							tζ121 := &logT[int(float64(mζ121*256)+0.5)-192]
+							invcζ121 := tζ121[0]
+							pζ121 := float64(mζ121 * invcζ121)
+							peζ121 := math.FMA(mζ121, invcζ121, -pζ121)
+							rζ121 := pζ121 - 1
+							r2ζ121 := float64(rζ121 * rζ121)
+							c0ζ121 := math.FMA(rζ121, 1.0/3, -0.5)
+							c1ζ121 := math.FMA(rζ121, 1.0/5, -0.25)
+							c2ζ121 := math.FMA(rζ121, 1.0/7, -1.0/6)
+							c2ζ121 = math.FMA(r2ζ121, -1.0/8, c2ζ121)
+							c1ζ121 = math.FMA(r2ζ121, c2ζ121, c1ζ121)
+							qζ121 := float64(r2ζ121 * math.FMA(r2ζ121, c1ζ121, c0ζ121))
+							kfζ121 := float64(keζ121)
+							lhζ121 := float64(kfζ121*ln2Hi42) + tζ121[1]
+							hiζ121 = lhζ121 + rζ121
+							loζ121 = (rζ121 - (hiζ121 - lhζ121)) + (math.FMA(kfζ121, ln2Lo42, tζ121[2]) + (math.FMA(peζ121, -rζ121, peζ121) + qζ121))
+							ζr121_0 = float64(hiζ121)
+							ζr121_1 = float64(loζ121)
+							goto ζL121
 						}
-					ζL148:
-						ζt146, ζt147 := ζr148_0, ζr148_1
-						ζr145_0 = float64(ζt146)
-						ζr145_1 = float64(ζt147)
-						goto ζL145
+					ζL121:
+						ζt119, ζt120 := ζr121_0, ζr121_1
+						ζr118_0 = float64(ζt119)
+						ζr118_1 = float64(ζt120)
+						goto ζL118
 					}
-					var ζr151_0 float64
-					var ζr151_1 float64
+					var ζr124_0 float64
+					var ζr124_1 float64
 					{
-						xζ151 := float64(xζ145)
-						keζ151 := int(0)
-						var hiζ151 float64
-						_ = hiζ151
-						var loζ151 float64
-						_ = loζ151
-						ixζ151 := math.Float64bits(xζ151)
-						tmpζ151 := ixζ151 - 0x3fe8000000000000
-						keζ151 += int(int64(tmpζ151) >> 52)
-						mζ151 := math.Float64frombits(ixζ151 - uint64(int64(tmpζ151)>>52)<<52)
-						tζ151 := &logT[int(float64(mζ151*256)+0.5)-192]
-						invcζ151 := tζ151[0]
-						pζ151 := float64(mζ151 * invcζ151)
-						peζ151 := math.FMA(mζ151, invcζ151, -pζ151)
-						rζ151 := pζ151 - 1
-						r2ζ151 := float64(rζ151 * rζ151)
-						c0ζ151 := math.FMA(rζ151, 1.0/3, -0.5)
-						c1ζ151 := math.FMA(rζ151, 1.0/5, -0.25)
-						c2ζ151 := math.FMA(rζ151, 1.0/7, -1.0/6)
-						c2ζ151 = math.FMA(r2ζ151, -1.0/8, c2ζ151)
-						c1ζ151 = math.FMA(r2ζ151, c2ζ151, c1ζ151)
-						qζ151 := float64(r2ζ151 * math.FMA(r2ζ151, c1ζ151, c0ζ151))
-						kfζ151 := float64(keζ151)
-						lhζ151 := float64(kfζ151*ln2Hi42) + tζ151[1]
-						hiζ151 = lhζ151 + rζ151
-						loζ151 = (rζ151 - (hiζ151 - lhζ151)) + (math.FMA(kfζ151, ln2Lo42, tζ151[2]) + (math.FMA(peζ151, -rζ151, peζ151) + qζ151))
-						ζr151_0 = float64(hiζ151)
-						ζr151_1 = float64(loζ151)
-						goto ζL151
+						xζ124 := float64(xζ118)
+						keζ124 := int(0)
+						var hiζ124 float64
+						_ = hiζ124
+						var loζ124 float64
+						_ = loζ124
+						ixζ124 := math.Float64bits(xζ124)
+						tmpζ124 := ixζ124 - 0x3fe8000000000000
+						keζ124 += int(int64(tmpζ124) >> 52)
+						mζ124 := math.Float64frombits(ixζ124 - uint64(int64(tmpζ124)>>52)<<52)
+						tζ124 := &logT[int(float64(mζ124*256)+0.5)-192]
+						invcζ124 := tζ124[0]
+						pζ124 := float64(mζ124 * invcζ124)
+						peζ124 := math.FMA(mζ124, invcζ124, -pζ124)
+						rζ124 := pζ124 - 1
+						r2ζ124 := float64(rζ124 * rζ124)
+						c0ζ124 := math.FMA(rζ124, 1.0/3, -0.5)
+						c1ζ124 := math.FMA(rζ124, 1.0/5, -0.25)
+						c2ζ124 := math.FMA(rζ124, 1.0/7, -1.0/6)
+						c2ζ124 = math.FMA(r2ζ124, -1.0/8, c2ζ124)
+						c1ζ124 = math.FMA(r2ζ124, c2ζ124, c1ζ124)
+						qζ124 := float64(r2ζ124 * math.FMA(r2ζ124, c1ζ124, c0ζ124))
+						kfζ124 := float64(keζ124)
+						lhζ124 := float64(kfζ124*ln2Hi42) + tζ124[1]
+						hiζ124 = lhζ124 + rζ124
+						loζ124 = (rζ124 - (hiζ124 - lhζ124)) + (math.FMA(kfζ124, ln2Lo42, tζ124[2]) + (math.FMA(peζ124, -rζ124, peζ124) + qζ124))
+						ζr124_0 = float64(hiζ124)
+						ζr124_1 = float64(loζ124)
+						goto ζL124
 					}
-				ζL151:
-					ζt149, ζt150 := ζr151_0, ζr151_1
-					ζr145_0 = float64(ζt149)
-					ζr145_1 = float64(ζt150)
-					goto ζL145
+				ζL124:
+					ζt122, ζt123 := ζr124_0, ζr124_1
+					ζr118_0 = float64(ζt122)
+					ζr118_1 = float64(ζt123)
+					goto ζL118
 				}
-			ζL145:
-				lhζ0, llζ0 := ζr145_0, ζr145_1
+			ζL118:
+				lhζ0, llζ0 := ζr118_0, ζr118_1
 				ζdst[ζi] = float64(lhζ0 + (llζ0 + rζ0/yζ0))
 				continue ζloop
 			}
 			numζ0 := float64(2*pζ0) - 1
 			thζ0 := numζ0 / qhζ0
 			tlζ0 := (math.FMA(-thζ0, qhζ0, numζ0) - float64(thζ0*qlζ0)) / qhζ0
-			var ζr153_0 float64
+			var ζr126_0 float64
 			{
-				thζ153 := float64(thζ0)
-				tlζ153 := float64(tlζ0)
-				if math.Abs(thζ153) < 0x1p-20 {
-					sζ153 := float64(thζ153 * thζ153 * math.FMA(thζ153, math.FMA(thζ153, -0.25, 1.0/3), -0.5))
-					ζr153_0 = float64(thζ153 + (math.FMA(tlζ153, -thζ153, tlζ153) + sζ153))
-					goto ζL153
+				thζ126 := float64(thζ0)
+				tlζ126 := float64(tlζ0)
+				if math.Abs(thζ126) < 0x1p-20 {
+					sζ126 := float64(thζ126 * thζ126 * math.FMA(thζ126, math.FMA(thζ126, -0.25, 1.0/3), -0.5))
+					ζr126_0 = float64(thζ126 + (math.FMA(tlζ126, -thζ126, tlζ126) + sζ126))
+					goto ζL126
 				}
-				whζ153 := 1 + thζ153
-				bbζ153 := whζ153 - 1
-				wlζ153 := (1 - (whζ153 - bbζ153)) + (thζ153 - bbζ153) + tlζ153
-				var ζr154_0 float64
-				var ζr154_1 float64
+				whζ126 := 1 + thζ126
+				bbζ126 := whζ126 - 1
+				wlζ126 := (1 - (whζ126 - bbζ126)) + (thζ126 - bbζ126) + tlζ126
+				var ζr127_0 float64
+				var ζr127_1 float64
 				{
-					xζ154 := float64(whζ153)
-					var hiζ154 float64
-					_ = hiζ154
-					var loζ154 float64
-					_ = loζ154
-					var ζr157_0 float64
-					var ζr157_1 float64
+					xζ127 := float64(whζ126)
+					var hiζ127 float64
+					_ = hiζ127
+					var loζ127 float64
+					_ = loζ127
+					var ζr130_0 float64
+					var ζr130_1 float64
 					{
-						xζ157 := float64(xζ154)
-						keζ157 := int(0)
-						var hiζ157 float64
-						_ = hiζ157
-						var loζ157 float64
-						_ = loζ157
-						ixζ157 := math.Float64bits(xζ157)
-						tmpζ157 := ixζ157 - 0x3fe8000000000000
-						keζ157 += int(int64(tmpζ157) >> 52)
-						mζ157 := math.Float64frombits(ixζ157 - uint64(int64(tmpζ157)>>52)<<52)
-						tζ157 := &logT[int(float64(mζ157*256)+0.5)-192]
-						invcζ157 := tζ157[0]
-						pζ157 := float64(mζ157 * invcζ157)
-						peζ157 := math.FMA(mζ157, invcζ157, -pζ157)
-						rζ157 := pζ157 - 1
-						r2ζ157 := float64(rζ157 * rζ157)
-						c0ζ157 := math.FMA(rζ157, 1.0/3, -0.5)
-						c1ζ157 := math.FMA(rζ157, 1.0/5, -0.25)
-						c2ζ157 := math.FMA(rζ157, 1.0/7, -1.0/6)
-						c2ζ157 = math.FMA(r2ζ157, -1.0/8, c2ζ157)
-						c1ζ157 = math.FMA(r2ζ157, c2ζ157, c1ζ157)
-						qζ157 := float64(r2ζ157 * math.FMA(r2ζ157, c1ζ157, c0ζ157))
-						kfζ157 := float64(keζ157)
-						lhζ157 := float64(kfζ157*ln2Hi42) + tζ157[1]
-						hiζ157 = lhζ157 + rζ157
-						loζ157 = (rζ157 - (hiζ157 - lhζ157)) + (math.FMA(kfζ157, ln2Lo42, tζ157[2]) + (math.FMA(peζ157, -rζ157, peζ157) + qζ157))
-						ζr157_0 = float64(hiζ157)
-						ζr157_1 = float64(loζ157)
-						goto ζL157
+						xζ130 := float64(xζ127)
+						keζ130 := int(0)
+						var hiζ130 float64
+						_ = hiζ130
+						var loζ130 float64
+						_ = loζ130
+						ixζ130 := math.Float64bits(xζ130)
+						tmpζ130 := ixζ130 - 0x3fe8000000000000
+						keζ130 += int(int64(tmpζ130) >> 52)
+						mζ130 := math.Float64frombits(ixζ130 - uint64(int64(tmpζ130)>>52)<<52)
+						tζ130 := &logT[int(float64(mζ130*256)+0.5)-192]
+						invcζ130 := tζ130[0]
+						pζ130 := float64(mζ130 * invcζ130)
+						peζ130 := math.FMA(mζ130, invcζ130, -pζ130)
+						rζ130 := pζ130 - 1
+						r2ζ130 := float64(rζ130 * rζ130)
+						c0ζ130 := math.FMA(rζ130, 1.0/3, -0.5)
+						c1ζ130 := math.FMA(rζ130, 1.0/5, -0.25)
+						c2ζ130 := math.FMA(rζ130, 1.0/7, -1.0/6)
+						c2ζ130 = math.FMA(r2ζ130, -1.0/8, c2ζ130)
+						c1ζ130 = math.FMA(r2ζ130, c2ζ130, c1ζ130)
+						qζ130 := float64(r2ζ130 * math.FMA(r2ζ130, c1ζ130, c0ζ130))
+						kfζ130 := float64(keζ130)
+						lhζ130 := float64(kfζ130*ln2Hi42) + tζ130[1]
+						hiζ130 = lhζ130 + rζ130
+						loζ130 = (rζ130 - (hiζ130 - lhζ130)) + (math.FMA(kfζ130, ln2Lo42, tζ130[2]) + (math.FMA(peζ130, -rζ130, peζ130) + qζ130))
+						ζr130_0 = float64(hiζ130)
+						ζr130_1 = float64(loζ130)
+						goto ζL130
 					}
-				ζL157:
-					ζt155, ζt156 := ζr157_0, ζr157_1
-					ζr154_0 = float64(ζt155)
-					ζr154_1 = float64(ζt156)
-					goto ζL154
+				ζL130:
+					ζt128, ζt129 := ζr130_0, ζr130_1
+					ζr127_0 = float64(ζt128)
+					ζr127_1 = float64(ζt129)
+					goto ζL127
 				}
-			ζL154:
-				lhζ153, llζ153 := ζr154_0, ζr154_1
-				ζr153_0 = float64(lhζ153 + (llζ153 + wlζ153/whζ153))
-				goto ζL153
+			ζL127:
+				lhζ126, llζ126 := ζr127_0, ζr127_1
+				ζr126_0 = float64(lhζ126 + (llζ126 + wlζ126/whζ126))
+				goto ζL126
 			}
-		ζL153:
-			ζt152 := ζr153_0
-			ζdst[ζi] = float64(ζt152)
+		ζL126:
+			ζt125 := ζr126_0
+			ζdst[ζi] = float64(ζt125)
 			continue ζloop
 		}
 	}
@@ -3134,14 +2814,14 @@ func Log1pExpTo(ζdst, ζx []float64) {
 			lζ0 := ((tuζ0 - (h0ζ0 - thζ0)) + math.FMA(thζ0, uζ0, -tuζ0)) + math.FMA(thζ0, ueζ0+puζ0, math.FMA(tlζ0, uζ0, tlζ0))
 			hζ0 := h0ζ0 + lζ0
 			lζ0 -= hζ0 - h0ζ0
-			var ζr158_0 float64
+			var ζr131_0 float64
 			{
-				kζ158 := int(kiζ0 >> 7)
-				ζr158_0 = float64(math.Float64frombits(uint64(kζ158+1023) << 52))
-				goto ζL158
+				kζ131 := int(kiζ0 >> 7)
+				ζr131_0 = float64(math.Float64frombits(uint64(kζ131+1023) << 52))
+				goto ζL131
 			}
-		ζL158:
-			scζ0 := ζr158_0
+		ζL131:
+			scζ0 := ζr131_0
 			hζ0 = float64(hζ0 * (scζ0))
 			lζ0 = float64(lζ0 * (scζ0))
 			if hζ0 < 0x1p-27 {
@@ -3207,155 +2887,155 @@ func ZetaTo(ζdst, ζx []float64) {
 				ζdst[ζi] = float64(1)
 				continue ζloop
 			case sζ0 > 6:
-				var ζr160_0 float64
+				var ζr133_0 float64
 				{
-					sζ160 := float64(sζ0)
-					var ghζ160, glζ160 float64
-					if iζ160 := int((sζ160 - 6) * 0.5); iζ160 == 0 {
-						gζ160 := evalPiecesDD(zetaTailPieces[:1], sζ160)
-						ghζ160, glζ160 = gζ160.Hi, gζ160.Lo
+					sζ133 := float64(sζ0)
+					var ghζ133, glζ133 float64
+					if iζ133 := int((sζ133 - 6) * 0.5); iζ133 == 0 {
+						gζ133 := evalPiecesDD(zetaTailPieces[:1], sζ133)
+						ghζ133, glζ133 = gζ133.Hi, gζ133.Lo
 					} else {
-						var ζr161_0 float64
-						var ζr161_1 float64
+						var ζr134_0 float64
+						var ζr134_1 float64
 						{
-							eζ161 := &zetaTailEst[iζ160-1]
-							tζ161 := float64(sζ160)
-							var hiζ161 float64
-							_ = hiζ161
-							var loζ161 float64
-							_ = loζ161
-							sζ161 := tζ161 - eζ161.c
-							qζ161 := &eζ161.q
-							s2ζ161 := float64(sζ161 * sζ161)
-							s4ζ161 := float64(s2ζ161 * s2ζ161)
-							a0ζ161 := math.FMA(qζ161[4], sζ161, qζ161[3])
-							a1ζ161 := math.FMA(qζ161[6], sζ161, qζ161[5])
-							a2ζ161 := math.FMA(qζ161[8], sζ161, qζ161[7])
-							a3ζ161 := math.FMA(qζ161[10], sζ161, qζ161[9])
-							a4ζ161 := math.FMA(qζ161[12], sζ161, qζ161[11])
-							a5ζ161 := math.FMA(qζ161[14], sζ161, qζ161[13])
-							b0ζ161 := math.FMA(a1ζ161, s2ζ161, a0ζ161)
-							b1ζ161 := math.FMA(a3ζ161, s2ζ161, a2ζ161)
-							b2ζ161 := math.FMA(a5ζ161, s2ζ161, a4ζ161)
-							c0ζ161 := math.FMA(b1ζ161, s4ζ161, b0ζ161)
-							c1ζ161 := math.FMA(qζ161[15], s4ζ161, b2ζ161)
-							pζ161 := math.FMA(c1ζ161, s4ζ161*s4ζ161, c0ζ161)
-							pζ161 = math.FMA(math.FMA(math.FMA(pζ161, sζ161, qζ161[2]), sζ161, qζ161[1]), sζ161, qζ161[0])
-							rζ161 := float64(sζ161 * pζ161)
-							hiζ161 = eζ161.c0 + rζ161
-							loζ161 = (rζ161 - (hiζ161 - eζ161.c0)) + (math.FMA(sζ161, pζ161, -rζ161) + eζ161.c0lo)
-							ζr161_0 = float64(hiζ161)
-							ζr161_1 = float64(loζ161)
-							goto ζL161
+							eζ134 := &zetaTailEst[iζ133-1]
+							tζ134 := float64(sζ133)
+							var hiζ134 float64
+							_ = hiζ134
+							var loζ134 float64
+							_ = loζ134
+							sζ134 := tζ134 - eζ134.c
+							qζ134 := &eζ134.q
+							s2ζ134 := float64(sζ134 * sζ134)
+							s4ζ134 := float64(s2ζ134 * s2ζ134)
+							a0ζ134 := math.FMA(qζ134[4], sζ134, qζ134[3])
+							a1ζ134 := math.FMA(qζ134[6], sζ134, qζ134[5])
+							a2ζ134 := math.FMA(qζ134[8], sζ134, qζ134[7])
+							a3ζ134 := math.FMA(qζ134[10], sζ134, qζ134[9])
+							a4ζ134 := math.FMA(qζ134[12], sζ134, qζ134[11])
+							a5ζ134 := math.FMA(qζ134[14], sζ134, qζ134[13])
+							b0ζ134 := math.FMA(a1ζ134, s2ζ134, a0ζ134)
+							b1ζ134 := math.FMA(a3ζ134, s2ζ134, a2ζ134)
+							b2ζ134 := math.FMA(a5ζ134, s2ζ134, a4ζ134)
+							c0ζ134 := math.FMA(b1ζ134, s4ζ134, b0ζ134)
+							c1ζ134 := math.FMA(qζ134[15], s4ζ134, b2ζ134)
+							pζ134 := math.FMA(c1ζ134, s4ζ134*s4ζ134, c0ζ134)
+							pζ134 = math.FMA(math.FMA(math.FMA(pζ134, sζ134, qζ134[2]), sζ134, qζ134[1]), sζ134, qζ134[0])
+							rζ134 := float64(sζ134 * pζ134)
+							hiζ134 = eζ134.c0 + rζ134
+							loζ134 = (rζ134 - (hiζ134 - eζ134.c0)) + (math.FMA(sζ134, pζ134, -rζ134) + eζ134.c0lo)
+							ζr134_0 = float64(hiζ134)
+							ζr134_1 = float64(loζ134)
+							goto ζL134
 						}
-					ζL161:
-						ghζ160, glζ160 = ζr161_0, ζr161_1
+					ζL134:
+						ghζ133, glζ133 = ζr134_0, ζr134_1
 					}
-					xhζ160 := float64(-sζ160 * ln2DD.Hi)
-					xlζ160 := math.FMA(-sζ160, ln2DD.Hi, -xhζ160) - float64(sζ160*ln2DD.Lo)
-					var ζr162_0 float64
-					var ζr162_1 float64
-					var ζr162_2 int
+					xhζ133 := float64(-sζ133 * ln2DD.Hi)
+					xlζ133 := math.FMA(-sζ133, ln2DD.Hi, -xhζ133) - float64(sζ133*ln2DD.Lo)
+					var ζr135_0 float64
+					var ζr135_1 float64
+					var ζr135_2 int
 					{
-						xhζ162 := float64(xhζ160)
-						xlζ162 := float64(xlζ160)
-						var hiζ162 float64
-						_ = hiζ162
-						var loζ162 float64
-						_ = loζ162
-						var kζ162 int
-						_ = kζ162
-						kdζ162 := math.RoundToEven(xhζ162 * expInvLn2N)
-						kiζ162 := int(kdζ162)
-						rζ162 := xhζ162 - float64(kdζ162*expC1)
-						drζ162 := xlζ162 - float64(kdζ162*expC2)
-						uζ162 := rζ162 + drζ162
-						ueζ162 := drζ162 - (uζ162 - rζ162)
-						u2ζ162 := float64(uζ162 * uζ162)
-						aζ162 := math.FMA(uζ162, 1.0/6, 0.5)
-						bζ162 := math.FMA(uζ162, 1.0/120, 1.0/24)
-						bζ162 = math.FMA(u2ζ162, 1.0/720, bζ162)
-						pζ162 := float64(u2ζ162 * math.FMA(u2ζ162, bζ162, aζ162))
-						tζ162 := &expT[kiζ162&127]
-						thζ162, tlζ162 := tζ162[0], tζ162[1]
-						puζ162 := float64(thζ162 * uζ162)
-						hζ162 := thζ162 + puζ162
-						loζ162 = ((puζ162 - (hζ162 - thζ162)) + math.FMA(thζ162, uζ162, -puζ162)) + math.FMA(thζ162, ueζ162+pζ162, math.FMA(tlζ162, uζ162, tlζ162))
-						hiζ162 = hζ162 + loζ162
-						loζ162 -= hiζ162 - hζ162
-						ζr162_0 = float64(hiζ162)
-						ζr162_1 = float64(loζ162)
-						ζr162_2 = int(kiζ162 >> 7)
-						goto ζL162
+						xhζ135 := float64(xhζ133)
+						xlζ135 := float64(xlζ133)
+						var hiζ135 float64
+						_ = hiζ135
+						var loζ135 float64
+						_ = loζ135
+						var kζ135 int
+						_ = kζ135
+						kdζ135 := math.RoundToEven(xhζ135 * expInvLn2N)
+						kiζ135 := int(kdζ135)
+						rζ135 := xhζ135 - float64(kdζ135*expC1)
+						drζ135 := xlζ135 - float64(kdζ135*expC2)
+						uζ135 := rζ135 + drζ135
+						ueζ135 := drζ135 - (uζ135 - rζ135)
+						u2ζ135 := float64(uζ135 * uζ135)
+						aζ135 := math.FMA(uζ135, 1.0/6, 0.5)
+						bζ135 := math.FMA(uζ135, 1.0/120, 1.0/24)
+						bζ135 = math.FMA(u2ζ135, 1.0/720, bζ135)
+						pζ135 := float64(u2ζ135 * math.FMA(u2ζ135, bζ135, aζ135))
+						tζ135 := &expT[kiζ135&127]
+						thζ135, tlζ135 := tζ135[0], tζ135[1]
+						puζ135 := float64(thζ135 * uζ135)
+						hζ135 := thζ135 + puζ135
+						loζ135 = ((puζ135 - (hζ135 - thζ135)) + math.FMA(thζ135, uζ135, -puζ135)) + math.FMA(thζ135, ueζ135+pζ135, math.FMA(tlζ135, uζ135, tlζ135))
+						hiζ135 = hζ135 + loζ135
+						loζ135 -= hiζ135 - hζ135
+						ζr135_0 = float64(hiζ135)
+						ζr135_1 = float64(loζ135)
+						ζr135_2 = int(kiζ135 >> 7)
+						goto ζL135
 					}
-				ζL162:
-					ehζ160, elζ160, kζ160 := ζr162_0, ζr162_1, ζr162_2
-					var ζr163_0 float64
+				ζL135:
+					ehζ133, elζ133, kζ133 := ζr135_0, ζr135_1, ζr135_2
+					var ζr136_0 float64
 					{
-						kζ163 := int(kζ160)
-						ζr163_0 = float64(math.Float64frombits(uint64(kζ163+1023) << 52))
-						goto ζL163
+						kζ136 := int(kζ133)
+						ζr136_0 = float64(math.Float64frombits(uint64(kζ136+1023) << 52))
+						goto ζL136
 					}
-				ζL163:
-					scζ160 := ζr163_0
-					thζ160 := float64(ehζ160 * ghζ160)
-					tlζ160 := math.FMA(ehζ160, ghζ160, -thζ160) + math.FMA(ehζ160, glζ160, elζ160*ghζ160)
-					thζ160 = float64(thζ160 * (scζ160))
-					tlζ160 = float64(tlζ160 * (scζ160))
-					rζ160 := 1 + thζ160
-					ζr160_0 = float64(rζ160 + (((1 - rζ160) + thζ160) + tlζ160))
-					goto ζL160
+				ζL136:
+					scζ133 := ζr136_0
+					thζ133 := float64(ehζ133 * ghζ133)
+					tlζ133 := math.FMA(ehζ133, ghζ133, -thζ133) + math.FMA(ehζ133, glζ133, elζ133*ghζ133)
+					thζ133 = float64(thζ133 * (scζ133))
+					tlζ133 = float64(tlζ133 * (scζ133))
+					rζ133 := 1 + thζ133
+					ζr133_0 = float64(rζ133 + (((1 - rζ133) + thζ133) + tlζ133))
+					goto ζL133
 				}
-			ζL160:
-				ζt159 := ζr160_0
-				ζdst[ζi] = float64(ζt159)
+			ζL133:
+				ζt132 := ζr133_0
+				ζdst[ζi] = float64(ζt132)
 				continue ζloop
 			case sζ0 >= -1:
-				var ζr165_0 float64
+				var ζr138_0 float64
 				{
-					sζ165 := float64(sζ0)
-					dhζ165 := sζ165 - 1
-					bbζ165 := dhζ165 - sζ165
-					dlζ165 := (sζ165 - (dhζ165 - bbζ165)) + (-1 - bbζ165)
-					qζ165 := 1 / dhζ165
-					qlζ165 := float64((math.FMA(-qζ165, dhζ165, 1) - float64(qζ165*dlζ165)) * qζ165)
-					var ζr166_0 float64
-					var ζr166_1 float64
+					sζ138 := float64(sζ0)
+					dhζ138 := sζ138 - 1
+					bbζ138 := dhζ138 - sζ138
+					dlζ138 := (sζ138 - (dhζ138 - bbζ138)) + (-1 - bbζ138)
+					qζ138 := 1 / dhζ138
+					qlζ138 := float64((math.FMA(-qζ138, dhζ138, 1) - float64(qζ138*dlζ138)) * qζ138)
+					var ζr139_0 float64
+					var ζr139_1 float64
 					{
-						eζ166 := &zetaEst[min(int((sζ165+1)*2), len(zetaEst)-1)]
-						tζ166 := float64(sζ165)
-						var hiζ166 float64
-						_ = hiζ166
-						var loζ166 float64
-						_ = loζ166
-						sζ166 := tζ166 - eζ166.c
-						qζ166 := &eζ166.q
-						s2ζ166 := float64(sζ166 * sζ166)
-						a0ζ166 := math.FMA(qζ166[4], sζ166, qζ166[3])
-						a1ζ166 := math.FMA(qζ166[6], sζ166, qζ166[5])
-						a2ζ166 := math.FMA(qζ166[8], sζ166, qζ166[7])
-						b0ζ166 := math.FMA(a1ζ166, s2ζ166, a0ζ166)
-						b1ζ166 := math.FMA(qζ166[9], s2ζ166, a2ζ166)
-						pζ166 := math.FMA(b1ζ166, s2ζ166*s2ζ166, b0ζ166)
-						pζ166 = math.FMA(math.FMA(math.FMA(pζ166, sζ166, qζ166[2]), sζ166, qζ166[1]), sζ166, qζ166[0])
-						rζ166 := float64(sζ166 * pζ166)
-						hiζ166 = eζ166.c0 + rζ166
-						loζ166 = (rζ166 - (hiζ166 - eζ166.c0)) + (math.FMA(sζ166, pζ166, -rζ166) + eζ166.c0lo)
-						ζr166_0 = float64(hiζ166)
-						ζr166_1 = float64(loζ166)
-						goto ζL166
+						eζ139 := &zetaEst[min(int((sζ138+1)*2), len(zetaEst)-1)]
+						tζ139 := float64(sζ138)
+						var hiζ139 float64
+						_ = hiζ139
+						var loζ139 float64
+						_ = loζ139
+						sζ139 := tζ139 - eζ139.c
+						qζ139 := &eζ139.q
+						s2ζ139 := float64(sζ139 * sζ139)
+						a0ζ139 := math.FMA(qζ139[4], sζ139, qζ139[3])
+						a1ζ139 := math.FMA(qζ139[6], sζ139, qζ139[5])
+						a2ζ139 := math.FMA(qζ139[8], sζ139, qζ139[7])
+						b0ζ139 := math.FMA(a1ζ139, s2ζ139, a0ζ139)
+						b1ζ139 := math.FMA(qζ139[9], s2ζ139, a2ζ139)
+						pζ139 := math.FMA(b1ζ139, s2ζ139*s2ζ139, b0ζ139)
+						pζ139 = math.FMA(math.FMA(math.FMA(pζ139, sζ139, qζ139[2]), sζ139, qζ139[1]), sζ139, qζ139[0])
+						rζ139 := float64(sζ139 * pζ139)
+						hiζ139 = eζ139.c0 + rζ139
+						loζ139 = (rζ139 - (hiζ139 - eζ139.c0)) + (math.FMA(sζ139, pζ139, -rζ139) + eζ139.c0lo)
+						ζr139_0 = float64(hiζ139)
+						ζr139_1 = float64(loζ139)
+						goto ζL139
 					}
-				ζL166:
-					rhζ165, rlζ165 := ζr166_0, ζr166_1
-					vζ165 := qζ165 + rhζ165
-					bbζ165 = vζ165 - qζ165
-					veζ165 := (qζ165 - (vζ165 - bbζ165)) + (rhζ165 - bbζ165)
-					ζr165_0 = float64(vζ165 + (veζ165 + (qlζ165 + rlζ165)))
-					goto ζL165
+				ζL139:
+					rhζ138, rlζ138 := ζr139_0, ζr139_1
+					vζ138 := qζ138 + rhζ138
+					bbζ138 = vζ138 - qζ138
+					veζ138 := (qζ138 - (vζ138 - bbζ138)) + (rhζ138 - bbζ138)
+					ζr138_0 = float64(vζ138 + (veζ138 + (qlζ138 + rlζ138)))
+					goto ζL138
 				}
-			ζL165:
-				ζt164 := ζr165_0
-				ζdst[ζi] = float64(ζt164)
+			ζL138:
+				ζt137 := ζr138_0
+				ζdst[ζi] = float64(ζt137)
 				continue ζloop
 			}
 			ζdst[ζi] = float64(zetaReflect(sζ0))
@@ -3374,94 +3054,94 @@ func TrigammaTo(ζdst, ζx []float64) {
 		xζ0 := ζx[ζi]
 		{
 			if xζ0 >= 0x1p-500 && xζ0 <= math.MaxFloat64 {
-				var ζr168_0 float64
+				var ζr141_0 float64
 				{
-					xζ168 := float64(xζ0)
-					if xζ168 >= 10 {
-						var ζr169_0 float64
-						var ζr169_1 float64
+					xζ141 := float64(xζ0)
+					if xζ141 >= 10 {
+						var ζr142_0 float64
+						var ζr142_1 float64
 						{
-							xζ169 := float64(xζ168)
-							var hiζ169 float64
-							_ = hiζ169
-							var loζ169 float64
-							_ = loζ169
-							qζ169 := 1 / xζ169
-							qlζ169 := float64(math.FMA(-qζ169, xζ169, 1) * qζ169)
-							zhζ169 := float64(qζ169 * qζ169)
-							zlζ169 := math.FMA(qζ169, qζ169, -zhζ169) + float64(2*qζ169*qlζ169)
-							z2ζ169 := float64(zhζ169 * zhζ169)
-							z4ζ169 := float64(z2ζ169 * z2ζ169)
-							aζ169 := math.FMA(math.FMA(-1.0/30, zhζ169, 1.0/42), z2ζ169, math.FMA(-1.0/30, zhζ169, 1.0/6))
-							bζ169 := math.FMA(math.FMA(-3617.0/510, zhζ169, 7.0/6), z2ζ169, math.FMA(-691.0/2730, zhζ169, 5.0/66))
-							cζ169 := math.FMA(math.FMA(-236364091.0/2730, zhζ169, 854513.0/138), z2ζ169, math.FMA(-174611.0/330, zhζ169, 43867.0/798))
-							serζ169 := float64(math.FMA(math.FMA(cζ169, z4ζ169, bζ169), z4ζ169, aζ169) * zhζ169 * qζ169)
-							hζ169 := float64(0.5 * zhζ169)
-							hiζ169 = qζ169 + hζ169
-							ζr169_0 = float64(hiζ169)
-							ζr169_1 = float64(((qζ169 - hiζ169) + hζ169) + (qlζ169 + float64(0.5*zlζ169) + serζ169))
-							goto ζL169
+							xζ142 := float64(xζ141)
+							var hiζ142 float64
+							_ = hiζ142
+							var loζ142 float64
+							_ = loζ142
+							qζ142 := 1 / xζ142
+							qlζ142 := float64(math.FMA(-qζ142, xζ142, 1) * qζ142)
+							zhζ142 := float64(qζ142 * qζ142)
+							zlζ142 := math.FMA(qζ142, qζ142, -zhζ142) + float64(2*qζ142*qlζ142)
+							z2ζ142 := float64(zhζ142 * zhζ142)
+							z4ζ142 := float64(z2ζ142 * z2ζ142)
+							aζ142 := math.FMA(math.FMA(-1.0/30, zhζ142, 1.0/42), z2ζ142, math.FMA(-1.0/30, zhζ142, 1.0/6))
+							bζ142 := math.FMA(math.FMA(-3617.0/510, zhζ142, 7.0/6), z2ζ142, math.FMA(-691.0/2730, zhζ142, 5.0/66))
+							cζ142 := math.FMA(math.FMA(-236364091.0/2730, zhζ142, 854513.0/138), z2ζ142, math.FMA(-174611.0/330, zhζ142, 43867.0/798))
+							serζ142 := float64(math.FMA(math.FMA(cζ142, z4ζ142, bζ142), z4ζ142, aζ142) * zhζ142 * qζ142)
+							hζ142 := float64(0.5 * zhζ142)
+							hiζ142 = qζ142 + hζ142
+							ζr142_0 = float64(hiζ142)
+							ζr142_1 = float64(((qζ142 - hiζ142) + hζ142) + (qlζ142 + float64(0.5*zlζ142) + serζ142))
+							goto ζL142
 						}
-					ζL169:
-						hζ168, lζ168 := ζr169_0, ζr169_1
-						ζr168_0 = float64(hζ168 + lζ168)
-						goto ζL168
+					ζL142:
+						hζ141, lζ141 := ζr142_0, ζr142_1
+						ζr141_0 = float64(hζ141 + lζ141)
+						goto ζL141
 					}
-					nζ168 := math.Ceil(10 - xζ168)
-					shζ168, slζ168 := 0.0, 0.0
-					for kζ168 := nζ168 - 1; kζ168 >= 0; kζ168-- {
-						yhζ168 := xζ168 + kζ168
-						bbζ168 := yhζ168 - xζ168
-						ylζ168 := (xζ168 - (yhζ168 - bbζ168)) + (kζ168 - bbζ168)
-						qζ168 := 1 / yhζ168
-						qlζ168 := float64((math.FMA(-qζ168, yhζ168, 1) - float64(qζ168*ylζ168)) * qζ168)
-						thζ168 := float64(qζ168 * qζ168)
-						tlζ168 := math.FMA(qζ168, qζ168, -thζ168) + float64(2*qζ168*qlζ168)
-						vζ168 := shζ168 + thζ168
-						bbζ168 = vζ168 - shζ168
-						slζ168 += ((shζ168 - (vζ168 - bbζ168)) + (thζ168 - bbζ168)) + tlζ168
-						shζ168 = vζ168
+					nζ141 := math.Ceil(10 - xζ141)
+					shζ141, slζ141 := 0.0, 0.0
+					for kζ141 := nζ141 - 1; kζ141 >= 0; kζ141-- {
+						yhζ141 := xζ141 + kζ141
+						bbζ141 := yhζ141 - xζ141
+						ylζ141 := (xζ141 - (yhζ141 - bbζ141)) + (kζ141 - bbζ141)
+						qζ141 := 1 / yhζ141
+						qlζ141 := float64((math.FMA(-qζ141, yhζ141, 1) - float64(qζ141*ylζ141)) * qζ141)
+						thζ141 := float64(qζ141 * qζ141)
+						tlζ141 := math.FMA(qζ141, qζ141, -thζ141) + float64(2*qζ141*qlζ141)
+						vζ141 := shζ141 + thζ141
+						bbζ141 = vζ141 - shζ141
+						slζ141 += ((shζ141 - (vζ141 - bbζ141)) + (thζ141 - bbζ141)) + tlζ141
+						shζ141 = vζ141
 					}
-					yhζ168 := xζ168 + nζ168
-					bbζ168 := yhζ168 - xζ168
-					ylζ168 := (xζ168 - (yhζ168 - bbζ168)) + (nζ168 - bbζ168)
-					var ζr170_0 float64
-					var ζr170_1 float64
+					yhζ141 := xζ141 + nζ141
+					bbζ141 := yhζ141 - xζ141
+					ylζ141 := (xζ141 - (yhζ141 - bbζ141)) + (nζ141 - bbζ141)
+					var ζr143_0 float64
+					var ζr143_1 float64
 					{
-						xζ170 := float64(yhζ168)
-						var hiζ170 float64
-						_ = hiζ170
-						var loζ170 float64
-						_ = loζ170
-						qζ170 := 1 / xζ170
-						qlζ170 := float64(math.FMA(-qζ170, xζ170, 1) * qζ170)
-						zhζ170 := float64(qζ170 * qζ170)
-						zlζ170 := math.FMA(qζ170, qζ170, -zhζ170) + float64(2*qζ170*qlζ170)
-						z2ζ170 := float64(zhζ170 * zhζ170)
-						z4ζ170 := float64(z2ζ170 * z2ζ170)
-						aζ170 := math.FMA(math.FMA(-1.0/30, zhζ170, 1.0/42), z2ζ170, math.FMA(-1.0/30, zhζ170, 1.0/6))
-						bζ170 := math.FMA(math.FMA(-3617.0/510, zhζ170, 7.0/6), z2ζ170, math.FMA(-691.0/2730, zhζ170, 5.0/66))
-						cζ170 := math.FMA(math.FMA(-236364091.0/2730, zhζ170, 854513.0/138), z2ζ170, math.FMA(-174611.0/330, zhζ170, 43867.0/798))
-						serζ170 := float64(math.FMA(math.FMA(cζ170, z4ζ170, bζ170), z4ζ170, aζ170) * zhζ170 * qζ170)
-						hζ170 := float64(0.5 * zhζ170)
-						hiζ170 = qζ170 + hζ170
-						ζr170_0 = float64(hiζ170)
-						ζr170_1 = float64(((qζ170 - hiζ170) + hζ170) + (qlζ170 + float64(0.5*zlζ170) + serζ170))
-						goto ζL170
+						xζ143 := float64(yhζ141)
+						var hiζ143 float64
+						_ = hiζ143
+						var loζ143 float64
+						_ = loζ143
+						qζ143 := 1 / xζ143
+						qlζ143 := float64(math.FMA(-qζ143, xζ143, 1) * qζ143)
+						zhζ143 := float64(qζ143 * qζ143)
+						zlζ143 := math.FMA(qζ143, qζ143, -zhζ143) + float64(2*qζ143*qlζ143)
+						z2ζ143 := float64(zhζ143 * zhζ143)
+						z4ζ143 := float64(z2ζ143 * z2ζ143)
+						aζ143 := math.FMA(math.FMA(-1.0/30, zhζ143, 1.0/42), z2ζ143, math.FMA(-1.0/30, zhζ143, 1.0/6))
+						bζ143 := math.FMA(math.FMA(-3617.0/510, zhζ143, 7.0/6), z2ζ143, math.FMA(-691.0/2730, zhζ143, 5.0/66))
+						cζ143 := math.FMA(math.FMA(-236364091.0/2730, zhζ143, 854513.0/138), z2ζ143, math.FMA(-174611.0/330, zhζ143, 43867.0/798))
+						serζ143 := float64(math.FMA(math.FMA(cζ143, z4ζ143, bζ143), z4ζ143, aζ143) * zhζ143 * qζ143)
+						hζ143 := float64(0.5 * zhζ143)
+						hiζ143 = qζ143 + hζ143
+						ζr143_0 = float64(hiζ143)
+						ζr143_1 = float64(((qζ143 - hiζ143) + hζ143) + (qlζ143 + float64(0.5*zlζ143) + serζ143))
+						goto ζL143
 					}
-				ζL170:
-					ahζ168, alζ168 := ζr170_0, ζr170_1
-					iyζ168 := 1 / yhζ168
-					alζ168 -= float64(ylζ168 * iyζ168 * iyζ168 * (1 + float64(iyζ168*(1+float64(0.5*iyζ168)))))
-					vζ168 := shζ168 + ahζ168
-					bbζ168 = vζ168 - shζ168
-					veζ168 := (shζ168 - (vζ168 - bbζ168)) + (ahζ168 - bbζ168)
-					ζr168_0 = float64(vζ168 + (veζ168 + (slζ168 + alζ168)))
-					goto ζL168
+				ζL143:
+					ahζ141, alζ141 := ζr143_0, ζr143_1
+					iyζ141 := 1 / yhζ141
+					alζ141 -= float64(ylζ141 * iyζ141 * iyζ141 * (1 + float64(iyζ141*(1+float64(0.5*iyζ141)))))
+					vζ141 := shζ141 + ahζ141
+					bbζ141 = vζ141 - shζ141
+					veζ141 := (shζ141 - (vζ141 - bbζ141)) + (ahζ141 - bbζ141)
+					ζr141_0 = float64(vζ141 + (veζ141 + (slζ141 + alζ141)))
+					goto ζL141
 				}
-			ζL168:
-				ζt167 := ζr168_0
-				ζdst[ζi] = float64(ζt167)
+			ζL141:
+				ζt140 := ζr141_0
+				ζdst[ζi] = float64(ζt140)
 				continue ζloop
 			}
 			ζdst[ζi] = float64(Polygamma(1, xζ0))
@@ -3487,380 +3167,746 @@ func BetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 			}
 			if aζ0 > 0 {
 				if bζ0 < 10 && aζ0 > 0x1p-56 {
-					var ζr172_0 float64
+					var ζr145_0 float64
 					{
-						aζ172 := float64(aζ0)
-						bζ172 := float64(bζ0)
-						sζ172 := aζ172 + bζ172
-						bbζ172 := sζ172 - aζ172
-						slζ172 := (aζ172 - (sζ172 - bbζ172)) + (bζ172 - bbζ172)
-						var ζr173_0 float64
-						var ζr173_1 float64
+						aζ145 := float64(aζ0)
+						bζ145 := float64(bζ0)
+						sζ145 := aζ145 + bζ145
+						bbζ145 := sζ145 - aζ145
+						slζ145 := (aζ145 - (sζ145 - bbζ145)) + (bζ145 - bbζ145)
+						var ζr146_0 float64
+						var ζr146_1 float64
 						{
-							xζ173 := float64(aζ172)
-							var hiζ173 float64
-							_ = hiζ173
-							var loζ173 float64
-							_ = loζ173
-							if xζ173 >= 1 {
-								var ζr176_0 float64
-								var ζr176_1 float64
+							xζ146 := float64(aζ145)
+							var hiζ146 float64
+							_ = hiζ146
+							var loζ146 float64
+							_ = loζ146
+							if xζ146 >= 1 {
+								var ζr149_0 float64
+								var ζr149_1 float64
 								{
-									xζ176 := float64(xζ173)
-									var hiζ176 float64
-									_ = hiζ176
-									var loζ176 float64
-									_ = loζ176
-									nζ176 := math.Ceil(xζ176 - 2)
-									if nζ176 <= 0 {
-										var ζr179_0 float64
-										var ζr179_1 float64
+									xζ149 := float64(xζ146)
+									var hiζ149 float64
+									_ = hiζ149
+									var loζ149 float64
+									_ = loζ149
+									nζ149 := math.Ceil(xζ149 - 2)
+									if nζ149 <= 0 {
+										var ζr152_0 float64
+										var ζr152_1 float64
 										{
-											tζ179 := float64(xζ176 - 1)
-											var hiζ179 float64
-											_ = hiζ179
-											var loζ179 float64
-											_ = loζ179
-											var ζr180_0 float64
-											var ζr180_1 float64
+											tζ152 := float64(xζ149 - 1)
+											var hiζ152 float64
+											_ = hiζ152
+											var loζ152 float64
+											_ = loζ152
+											var ζr153_0 float64
+											var ζr153_1 float64
 											{
-												eζ180 := &gamma1pEst[min(int(tζ179*4), 3)]
-												tζ180 := float64(tζ179)
-												var hiζ180 float64
-												_ = hiζ180
-												var loζ180 float64
-												_ = loζ180
-												sζ180 := tζ180 - eζ180.c
-												qζ180 := &eζ180.q
-												s2ζ180 := float64(sζ180 * sζ180)
-												s4ζ180 := float64(s2ζ180 * s2ζ180)
-												a0ζ180 := math.FMA(qζ180[4], sζ180, qζ180[3])
-												a1ζ180 := math.FMA(qζ180[6], sζ180, qζ180[5])
-												a2ζ180 := math.FMA(qζ180[8], sζ180, qζ180[7])
-												a3ζ180 := math.FMA(qζ180[10], sζ180, qζ180[9])
-												a4ζ180 := math.FMA(qζ180[12], sζ180, qζ180[11])
-												a5ζ180 := math.FMA(qζ180[14], sζ180, qζ180[13])
-												b0ζ180 := math.FMA(a1ζ180, s2ζ180, a0ζ180)
-												b1ζ180 := math.FMA(a3ζ180, s2ζ180, a2ζ180)
-												b2ζ180 := math.FMA(a5ζ180, s2ζ180, a4ζ180)
-												c0ζ180 := math.FMA(b1ζ180, s4ζ180, b0ζ180)
-												c1ζ180 := math.FMA(qζ180[15], s4ζ180, b2ζ180)
-												pζ180 := math.FMA(c1ζ180, s4ζ180*s4ζ180, c0ζ180)
-												pζ180 = math.FMA(math.FMA(math.FMA(pζ180, sζ180, qζ180[2]), sζ180, qζ180[1]), sζ180, qζ180[0])
-												rζ180 := float64(sζ180 * pζ180)
-												hiζ180 = eζ180.c0 + rζ180
-												loζ180 = (rζ180 - (hiζ180 - eζ180.c0)) + (math.FMA(sζ180, pζ180, -rζ180) + eζ180.c0lo)
-												ζr180_0 = float64(hiζ180)
-												ζr180_1 = float64(loζ180)
-												goto ζL180
+												eζ153 := &gamma1pEst[min(int(tζ152*4), 3)]
+												tζ153 := float64(tζ152)
+												var hiζ153 float64
+												_ = hiζ153
+												var loζ153 float64
+												_ = loζ153
+												sζ153 := tζ153 - eζ153.c
+												qζ153 := &eζ153.q
+												s2ζ153 := float64(sζ153 * sζ153)
+												s4ζ153 := float64(s2ζ153 * s2ζ153)
+												a0ζ153 := math.FMA(qζ153[4], sζ153, qζ153[3])
+												a1ζ153 := math.FMA(qζ153[6], sζ153, qζ153[5])
+												a2ζ153 := math.FMA(qζ153[8], sζ153, qζ153[7])
+												a3ζ153 := math.FMA(qζ153[10], sζ153, qζ153[9])
+												a4ζ153 := math.FMA(qζ153[12], sζ153, qζ153[11])
+												a5ζ153 := math.FMA(qζ153[14], sζ153, qζ153[13])
+												b0ζ153 := math.FMA(a1ζ153, s2ζ153, a0ζ153)
+												b1ζ153 := math.FMA(a3ζ153, s2ζ153, a2ζ153)
+												b2ζ153 := math.FMA(a5ζ153, s2ζ153, a4ζ153)
+												c0ζ153 := math.FMA(b1ζ153, s4ζ153, b0ζ153)
+												c1ζ153 := math.FMA(qζ153[15], s4ζ153, b2ζ153)
+												pζ153 := math.FMA(c1ζ153, s4ζ153*s4ζ153, c0ζ153)
+												pζ153 = math.FMA(math.FMA(math.FMA(pζ153, sζ153, qζ153[2]), sζ153, qζ153[1]), sζ153, qζ153[0])
+												rζ153 := float64(sζ153 * pζ153)
+												hiζ153 = eζ153.c0 + rζ153
+												loζ153 = (rζ153 - (hiζ153 - eζ153.c0)) + (math.FMA(sζ153, pζ153, -rζ153) + eζ153.c0lo)
+												ζr153_0 = float64(hiζ153)
+												ζr153_1 = float64(loζ153)
+												goto ζL153
 											}
-										ζL180:
-											fhζ179, flζ179 := ζr180_0, ζr180_1
-											uhζ179 := tζ179 - 1
-											bbζ179 := uhζ179 - tζ179
-											ulζ179 := (tζ179 - (uhζ179 - bbζ179)) + (-1 - bbζ179)
-											phζ179 := float64(uhζ179 * tζ179)
-											plζ179 := math.FMA(uhζ179, tζ179, -phζ179) + float64(ulζ179*tζ179)
-											ghζ179 := float64(phζ179 * fhζ179)
-											glζ179 := math.FMA(phζ179, fhζ179, -ghζ179) + math.FMA(phζ179, flζ179, plζ179*fhζ179)
-											hiζ179 = 1 + ghζ179
-											loζ179 = ((1 - hiζ179) + ghζ179) + glζ179
-											ζr179_0 = float64(hiζ179)
-											ζr179_1 = float64(loζ179)
-											goto ζL179
+										ζL153:
+											fhζ152, flζ152 := ζr153_0, ζr153_1
+											uhζ152 := tζ152 - 1
+											bbζ152 := uhζ152 - tζ152
+											ulζ152 := (tζ152 - (uhζ152 - bbζ152)) + (-1 - bbζ152)
+											phζ152 := float64(uhζ152 * tζ152)
+											plζ152 := math.FMA(uhζ152, tζ152, -phζ152) + float64(ulζ152*tζ152)
+											ghζ152 := float64(phζ152 * fhζ152)
+											glζ152 := math.FMA(phζ152, fhζ152, -ghζ152) + math.FMA(phζ152, flζ152, plζ152*fhζ152)
+											hiζ152 = 1 + ghζ152
+											loζ152 = ((1 - hiζ152) + ghζ152) + glζ152
+											ζr152_0 = float64(hiζ152)
+											ζr152_1 = float64(loζ152)
+											goto ζL152
 										}
-									ζL179:
-										ζt177, ζt178 := ζr179_0, ζr179_1
-										ζr176_0 = float64(ζt177)
-										ζr176_1 = float64(ζt178)
-										goto ζL176
+									ζL152:
+										ζt150, ζt151 := ζr152_0, ζr152_1
+										ζr149_0 = float64(ζt150)
+										ζr149_1 = float64(ζt151)
+										goto ζL149
 									}
-									var ζr181_0 float64
-									var ζr181_1 float64
+									var ζr154_0 float64
+									var ζr154_1 float64
 									{
-										tζ181 := float64(xζ176 - nζ176 - 1)
-										var hiζ181 float64
-										_ = hiζ181
-										var loζ181 float64
-										_ = loζ181
-										var ζr182_0 float64
-										var ζr182_1 float64
+										tζ154 := float64(xζ149 - nζ149 - 1)
+										var hiζ154 float64
+										_ = hiζ154
+										var loζ154 float64
+										_ = loζ154
+										var ζr155_0 float64
+										var ζr155_1 float64
 										{
-											eζ182 := &gamma1pEst[min(int(tζ181*4), 3)]
-											tζ182 := float64(tζ181)
-											var hiζ182 float64
-											_ = hiζ182
-											var loζ182 float64
-											_ = loζ182
-											sζ182 := tζ182 - eζ182.c
-											qζ182 := &eζ182.q
-											s2ζ182 := float64(sζ182 * sζ182)
-											s4ζ182 := float64(s2ζ182 * s2ζ182)
-											a0ζ182 := math.FMA(qζ182[4], sζ182, qζ182[3])
-											a1ζ182 := math.FMA(qζ182[6], sζ182, qζ182[5])
-											a2ζ182 := math.FMA(qζ182[8], sζ182, qζ182[7])
-											a3ζ182 := math.FMA(qζ182[10], sζ182, qζ182[9])
-											a4ζ182 := math.FMA(qζ182[12], sζ182, qζ182[11])
-											a5ζ182 := math.FMA(qζ182[14], sζ182, qζ182[13])
-											b0ζ182 := math.FMA(a1ζ182, s2ζ182, a0ζ182)
-											b1ζ182 := math.FMA(a3ζ182, s2ζ182, a2ζ182)
-											b2ζ182 := math.FMA(a5ζ182, s2ζ182, a4ζ182)
-											c0ζ182 := math.FMA(b1ζ182, s4ζ182, b0ζ182)
-											c1ζ182 := math.FMA(qζ182[15], s4ζ182, b2ζ182)
-											pζ182 := math.FMA(c1ζ182, s4ζ182*s4ζ182, c0ζ182)
-											pζ182 = math.FMA(math.FMA(math.FMA(pζ182, sζ182, qζ182[2]), sζ182, qζ182[1]), sζ182, qζ182[0])
-											rζ182 := float64(sζ182 * pζ182)
-											hiζ182 = eζ182.c0 + rζ182
-											loζ182 = (rζ182 - (hiζ182 - eζ182.c0)) + (math.FMA(sζ182, pζ182, -rζ182) + eζ182.c0lo)
-											ζr182_0 = float64(hiζ182)
-											ζr182_1 = float64(loζ182)
-											goto ζL182
+											eζ155 := &gamma1pEst[min(int(tζ154*4), 3)]
+											tζ155 := float64(tζ154)
+											var hiζ155 float64
+											_ = hiζ155
+											var loζ155 float64
+											_ = loζ155
+											sζ155 := tζ155 - eζ155.c
+											qζ155 := &eζ155.q
+											s2ζ155 := float64(sζ155 * sζ155)
+											s4ζ155 := float64(s2ζ155 * s2ζ155)
+											a0ζ155 := math.FMA(qζ155[4], sζ155, qζ155[3])
+											a1ζ155 := math.FMA(qζ155[6], sζ155, qζ155[5])
+											a2ζ155 := math.FMA(qζ155[8], sζ155, qζ155[7])
+											a3ζ155 := math.FMA(qζ155[10], sζ155, qζ155[9])
+											a4ζ155 := math.FMA(qζ155[12], sζ155, qζ155[11])
+											a5ζ155 := math.FMA(qζ155[14], sζ155, qζ155[13])
+											b0ζ155 := math.FMA(a1ζ155, s2ζ155, a0ζ155)
+											b1ζ155 := math.FMA(a3ζ155, s2ζ155, a2ζ155)
+											b2ζ155 := math.FMA(a5ζ155, s2ζ155, a4ζ155)
+											c0ζ155 := math.FMA(b1ζ155, s4ζ155, b0ζ155)
+											c1ζ155 := math.FMA(qζ155[15], s4ζ155, b2ζ155)
+											pζ155 := math.FMA(c1ζ155, s4ζ155*s4ζ155, c0ζ155)
+											pζ155 = math.FMA(math.FMA(math.FMA(pζ155, sζ155, qζ155[2]), sζ155, qζ155[1]), sζ155, qζ155[0])
+											rζ155 := float64(sζ155 * pζ155)
+											hiζ155 = eζ155.c0 + rζ155
+											loζ155 = (rζ155 - (hiζ155 - eζ155.c0)) + (math.FMA(sζ155, pζ155, -rζ155) + eζ155.c0lo)
+											ζr155_0 = float64(hiζ155)
+											ζr155_1 = float64(loζ155)
+											goto ζL155
 										}
-									ζL182:
-										fhζ181, flζ181 := ζr182_0, ζr182_1
-										uhζ181 := tζ181 - 1
-										bbζ181 := uhζ181 - tζ181
-										ulζ181 := (tζ181 - (uhζ181 - bbζ181)) + (-1 - bbζ181)
-										phζ181 := float64(uhζ181 * tζ181)
-										plζ181 := math.FMA(uhζ181, tζ181, -phζ181) + float64(ulζ181*tζ181)
-										ghζ181 := float64(phζ181 * fhζ181)
-										glζ181 := math.FMA(phζ181, fhζ181, -ghζ181) + math.FMA(phζ181, flζ181, plζ181*fhζ181)
-										hiζ181 = 1 + ghζ181
-										loζ181 = ((1 - hiζ181) + ghζ181) + glζ181
-										ζr181_0 = float64(hiζ181)
-										ζr181_1 = float64(loζ181)
-										goto ζL181
+									ζL155:
+										fhζ154, flζ154 := ζr155_0, ζr155_1
+										uhζ154 := tζ154 - 1
+										bbζ154 := uhζ154 - tζ154
+										ulζ154 := (tζ154 - (uhζ154 - bbζ154)) + (-1 - bbζ154)
+										phζ154 := float64(uhζ154 * tζ154)
+										plζ154 := math.FMA(uhζ154, tζ154, -phζ154) + float64(ulζ154*tζ154)
+										ghζ154 := float64(phζ154 * fhζ154)
+										glζ154 := math.FMA(phζ154, fhζ154, -ghζ154) + math.FMA(phζ154, flζ154, plζ154*fhζ154)
+										hiζ154 = 1 + ghζ154
+										loζ154 = ((1 - hiζ154) + ghζ154) + glζ154
+										ζr154_0 = float64(hiζ154)
+										ζr154_1 = float64(loζ154)
+										goto ζL154
 									}
-								ζL181:
-									hiζ176, loζ176 = ζr181_0, ζr181_1
-									for jζ176 := 1.0; jζ176 <= nζ176; jζ176++ {
-										fζ176 := xζ176 - jζ176
-										pζ176 := float64(hiζ176 * fζ176)
-										loζ176 = math.FMA(hiζ176, fζ176, -pζ176) + float64(loζ176*fζ176)
-										hiζ176 = pζ176
+								ζL154:
+									hiζ149, loζ149 = ζr154_0, ζr154_1
+									for jζ149 := 1.0; jζ149 <= nζ149; jζ149++ {
+										fζ149 := xζ149 - jζ149
+										pζ149 := float64(hiζ149 * fζ149)
+										loζ149 = math.FMA(hiζ149, fζ149, -pζ149) + float64(loζ149*fζ149)
+										hiζ149 = pζ149
 									}
-									ζr176_0 = float64(hiζ176)
-									ζr176_1 = float64(loζ176)
-									goto ζL176
+									ζr149_0 = float64(hiζ149)
+									ζr149_1 = float64(loζ149)
+									goto ζL149
 								}
-							ζL176:
-								ζt174, ζt175 := ζr176_0, ζr176_1
-								ζr173_0 = float64(ζt174)
-								ζr173_1 = float64(ζt175)
-								goto ζL173
+							ζL149:
+								ζt147, ζt148 := ζr149_0, ζr149_1
+								ζr146_0 = float64(ζt147)
+								ζr146_1 = float64(ζt148)
+								goto ζL146
 							}
-							var ζr183_0 float64
-							var ζr183_1 float64
+							var ζr156_0 float64
+							var ζr156_1 float64
 							{
-								tζ183 := float64(xζ173)
-								var hiζ183 float64
-								_ = hiζ183
-								var loζ183 float64
-								_ = loζ183
-								var ζr184_0 float64
-								var ζr184_1 float64
+								tζ156 := float64(xζ146)
+								var hiζ156 float64
+								_ = hiζ156
+								var loζ156 float64
+								_ = loζ156
+								var ζr157_0 float64
+								var ζr157_1 float64
 								{
-									eζ184 := &gamma1pEst[min(int(tζ183*4), 3)]
-									tζ184 := float64(tζ183)
-									var hiζ184 float64
-									_ = hiζ184
-									var loζ184 float64
-									_ = loζ184
-									sζ184 := tζ184 - eζ184.c
-									qζ184 := &eζ184.q
-									s2ζ184 := float64(sζ184 * sζ184)
-									s4ζ184 := float64(s2ζ184 * s2ζ184)
-									a0ζ184 := math.FMA(qζ184[4], sζ184, qζ184[3])
-									a1ζ184 := math.FMA(qζ184[6], sζ184, qζ184[5])
-									a2ζ184 := math.FMA(qζ184[8], sζ184, qζ184[7])
-									a3ζ184 := math.FMA(qζ184[10], sζ184, qζ184[9])
-									a4ζ184 := math.FMA(qζ184[12], sζ184, qζ184[11])
-									a5ζ184 := math.FMA(qζ184[14], sζ184, qζ184[13])
-									b0ζ184 := math.FMA(a1ζ184, s2ζ184, a0ζ184)
-									b1ζ184 := math.FMA(a3ζ184, s2ζ184, a2ζ184)
-									b2ζ184 := math.FMA(a5ζ184, s2ζ184, a4ζ184)
-									c0ζ184 := math.FMA(b1ζ184, s4ζ184, b0ζ184)
-									c1ζ184 := math.FMA(qζ184[15], s4ζ184, b2ζ184)
-									pζ184 := math.FMA(c1ζ184, s4ζ184*s4ζ184, c0ζ184)
-									pζ184 = math.FMA(math.FMA(math.FMA(pζ184, sζ184, qζ184[2]), sζ184, qζ184[1]), sζ184, qζ184[0])
-									rζ184 := float64(sζ184 * pζ184)
-									hiζ184 = eζ184.c0 + rζ184
-									loζ184 = (rζ184 - (hiζ184 - eζ184.c0)) + (math.FMA(sζ184, pζ184, -rζ184) + eζ184.c0lo)
-									ζr184_0 = float64(hiζ184)
-									ζr184_1 = float64(loζ184)
-									goto ζL184
+									eζ157 := &gamma1pEst[min(int(tζ156*4), 3)]
+									tζ157 := float64(tζ156)
+									var hiζ157 float64
+									_ = hiζ157
+									var loζ157 float64
+									_ = loζ157
+									sζ157 := tζ157 - eζ157.c
+									qζ157 := &eζ157.q
+									s2ζ157 := float64(sζ157 * sζ157)
+									s4ζ157 := float64(s2ζ157 * s2ζ157)
+									a0ζ157 := math.FMA(qζ157[4], sζ157, qζ157[3])
+									a1ζ157 := math.FMA(qζ157[6], sζ157, qζ157[5])
+									a2ζ157 := math.FMA(qζ157[8], sζ157, qζ157[7])
+									a3ζ157 := math.FMA(qζ157[10], sζ157, qζ157[9])
+									a4ζ157 := math.FMA(qζ157[12], sζ157, qζ157[11])
+									a5ζ157 := math.FMA(qζ157[14], sζ157, qζ157[13])
+									b0ζ157 := math.FMA(a1ζ157, s2ζ157, a0ζ157)
+									b1ζ157 := math.FMA(a3ζ157, s2ζ157, a2ζ157)
+									b2ζ157 := math.FMA(a5ζ157, s2ζ157, a4ζ157)
+									c0ζ157 := math.FMA(b1ζ157, s4ζ157, b0ζ157)
+									c1ζ157 := math.FMA(qζ157[15], s4ζ157, b2ζ157)
+									pζ157 := math.FMA(c1ζ157, s4ζ157*s4ζ157, c0ζ157)
+									pζ157 = math.FMA(math.FMA(math.FMA(pζ157, sζ157, qζ157[2]), sζ157, qζ157[1]), sζ157, qζ157[0])
+									rζ157 := float64(sζ157 * pζ157)
+									hiζ157 = eζ157.c0 + rζ157
+									loζ157 = (rζ157 - (hiζ157 - eζ157.c0)) + (math.FMA(sζ157, pζ157, -rζ157) + eζ157.c0lo)
+									ζr157_0 = float64(hiζ157)
+									ζr157_1 = float64(loζ157)
+									goto ζL157
 								}
-							ζL184:
-								fhζ183, flζ183 := ζr184_0, ζr184_1
-								uhζ183 := tζ183 - 1
-								bbζ183 := uhζ183 - tζ183
-								ulζ183 := (tζ183 - (uhζ183 - bbζ183)) + (-1 - bbζ183)
-								phζ183 := float64(uhζ183 * tζ183)
-								plζ183 := math.FMA(uhζ183, tζ183, -phζ183) + float64(ulζ183*tζ183)
-								ghζ183 := float64(phζ183 * fhζ183)
-								glζ183 := math.FMA(phζ183, fhζ183, -ghζ183) + math.FMA(phζ183, flζ183, plζ183*fhζ183)
-								hiζ183 = 1 + ghζ183
-								loζ183 = ((1 - hiζ183) + ghζ183) + glζ183
-								ζr183_0 = float64(hiζ183)
-								ζr183_1 = float64(loζ183)
-								goto ζL183
+							ζL157:
+								fhζ156, flζ156 := ζr157_0, ζr157_1
+								uhζ156 := tζ156 - 1
+								bbζ156 := uhζ156 - tζ156
+								ulζ156 := (tζ156 - (uhζ156 - bbζ156)) + (-1 - bbζ156)
+								phζ156 := float64(uhζ156 * tζ156)
+								plζ156 := math.FMA(uhζ156, tζ156, -phζ156) + float64(ulζ156*tζ156)
+								ghζ156 := float64(phζ156 * fhζ156)
+								glζ156 := math.FMA(phζ156, fhζ156, -ghζ156) + math.FMA(phζ156, flζ156, plζ156*fhζ156)
+								hiζ156 = 1 + ghζ156
+								loζ156 = ((1 - hiζ156) + ghζ156) + glζ156
+								ζr156_0 = float64(hiζ156)
+								ζr156_1 = float64(loζ156)
+								goto ζL156
 							}
-						ζL183:
-							ghζ173, glζ173 := ζr183_0, ζr183_1
-							qζ173 := ghζ173 / xζ173
-							ζr173_0 = float64(qζ173)
-							ζr173_1 = float64((math.FMA(-qζ173, xζ173, ghζ173) + glζ173) / xζ173)
-							goto ζL173
+						ζL156:
+							ghζ146, glζ146 := ζr156_0, ζr156_1
+							qζ146 := ghζ146 / xζ146
+							ζr146_0 = float64(qζ146)
+							ζr146_1 = float64((math.FMA(-qζ146, xζ146, ghζ146) + glζ146) / xζ146)
+							goto ζL146
 						}
-					ζL173:
-						ahζ172, alζ172 := ζr173_0, ζr173_1
-						var ζr185_0 float64
-						var ζr185_1 float64
+					ζL146:
+						ahζ145, alζ145 := ζr146_0, ζr146_1
+						var ζr158_0 float64
+						var ζr158_1 float64
 						{
-							xζ185 := float64(bζ172)
-							var hiζ185 float64
-							_ = hiζ185
-							var loζ185 float64
-							_ = loζ185
-							if xζ185 >= 1 {
+							xζ158 := float64(bζ145)
+							var hiζ158 float64
+							_ = hiζ158
+							var loζ158 float64
+							_ = loζ158
+							if xζ158 >= 1 {
+								var ζr161_0 float64
+								var ζr161_1 float64
+								{
+									xζ161 := float64(xζ158)
+									var hiζ161 float64
+									_ = hiζ161
+									var loζ161 float64
+									_ = loζ161
+									nζ161 := math.Ceil(xζ161 - 2)
+									if nζ161 <= 0 {
+										var ζr164_0 float64
+										var ζr164_1 float64
+										{
+											tζ164 := float64(xζ161 - 1)
+											var hiζ164 float64
+											_ = hiζ164
+											var loζ164 float64
+											_ = loζ164
+											var ζr165_0 float64
+											var ζr165_1 float64
+											{
+												eζ165 := &gamma1pEst[min(int(tζ164*4), 3)]
+												tζ165 := float64(tζ164)
+												var hiζ165 float64
+												_ = hiζ165
+												var loζ165 float64
+												_ = loζ165
+												sζ165 := tζ165 - eζ165.c
+												qζ165 := &eζ165.q
+												s2ζ165 := float64(sζ165 * sζ165)
+												s4ζ165 := float64(s2ζ165 * s2ζ165)
+												a0ζ165 := math.FMA(qζ165[4], sζ165, qζ165[3])
+												a1ζ165 := math.FMA(qζ165[6], sζ165, qζ165[5])
+												a2ζ165 := math.FMA(qζ165[8], sζ165, qζ165[7])
+												a3ζ165 := math.FMA(qζ165[10], sζ165, qζ165[9])
+												a4ζ165 := math.FMA(qζ165[12], sζ165, qζ165[11])
+												a5ζ165 := math.FMA(qζ165[14], sζ165, qζ165[13])
+												b0ζ165 := math.FMA(a1ζ165, s2ζ165, a0ζ165)
+												b1ζ165 := math.FMA(a3ζ165, s2ζ165, a2ζ165)
+												b2ζ165 := math.FMA(a5ζ165, s2ζ165, a4ζ165)
+												c0ζ165 := math.FMA(b1ζ165, s4ζ165, b0ζ165)
+												c1ζ165 := math.FMA(qζ165[15], s4ζ165, b2ζ165)
+												pζ165 := math.FMA(c1ζ165, s4ζ165*s4ζ165, c0ζ165)
+												pζ165 = math.FMA(math.FMA(math.FMA(pζ165, sζ165, qζ165[2]), sζ165, qζ165[1]), sζ165, qζ165[0])
+												rζ165 := float64(sζ165 * pζ165)
+												hiζ165 = eζ165.c0 + rζ165
+												loζ165 = (rζ165 - (hiζ165 - eζ165.c0)) + (math.FMA(sζ165, pζ165, -rζ165) + eζ165.c0lo)
+												ζr165_0 = float64(hiζ165)
+												ζr165_1 = float64(loζ165)
+												goto ζL165
+											}
+										ζL165:
+											fhζ164, flζ164 := ζr165_0, ζr165_1
+											uhζ164 := tζ164 - 1
+											bbζ164 := uhζ164 - tζ164
+											ulζ164 := (tζ164 - (uhζ164 - bbζ164)) + (-1 - bbζ164)
+											phζ164 := float64(uhζ164 * tζ164)
+											plζ164 := math.FMA(uhζ164, tζ164, -phζ164) + float64(ulζ164*tζ164)
+											ghζ164 := float64(phζ164 * fhζ164)
+											glζ164 := math.FMA(phζ164, fhζ164, -ghζ164) + math.FMA(phζ164, flζ164, plζ164*fhζ164)
+											hiζ164 = 1 + ghζ164
+											loζ164 = ((1 - hiζ164) + ghζ164) + glζ164
+											ζr164_0 = float64(hiζ164)
+											ζr164_1 = float64(loζ164)
+											goto ζL164
+										}
+									ζL164:
+										ζt162, ζt163 := ζr164_0, ζr164_1
+										ζr161_0 = float64(ζt162)
+										ζr161_1 = float64(ζt163)
+										goto ζL161
+									}
+									var ζr166_0 float64
+									var ζr166_1 float64
+									{
+										tζ166 := float64(xζ161 - nζ161 - 1)
+										var hiζ166 float64
+										_ = hiζ166
+										var loζ166 float64
+										_ = loζ166
+										var ζr167_0 float64
+										var ζr167_1 float64
+										{
+											eζ167 := &gamma1pEst[min(int(tζ166*4), 3)]
+											tζ167 := float64(tζ166)
+											var hiζ167 float64
+											_ = hiζ167
+											var loζ167 float64
+											_ = loζ167
+											sζ167 := tζ167 - eζ167.c
+											qζ167 := &eζ167.q
+											s2ζ167 := float64(sζ167 * sζ167)
+											s4ζ167 := float64(s2ζ167 * s2ζ167)
+											a0ζ167 := math.FMA(qζ167[4], sζ167, qζ167[3])
+											a1ζ167 := math.FMA(qζ167[6], sζ167, qζ167[5])
+											a2ζ167 := math.FMA(qζ167[8], sζ167, qζ167[7])
+											a3ζ167 := math.FMA(qζ167[10], sζ167, qζ167[9])
+											a4ζ167 := math.FMA(qζ167[12], sζ167, qζ167[11])
+											a5ζ167 := math.FMA(qζ167[14], sζ167, qζ167[13])
+											b0ζ167 := math.FMA(a1ζ167, s2ζ167, a0ζ167)
+											b1ζ167 := math.FMA(a3ζ167, s2ζ167, a2ζ167)
+											b2ζ167 := math.FMA(a5ζ167, s2ζ167, a4ζ167)
+											c0ζ167 := math.FMA(b1ζ167, s4ζ167, b0ζ167)
+											c1ζ167 := math.FMA(qζ167[15], s4ζ167, b2ζ167)
+											pζ167 := math.FMA(c1ζ167, s4ζ167*s4ζ167, c0ζ167)
+											pζ167 = math.FMA(math.FMA(math.FMA(pζ167, sζ167, qζ167[2]), sζ167, qζ167[1]), sζ167, qζ167[0])
+											rζ167 := float64(sζ167 * pζ167)
+											hiζ167 = eζ167.c0 + rζ167
+											loζ167 = (rζ167 - (hiζ167 - eζ167.c0)) + (math.FMA(sζ167, pζ167, -rζ167) + eζ167.c0lo)
+											ζr167_0 = float64(hiζ167)
+											ζr167_1 = float64(loζ167)
+											goto ζL167
+										}
+									ζL167:
+										fhζ166, flζ166 := ζr167_0, ζr167_1
+										uhζ166 := tζ166 - 1
+										bbζ166 := uhζ166 - tζ166
+										ulζ166 := (tζ166 - (uhζ166 - bbζ166)) + (-1 - bbζ166)
+										phζ166 := float64(uhζ166 * tζ166)
+										plζ166 := math.FMA(uhζ166, tζ166, -phζ166) + float64(ulζ166*tζ166)
+										ghζ166 := float64(phζ166 * fhζ166)
+										glζ166 := math.FMA(phζ166, fhζ166, -ghζ166) + math.FMA(phζ166, flζ166, plζ166*fhζ166)
+										hiζ166 = 1 + ghζ166
+										loζ166 = ((1 - hiζ166) + ghζ166) + glζ166
+										ζr166_0 = float64(hiζ166)
+										ζr166_1 = float64(loζ166)
+										goto ζL166
+									}
+								ζL166:
+									hiζ161, loζ161 = ζr166_0, ζr166_1
+									for jζ161 := 1.0; jζ161 <= nζ161; jζ161++ {
+										fζ161 := xζ161 - jζ161
+										pζ161 := float64(hiζ161 * fζ161)
+										loζ161 = math.FMA(hiζ161, fζ161, -pζ161) + float64(loζ161*fζ161)
+										hiζ161 = pζ161
+									}
+									ζr161_0 = float64(hiζ161)
+									ζr161_1 = float64(loζ161)
+									goto ζL161
+								}
+							ζL161:
+								ζt159, ζt160 := ζr161_0, ζr161_1
+								ζr158_0 = float64(ζt159)
+								ζr158_1 = float64(ζt160)
+								goto ζL158
+							}
+							var ζr168_0 float64
+							var ζr168_1 float64
+							{
+								tζ168 := float64(xζ158)
+								var hiζ168 float64
+								_ = hiζ168
+								var loζ168 float64
+								_ = loζ168
+								var ζr169_0 float64
+								var ζr169_1 float64
+								{
+									eζ169 := &gamma1pEst[min(int(tζ168*4), 3)]
+									tζ169 := float64(tζ168)
+									var hiζ169 float64
+									_ = hiζ169
+									var loζ169 float64
+									_ = loζ169
+									sζ169 := tζ169 - eζ169.c
+									qζ169 := &eζ169.q
+									s2ζ169 := float64(sζ169 * sζ169)
+									s4ζ169 := float64(s2ζ169 * s2ζ169)
+									a0ζ169 := math.FMA(qζ169[4], sζ169, qζ169[3])
+									a1ζ169 := math.FMA(qζ169[6], sζ169, qζ169[5])
+									a2ζ169 := math.FMA(qζ169[8], sζ169, qζ169[7])
+									a3ζ169 := math.FMA(qζ169[10], sζ169, qζ169[9])
+									a4ζ169 := math.FMA(qζ169[12], sζ169, qζ169[11])
+									a5ζ169 := math.FMA(qζ169[14], sζ169, qζ169[13])
+									b0ζ169 := math.FMA(a1ζ169, s2ζ169, a0ζ169)
+									b1ζ169 := math.FMA(a3ζ169, s2ζ169, a2ζ169)
+									b2ζ169 := math.FMA(a5ζ169, s2ζ169, a4ζ169)
+									c0ζ169 := math.FMA(b1ζ169, s4ζ169, b0ζ169)
+									c1ζ169 := math.FMA(qζ169[15], s4ζ169, b2ζ169)
+									pζ169 := math.FMA(c1ζ169, s4ζ169*s4ζ169, c0ζ169)
+									pζ169 = math.FMA(math.FMA(math.FMA(pζ169, sζ169, qζ169[2]), sζ169, qζ169[1]), sζ169, qζ169[0])
+									rζ169 := float64(sζ169 * pζ169)
+									hiζ169 = eζ169.c0 + rζ169
+									loζ169 = (rζ169 - (hiζ169 - eζ169.c0)) + (math.FMA(sζ169, pζ169, -rζ169) + eζ169.c0lo)
+									ζr169_0 = float64(hiζ169)
+									ζr169_1 = float64(loζ169)
+									goto ζL169
+								}
+							ζL169:
+								fhζ168, flζ168 := ζr169_0, ζr169_1
+								uhζ168 := tζ168 - 1
+								bbζ168 := uhζ168 - tζ168
+								ulζ168 := (tζ168 - (uhζ168 - bbζ168)) + (-1 - bbζ168)
+								phζ168 := float64(uhζ168 * tζ168)
+								plζ168 := math.FMA(uhζ168, tζ168, -phζ168) + float64(ulζ168*tζ168)
+								ghζ168 := float64(phζ168 * fhζ168)
+								glζ168 := math.FMA(phζ168, fhζ168, -ghζ168) + math.FMA(phζ168, flζ168, plζ168*fhζ168)
+								hiζ168 = 1 + ghζ168
+								loζ168 = ((1 - hiζ168) + ghζ168) + glζ168
+								ζr168_0 = float64(hiζ168)
+								ζr168_1 = float64(loζ168)
+								goto ζL168
+							}
+						ζL168:
+							ghζ158, glζ158 := ζr168_0, ζr168_1
+							qζ158 := ghζ158 / xζ158
+							ζr158_0 = float64(qζ158)
+							ζr158_1 = float64((math.FMA(-qζ158, xζ158, ghζ158) + glζ158) / xζ158)
+							goto ζL158
+						}
+					ζL158:
+						bhζ145, blζ145 := ζr158_0, ζr158_1
+						var ζr170_0 float64
+						var ζr170_1 float64
+						{
+							xζ170 := float64(sζ145)
+							var hiζ170 float64
+							_ = hiζ170
+							var loζ170 float64
+							_ = loζ170
+							if xζ170 < 10 {
+								var ζr173_0 float64
+								var ζr173_1 float64
+								{
+									xζ173 := float64(xζ170)
+									var hiζ173 float64
+									_ = hiζ173
+									var loζ173 float64
+									_ = loζ173
+									if xζ173 >= 1 {
+										var ζr176_0 float64
+										var ζr176_1 float64
+										{
+											xζ176 := float64(xζ173)
+											var hiζ176 float64
+											_ = hiζ176
+											var loζ176 float64
+											_ = loζ176
+											nζ176 := math.Ceil(xζ176 - 2)
+											if nζ176 <= 0 {
+												var ζr179_0 float64
+												var ζr179_1 float64
+												{
+													tζ179 := float64(xζ176 - 1)
+													var hiζ179 float64
+													_ = hiζ179
+													var loζ179 float64
+													_ = loζ179
+													var ζr180_0 float64
+													var ζr180_1 float64
+													{
+														eζ180 := &gamma1pEst[min(int(tζ179*4), 3)]
+														tζ180 := float64(tζ179)
+														var hiζ180 float64
+														_ = hiζ180
+														var loζ180 float64
+														_ = loζ180
+														sζ180 := tζ180 - eζ180.c
+														qζ180 := &eζ180.q
+														s2ζ180 := float64(sζ180 * sζ180)
+														s4ζ180 := float64(s2ζ180 * s2ζ180)
+														a0ζ180 := math.FMA(qζ180[4], sζ180, qζ180[3])
+														a1ζ180 := math.FMA(qζ180[6], sζ180, qζ180[5])
+														a2ζ180 := math.FMA(qζ180[8], sζ180, qζ180[7])
+														a3ζ180 := math.FMA(qζ180[10], sζ180, qζ180[9])
+														a4ζ180 := math.FMA(qζ180[12], sζ180, qζ180[11])
+														a5ζ180 := math.FMA(qζ180[14], sζ180, qζ180[13])
+														b0ζ180 := math.FMA(a1ζ180, s2ζ180, a0ζ180)
+														b1ζ180 := math.FMA(a3ζ180, s2ζ180, a2ζ180)
+														b2ζ180 := math.FMA(a5ζ180, s2ζ180, a4ζ180)
+														c0ζ180 := math.FMA(b1ζ180, s4ζ180, b0ζ180)
+														c1ζ180 := math.FMA(qζ180[15], s4ζ180, b2ζ180)
+														pζ180 := math.FMA(c1ζ180, s4ζ180*s4ζ180, c0ζ180)
+														pζ180 = math.FMA(math.FMA(math.FMA(pζ180, sζ180, qζ180[2]), sζ180, qζ180[1]), sζ180, qζ180[0])
+														rζ180 := float64(sζ180 * pζ180)
+														hiζ180 = eζ180.c0 + rζ180
+														loζ180 = (rζ180 - (hiζ180 - eζ180.c0)) + (math.FMA(sζ180, pζ180, -rζ180) + eζ180.c0lo)
+														ζr180_0 = float64(hiζ180)
+														ζr180_1 = float64(loζ180)
+														goto ζL180
+													}
+												ζL180:
+													fhζ179, flζ179 := ζr180_0, ζr180_1
+													uhζ179 := tζ179 - 1
+													bbζ179 := uhζ179 - tζ179
+													ulζ179 := (tζ179 - (uhζ179 - bbζ179)) + (-1 - bbζ179)
+													phζ179 := float64(uhζ179 * tζ179)
+													plζ179 := math.FMA(uhζ179, tζ179, -phζ179) + float64(ulζ179*tζ179)
+													ghζ179 := float64(phζ179 * fhζ179)
+													glζ179 := math.FMA(phζ179, fhζ179, -ghζ179) + math.FMA(phζ179, flζ179, plζ179*fhζ179)
+													hiζ179 = 1 + ghζ179
+													loζ179 = ((1 - hiζ179) + ghζ179) + glζ179
+													ζr179_0 = float64(hiζ179)
+													ζr179_1 = float64(loζ179)
+													goto ζL179
+												}
+											ζL179:
+												ζt177, ζt178 := ζr179_0, ζr179_1
+												ζr176_0 = float64(ζt177)
+												ζr176_1 = float64(ζt178)
+												goto ζL176
+											}
+											var ζr181_0 float64
+											var ζr181_1 float64
+											{
+												tζ181 := float64(xζ176 - nζ176 - 1)
+												var hiζ181 float64
+												_ = hiζ181
+												var loζ181 float64
+												_ = loζ181
+												var ζr182_0 float64
+												var ζr182_1 float64
+												{
+													eζ182 := &gamma1pEst[min(int(tζ181*4), 3)]
+													tζ182 := float64(tζ181)
+													var hiζ182 float64
+													_ = hiζ182
+													var loζ182 float64
+													_ = loζ182
+													sζ182 := tζ182 - eζ182.c
+													qζ182 := &eζ182.q
+													s2ζ182 := float64(sζ182 * sζ182)
+													s4ζ182 := float64(s2ζ182 * s2ζ182)
+													a0ζ182 := math.FMA(qζ182[4], sζ182, qζ182[3])
+													a1ζ182 := math.FMA(qζ182[6], sζ182, qζ182[5])
+													a2ζ182 := math.FMA(qζ182[8], sζ182, qζ182[7])
+													a3ζ182 := math.FMA(qζ182[10], sζ182, qζ182[9])
+													a4ζ182 := math.FMA(qζ182[12], sζ182, qζ182[11])
+													a5ζ182 := math.FMA(qζ182[14], sζ182, qζ182[13])
+													b0ζ182 := math.FMA(a1ζ182, s2ζ182, a0ζ182)
+													b1ζ182 := math.FMA(a3ζ182, s2ζ182, a2ζ182)
+													b2ζ182 := math.FMA(a5ζ182, s2ζ182, a4ζ182)
+													c0ζ182 := math.FMA(b1ζ182, s4ζ182, b0ζ182)
+													c1ζ182 := math.FMA(qζ182[15], s4ζ182, b2ζ182)
+													pζ182 := math.FMA(c1ζ182, s4ζ182*s4ζ182, c0ζ182)
+													pζ182 = math.FMA(math.FMA(math.FMA(pζ182, sζ182, qζ182[2]), sζ182, qζ182[1]), sζ182, qζ182[0])
+													rζ182 := float64(sζ182 * pζ182)
+													hiζ182 = eζ182.c0 + rζ182
+													loζ182 = (rζ182 - (hiζ182 - eζ182.c0)) + (math.FMA(sζ182, pζ182, -rζ182) + eζ182.c0lo)
+													ζr182_0 = float64(hiζ182)
+													ζr182_1 = float64(loζ182)
+													goto ζL182
+												}
+											ζL182:
+												fhζ181, flζ181 := ζr182_0, ζr182_1
+												uhζ181 := tζ181 - 1
+												bbζ181 := uhζ181 - tζ181
+												ulζ181 := (tζ181 - (uhζ181 - bbζ181)) + (-1 - bbζ181)
+												phζ181 := float64(uhζ181 * tζ181)
+												plζ181 := math.FMA(uhζ181, tζ181, -phζ181) + float64(ulζ181*tζ181)
+												ghζ181 := float64(phζ181 * fhζ181)
+												glζ181 := math.FMA(phζ181, fhζ181, -ghζ181) + math.FMA(phζ181, flζ181, plζ181*fhζ181)
+												hiζ181 = 1 + ghζ181
+												loζ181 = ((1 - hiζ181) + ghζ181) + glζ181
+												ζr181_0 = float64(hiζ181)
+												ζr181_1 = float64(loζ181)
+												goto ζL181
+											}
+										ζL181:
+											hiζ176, loζ176 = ζr181_0, ζr181_1
+											for jζ176 := 1.0; jζ176 <= nζ176; jζ176++ {
+												fζ176 := xζ176 - jζ176
+												pζ176 := float64(hiζ176 * fζ176)
+												loζ176 = math.FMA(hiζ176, fζ176, -pζ176) + float64(loζ176*fζ176)
+												hiζ176 = pζ176
+											}
+											ζr176_0 = float64(hiζ176)
+											ζr176_1 = float64(loζ176)
+											goto ζL176
+										}
+									ζL176:
+										ζt174, ζt175 := ζr176_0, ζr176_1
+										ζr173_0 = float64(ζt174)
+										ζr173_1 = float64(ζt175)
+										goto ζL173
+									}
+									var ζr183_0 float64
+									var ζr183_1 float64
+									{
+										tζ183 := float64(xζ173)
+										var hiζ183 float64
+										_ = hiζ183
+										var loζ183 float64
+										_ = loζ183
+										var ζr184_0 float64
+										var ζr184_1 float64
+										{
+											eζ184 := &gamma1pEst[min(int(tζ183*4), 3)]
+											tζ184 := float64(tζ183)
+											var hiζ184 float64
+											_ = hiζ184
+											var loζ184 float64
+											_ = loζ184
+											sζ184 := tζ184 - eζ184.c
+											qζ184 := &eζ184.q
+											s2ζ184 := float64(sζ184 * sζ184)
+											s4ζ184 := float64(s2ζ184 * s2ζ184)
+											a0ζ184 := math.FMA(qζ184[4], sζ184, qζ184[3])
+											a1ζ184 := math.FMA(qζ184[6], sζ184, qζ184[5])
+											a2ζ184 := math.FMA(qζ184[8], sζ184, qζ184[7])
+											a3ζ184 := math.FMA(qζ184[10], sζ184, qζ184[9])
+											a4ζ184 := math.FMA(qζ184[12], sζ184, qζ184[11])
+											a5ζ184 := math.FMA(qζ184[14], sζ184, qζ184[13])
+											b0ζ184 := math.FMA(a1ζ184, s2ζ184, a0ζ184)
+											b1ζ184 := math.FMA(a3ζ184, s2ζ184, a2ζ184)
+											b2ζ184 := math.FMA(a5ζ184, s2ζ184, a4ζ184)
+											c0ζ184 := math.FMA(b1ζ184, s4ζ184, b0ζ184)
+											c1ζ184 := math.FMA(qζ184[15], s4ζ184, b2ζ184)
+											pζ184 := math.FMA(c1ζ184, s4ζ184*s4ζ184, c0ζ184)
+											pζ184 = math.FMA(math.FMA(math.FMA(pζ184, sζ184, qζ184[2]), sζ184, qζ184[1]), sζ184, qζ184[0])
+											rζ184 := float64(sζ184 * pζ184)
+											hiζ184 = eζ184.c0 + rζ184
+											loζ184 = (rζ184 - (hiζ184 - eζ184.c0)) + (math.FMA(sζ184, pζ184, -rζ184) + eζ184.c0lo)
+											ζr184_0 = float64(hiζ184)
+											ζr184_1 = float64(loζ184)
+											goto ζL184
+										}
+									ζL184:
+										fhζ183, flζ183 := ζr184_0, ζr184_1
+										uhζ183 := tζ183 - 1
+										bbζ183 := uhζ183 - tζ183
+										ulζ183 := (tζ183 - (uhζ183 - bbζ183)) + (-1 - bbζ183)
+										phζ183 := float64(uhζ183 * tζ183)
+										plζ183 := math.FMA(uhζ183, tζ183, -phζ183) + float64(ulζ183*tζ183)
+										ghζ183 := float64(phζ183 * fhζ183)
+										glζ183 := math.FMA(phζ183, fhζ183, -ghζ183) + math.FMA(phζ183, flζ183, plζ183*fhζ183)
+										hiζ183 = 1 + ghζ183
+										loζ183 = ((1 - hiζ183) + ghζ183) + glζ183
+										ζr183_0 = float64(hiζ183)
+										ζr183_1 = float64(loζ183)
+										goto ζL183
+									}
+								ζL183:
+									ghζ173, glζ173 := ζr183_0, ζr183_1
+									qζ173 := ghζ173 / xζ173
+									ζr173_0 = float64(qζ173)
+									ζr173_1 = float64((math.FMA(-qζ173, xζ173, ghζ173) + glζ173) / xζ173)
+									goto ζL173
+								}
+							ζL173:
+								ζt171, ζt172 := ζr173_0, ζr173_1
+								ζr170_0 = float64(ζt171)
+								ζr170_1 = float64(ζt172)
+								goto ζL170
+							}
+							var ζr185_0 float64
+							var ζr185_1 float64
+							{
+								xζ185 := float64(xζ170)
+								var hiζ185 float64
+								_ = hiζ185
+								var loζ185 float64
+								_ = loζ185
 								var ζr188_0 float64
 								var ζr188_1 float64
 								{
 									xζ188 := float64(xζ185)
+									xlζ188 := float64(0)
 									var hiζ188 float64
 									_ = hiζ188
 									var loζ188 float64
 									_ = loζ188
-									nζ188 := math.Ceil(xζ188 - 2)
-									if nζ188 <= 0 {
-										var ζr191_0 float64
-										var ζr191_1 float64
-										{
-											tζ191 := float64(xζ188 - 1)
-											var hiζ191 float64
-											_ = hiζ191
-											var loζ191 float64
-											_ = loζ191
-											var ζr192_0 float64
-											var ζr192_1 float64
-											{
-												eζ192 := &gamma1pEst[min(int(tζ191*4), 3)]
-												tζ192 := float64(tζ191)
-												var hiζ192 float64
-												_ = hiζ192
-												var loζ192 float64
-												_ = loζ192
-												sζ192 := tζ192 - eζ192.c
-												qζ192 := &eζ192.q
-												s2ζ192 := float64(sζ192 * sζ192)
-												s4ζ192 := float64(s2ζ192 * s2ζ192)
-												a0ζ192 := math.FMA(qζ192[4], sζ192, qζ192[3])
-												a1ζ192 := math.FMA(qζ192[6], sζ192, qζ192[5])
-												a2ζ192 := math.FMA(qζ192[8], sζ192, qζ192[7])
-												a3ζ192 := math.FMA(qζ192[10], sζ192, qζ192[9])
-												a4ζ192 := math.FMA(qζ192[12], sζ192, qζ192[11])
-												a5ζ192 := math.FMA(qζ192[14], sζ192, qζ192[13])
-												b0ζ192 := math.FMA(a1ζ192, s2ζ192, a0ζ192)
-												b1ζ192 := math.FMA(a3ζ192, s2ζ192, a2ζ192)
-												b2ζ192 := math.FMA(a5ζ192, s2ζ192, a4ζ192)
-												c0ζ192 := math.FMA(b1ζ192, s4ζ192, b0ζ192)
-												c1ζ192 := math.FMA(qζ192[15], s4ζ192, b2ζ192)
-												pζ192 := math.FMA(c1ζ192, s4ζ192*s4ζ192, c0ζ192)
-												pζ192 = math.FMA(math.FMA(math.FMA(pζ192, sζ192, qζ192[2]), sζ192, qζ192[1]), sζ192, qζ192[0])
-												rζ192 := float64(sζ192 * pζ192)
-												hiζ192 = eζ192.c0 + rζ192
-												loζ192 = (rζ192 - (hiζ192 - eζ192.c0)) + (math.FMA(sζ192, pζ192, -rζ192) + eζ192.c0lo)
-												ζr192_0 = float64(hiζ192)
-												ζr192_1 = float64(loζ192)
-												goto ζL192
-											}
-										ζL192:
-											fhζ191, flζ191 := ζr192_0, ζr192_1
-											uhζ191 := tζ191 - 1
-											bbζ191 := uhζ191 - tζ191
-											ulζ191 := (tζ191 - (uhζ191 - bbζ191)) + (-1 - bbζ191)
-											phζ191 := float64(uhζ191 * tζ191)
-											plζ191 := math.FMA(uhζ191, tζ191, -phζ191) + float64(ulζ191*tζ191)
-											ghζ191 := float64(phζ191 * fhζ191)
-											glζ191 := math.FMA(phζ191, fhζ191, -ghζ191) + math.FMA(phζ191, flζ191, plζ191*fhζ191)
-											hiζ191 = 1 + ghζ191
-											loζ191 = ((1 - hiζ191) + ghζ191) + glζ191
-											ζr191_0 = float64(hiζ191)
-											ζr191_1 = float64(loζ191)
-											goto ζL191
-										}
-									ζL191:
-										ζt189, ζt190 := ζr191_0, ζr191_1
-										ζr188_0 = float64(ζt189)
-										ζr188_1 = float64(ζt190)
-										goto ζL188
-									}
-									var ζr193_0 float64
-									var ζr193_1 float64
-									{
-										tζ193 := float64(xζ188 - nζ188 - 1)
-										var hiζ193 float64
-										_ = hiζ193
-										var loζ193 float64
-										_ = loζ193
-										var ζr194_0 float64
-										var ζr194_1 float64
-										{
-											eζ194 := &gamma1pEst[min(int(tζ193*4), 3)]
-											tζ194 := float64(tζ193)
-											var hiζ194 float64
-											_ = hiζ194
-											var loζ194 float64
-											_ = loζ194
-											sζ194 := tζ194 - eζ194.c
-											qζ194 := &eζ194.q
-											s2ζ194 := float64(sζ194 * sζ194)
-											s4ζ194 := float64(s2ζ194 * s2ζ194)
-											a0ζ194 := math.FMA(qζ194[4], sζ194, qζ194[3])
-											a1ζ194 := math.FMA(qζ194[6], sζ194, qζ194[5])
-											a2ζ194 := math.FMA(qζ194[8], sζ194, qζ194[7])
-											a3ζ194 := math.FMA(qζ194[10], sζ194, qζ194[9])
-											a4ζ194 := math.FMA(qζ194[12], sζ194, qζ194[11])
-											a5ζ194 := math.FMA(qζ194[14], sζ194, qζ194[13])
-											b0ζ194 := math.FMA(a1ζ194, s2ζ194, a0ζ194)
-											b1ζ194 := math.FMA(a3ζ194, s2ζ194, a2ζ194)
-											b2ζ194 := math.FMA(a5ζ194, s2ζ194, a4ζ194)
-											c0ζ194 := math.FMA(b1ζ194, s4ζ194, b0ζ194)
-											c1ζ194 := math.FMA(qζ194[15], s4ζ194, b2ζ194)
-											pζ194 := math.FMA(c1ζ194, s4ζ194*s4ζ194, c0ζ194)
-											pζ194 = math.FMA(math.FMA(math.FMA(pζ194, sζ194, qζ194[2]), sζ194, qζ194[1]), sζ194, qζ194[0])
-											rζ194 := float64(sζ194 * pζ194)
-											hiζ194 = eζ194.c0 + rζ194
-											loζ194 = (rζ194 - (hiζ194 - eζ194.c0)) + (math.FMA(sζ194, pζ194, -rζ194) + eζ194.c0lo)
-											ζr194_0 = float64(hiζ194)
-											ζr194_1 = float64(loζ194)
-											goto ζL194
-										}
-									ζL194:
-										fhζ193, flζ193 := ζr194_0, ζr194_1
-										uhζ193 := tζ193 - 1
-										bbζ193 := uhζ193 - tζ193
-										ulζ193 := (tζ193 - (uhζ193 - bbζ193)) + (-1 - bbζ193)
-										phζ193 := float64(uhζ193 * tζ193)
-										plζ193 := math.FMA(uhζ193, tζ193, -phζ193) + float64(ulζ193*tζ193)
-										ghζ193 := float64(phζ193 * fhζ193)
-										glζ193 := math.FMA(phζ193, fhζ193, -ghζ193) + math.FMA(phζ193, flζ193, plζ193*fhζ193)
-										hiζ193 = 1 + ghζ193
-										loζ193 = ((1 - hiζ193) + ghζ193) + glζ193
-										ζr193_0 = float64(hiζ193)
-										ζr193_1 = float64(loζ193)
-										goto ζL193
-									}
-								ζL193:
-									hiζ188, loζ188 = ζr193_0, ζr193_1
-									for jζ188 := 1.0; jζ188 <= nζ188; jζ188++ {
-										fζ188 := xζ188 - jζ188
-										pζ188 := float64(hiζ188 * fζ188)
-										loζ188 = math.FMA(hiζ188, fζ188, -pζ188) + float64(loζ188*fζ188)
-										hiζ188 = pζ188
-									}
+									ixbζ188 := math.Float64bits(xζ188)
+									tmpζ188 := ixbζ188 - 0x3fe8000000000000
+									kfζ188 := float64(int64(tmpζ188) >> 52)
+									mζ188 := math.Float64frombits(ixbζ188 - uint64(int64(tmpζ188)>>52)<<52)
+									tζ188 := &logT[int(float64(mζ188*256)+0.5)-192]
+									invcζ188 := tζ188[0]
+									pζ188 := float64(mζ188 * invcζ188)
+									peζ188 := math.FMA(mζ188, invcζ188, -pζ188)
+									rζ188 := pζ188 - 1
+									r2ζ188 := float64(rζ188 * rζ188)
+									q0ζ188 := math.FMA(rζ188, 1.0/3, -0.5)
+									q1ζ188 := math.FMA(rζ188, 1.0/5, -0.25)
+									q2ζ188 := math.FMA(rζ188, 1.0/7, -1.0/6)
+									q2ζ188 = math.FMA(r2ζ188, -1.0/8, q2ζ188)
+									q1ζ188 = math.FMA(r2ζ188, q2ζ188, q1ζ188)
+									qζ188 := float64(r2ζ188 * math.FMA(r2ζ188, q1ζ188, q0ζ188))
+									l0ζ188 := float64(kfζ188*ln2Hi42) + tζ188[1]
+									lhζ188 := l0ζ188 + rζ188
+									llζ188 := (rζ188 - (lhζ188 - l0ζ188)) + (math.FMA(kfζ188, ln2Lo42, tζ188[2]) + (math.FMA(peζ188, -rζ188, peζ188) + qζ188))
+									ixζ188 := 1 / xζ188
+									mhζ188 := xζ188 - 0.5
+									mlζ188 := (xζ188 - mhζ188) - 0.5
+									phζ188 := float64(mhζ188 * lhζ188)
+									plζ188 := math.FMA(mhζ188, lhζ188, -phζ188) + math.FMA(mhζ188, llζ188, mlζ188*lhζ188)
+									const c1loζ188 = 4.625929269271485e-18
+									cζ188 := &stirlingCoef
+									ixlζ188 := float64(math.FMA(-ixζ188, xζ188, 1) * ixζ188)
+									zζ188 := float64(ixζ188 * ixζ188)
+									z2ζ188 := float64(zζ188 * zζ188)
+									z4ζ188 := float64(z2ζ188 * z2ζ188)
+									saζ188 := math.FMA(math.FMA(cζ188[4], zζ188, cζ188[3]), z2ζ188, math.FMA(cζ188[2], zζ188, cζ188[1]))
+									sbζ188 := math.FMA(math.FMA(cζ188[8], zζ188, cζ188[7]), z2ζ188, math.FMA(cζ188[6], zζ188, cζ188[5]))
+									tailζ188 := float64(math.FMA(sbζ188, z4ζ188, saζ188) * zζ188 * ixζ188)
+									shζ188 := float64(ixζ188 * cζ188[0])
+									slζ188 := math.FMA(ixζ188, cζ188[0], -shζ188) + math.FMA(ixlζ188, cζ188[0], math.FMA(ixζ188, c1loζ188, tailζ188))
+									vζ188 := phζ188 - xζ188
+									vlζ188 := (phζ188 - vζ188) - xζ188
+									h1ζ188 := vζ188 + lnSqrt2Pi.Hi
+									e1ζ188 := (vζ188 - h1ζ188) + lnSqrt2Pi.Hi
+									hiζ188 = h1ζ188 + shζ188
+									e2ζ188 := (h1ζ188 - hiζ188) + shζ188
 									ζr188_0 = float64(hiζ188)
-									ζr188_1 = float64(loζ188)
+									ζr188_1 = float64((e1ζ188 + e2ζ188) + (vlζ188 + plζ188 + (lnSqrt2Pi.Lo + slζ188) + float64(xlζ188*math.FMA(-0.5, ixζ188, lhζ188))))
 									goto ζL188
 								}
 							ζL188:
@@ -3869,1002 +3915,636 @@ func BetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 								ζr185_1 = float64(ζt187)
 								goto ζL185
 							}
-							var ζr195_0 float64
-							var ζr195_1 float64
+						ζL185:
+							hζ170, lζ170 := ζr185_0, ζr185_1
+							hnζ170 := hζ170 + lζ170
+							var ζr189_0 float64
+							var ζr189_1 float64
+							var ζr189_2 int
 							{
-								tζ195 := float64(xζ185)
-								var hiζ195 float64
-								_ = hiζ195
-								var loζ195 float64
-								_ = loζ195
-								var ζr196_0 float64
-								var ζr196_1 float64
-								{
-									eζ196 := &gamma1pEst[min(int(tζ195*4), 3)]
-									tζ196 := float64(tζ195)
-									var hiζ196 float64
-									_ = hiζ196
-									var loζ196 float64
-									_ = loζ196
-									sζ196 := tζ196 - eζ196.c
-									qζ196 := &eζ196.q
-									s2ζ196 := float64(sζ196 * sζ196)
-									s4ζ196 := float64(s2ζ196 * s2ζ196)
-									a0ζ196 := math.FMA(qζ196[4], sζ196, qζ196[3])
-									a1ζ196 := math.FMA(qζ196[6], sζ196, qζ196[5])
-									a2ζ196 := math.FMA(qζ196[8], sζ196, qζ196[7])
-									a3ζ196 := math.FMA(qζ196[10], sζ196, qζ196[9])
-									a4ζ196 := math.FMA(qζ196[12], sζ196, qζ196[11])
-									a5ζ196 := math.FMA(qζ196[14], sζ196, qζ196[13])
-									b0ζ196 := math.FMA(a1ζ196, s2ζ196, a0ζ196)
-									b1ζ196 := math.FMA(a3ζ196, s2ζ196, a2ζ196)
-									b2ζ196 := math.FMA(a5ζ196, s2ζ196, a4ζ196)
-									c0ζ196 := math.FMA(b1ζ196, s4ζ196, b0ζ196)
-									c1ζ196 := math.FMA(qζ196[15], s4ζ196, b2ζ196)
-									pζ196 := math.FMA(c1ζ196, s4ζ196*s4ζ196, c0ζ196)
-									pζ196 = math.FMA(math.FMA(math.FMA(pζ196, sζ196, qζ196[2]), sζ196, qζ196[1]), sζ196, qζ196[0])
-									rζ196 := float64(sζ196 * pζ196)
-									hiζ196 = eζ196.c0 + rζ196
-									loζ196 = (rζ196 - (hiζ196 - eζ196.c0)) + (math.FMA(sζ196, pζ196, -rζ196) + eζ196.c0lo)
-									ζr196_0 = float64(hiζ196)
-									ζr196_1 = float64(loζ196)
-									goto ζL196
-								}
-							ζL196:
-								fhζ195, flζ195 := ζr196_0, ζr196_1
-								uhζ195 := tζ195 - 1
-								bbζ195 := uhζ195 - tζ195
-								ulζ195 := (tζ195 - (uhζ195 - bbζ195)) + (-1 - bbζ195)
-								phζ195 := float64(uhζ195 * tζ195)
-								plζ195 := math.FMA(uhζ195, tζ195, -phζ195) + float64(ulζ195*tζ195)
-								ghζ195 := float64(phζ195 * fhζ195)
-								glζ195 := math.FMA(phζ195, fhζ195, -ghζ195) + math.FMA(phζ195, flζ195, plζ195*fhζ195)
-								hiζ195 = 1 + ghζ195
-								loζ195 = ((1 - hiζ195) + ghζ195) + glζ195
-								ζr195_0 = float64(hiζ195)
-								ζr195_1 = float64(loζ195)
-								goto ζL195
+								xhζ189 := float64(hnζ170)
+								xlζ189 := float64(lζ170 - (hnζ170 - hζ170))
+								var hiζ189 float64
+								_ = hiζ189
+								var loζ189 float64
+								_ = loζ189
+								var kζ189 int
+								_ = kζ189
+								kdζ189 := math.RoundToEven(xhζ189 * expInvLn2N)
+								kiζ189 := int(kdζ189)
+								rζ189 := xhζ189 - float64(kdζ189*expC1)
+								drζ189 := xlζ189 - float64(kdζ189*expC2)
+								uζ189 := rζ189 + drζ189
+								ueζ189 := drζ189 - (uζ189 - rζ189)
+								u2ζ189 := float64(uζ189 * uζ189)
+								aζ189 := math.FMA(uζ189, 1.0/6, 0.5)
+								bζ189 := math.FMA(uζ189, 1.0/120, 1.0/24)
+								bζ189 = math.FMA(u2ζ189, 1.0/720, bζ189)
+								pζ189 := float64(u2ζ189 * math.FMA(u2ζ189, bζ189, aζ189))
+								tζ189 := &expT[kiζ189&127]
+								thζ189, tlζ189 := tζ189[0], tζ189[1]
+								puζ189 := float64(thζ189 * uζ189)
+								hζ189 := thζ189 + puζ189
+								loζ189 = ((puζ189 - (hζ189 - thζ189)) + math.FMA(thζ189, uζ189, -puζ189)) + math.FMA(thζ189, ueζ189+pζ189, math.FMA(tlζ189, uζ189, tlζ189))
+								hiζ189 = hζ189 + loζ189
+								loζ189 -= hiζ189 - hζ189
+								ζr189_0 = float64(hiζ189)
+								ζr189_1 = float64(loζ189)
+								ζr189_2 = int(kiζ189 >> 7)
+								goto ζL189
 							}
-						ζL195:
-							ghζ185, glζ185 := ζr195_0, ζr195_1
-							qζ185 := ghζ185 / xζ185
-							ζr185_0 = float64(qζ185)
-							ζr185_1 = float64((math.FMA(-qζ185, xζ185, ghζ185) + glζ185) / xζ185)
-							goto ζL185
+						ζL189:
+							ehζ170, elζ170, kζ170 := ζr189_0, ζr189_1, ζr189_2
+							var ζr190_0 float64
+							{
+								kζ190 := int(kζ170)
+								ζr190_0 = float64(math.Float64frombits(uint64(kζ190+1023) << 52))
+								goto ζL190
+							}
+						ζL190:
+							sζ170 := ζr190_0
+							ζr170_0 = float64(float64(ehζ170 * sζ170))
+							ζr170_1 = float64(float64(elζ170 * sζ170))
+							goto ζL170
 						}
-					ζL185:
-						bhζ172, blζ172 := ζr185_0, ζr185_1
-						var ζr197_0 float64
-						var ζr197_1 float64
-						{
-							xζ197 := float64(sζ172)
-							var hiζ197 float64
-							_ = hiζ197
-							var loζ197 float64
-							_ = loζ197
-							if xζ197 < 10 {
-								var ζr200_0 float64
-								var ζr200_1 float64
-								{
-									xζ200 := float64(xζ197)
-									var hiζ200 float64
-									_ = hiζ200
-									var loζ200 float64
-									_ = loζ200
-									if xζ200 >= 1 {
-										var ζr203_0 float64
-										var ζr203_1 float64
+					ζL170:
+						chζ145, clζ145 := ζr170_0, ζr170_1
+						if slζ145 != 0 {
+							clζ145 += float64(chζ145 * Digamma(sζ145) * slζ145)
+						}
+						nhζ145 := float64(ahζ145 * bhζ145)
+						nlζ145 := math.FMA(ahζ145, bhζ145, -nhζ145) + math.FMA(ahζ145, blζ145, alζ145*bhζ145)
+						qζ145 := nhζ145 / chζ145
+						rζ145 := math.FMA(-qζ145, chζ145, nhζ145) + (nlζ145 - float64(qζ145*clζ145))
+						ζr145_0 = float64(qζ145 + rζ145/chζ145)
+						goto ζL145
+					}
+				ζL145:
+					ζt144 := ζr145_0
+					ζdst[ζi] = float64(ζt144)
+					continue ζloop
+				}
+				if bζ0 >= 10 && aζ0 < 10 && aζ0 > 0x1p-56 && bζ0 <= 1e300 {
+					var ζr191_0 float64
+					var ζr191_1 float64
+					{
+						xζ191 := float64(aζ0)
+						var hiζ191 float64
+						_ = hiζ191
+						var loζ191 float64
+						_ = loζ191
+						if xζ191 >= 1 {
+							var ζr194_0 float64
+							var ζr194_1 float64
+							{
+								xζ194 := float64(xζ191)
+								var hiζ194 float64
+								_ = hiζ194
+								var loζ194 float64
+								_ = loζ194
+								nζ194 := math.Ceil(xζ194 - 2)
+								if nζ194 <= 0 {
+									var ζr197_0 float64
+									var ζr197_1 float64
+									{
+										tζ197 := float64(xζ194 - 1)
+										var hiζ197 float64
+										_ = hiζ197
+										var loζ197 float64
+										_ = loζ197
+										var ζr198_0 float64
+										var ζr198_1 float64
 										{
-											xζ203 := float64(xζ200)
-											var hiζ203 float64
-											_ = hiζ203
-											var loζ203 float64
-											_ = loζ203
-											nζ203 := math.Ceil(xζ203 - 2)
-											if nζ203 <= 0 {
-												var ζr206_0 float64
-												var ζr206_1 float64
-												{
-													tζ206 := float64(xζ203 - 1)
-													var hiζ206 float64
-													_ = hiζ206
-													var loζ206 float64
-													_ = loζ206
-													var ζr207_0 float64
-													var ζr207_1 float64
-													{
-														eζ207 := &gamma1pEst[min(int(tζ206*4), 3)]
-														tζ207 := float64(tζ206)
-														var hiζ207 float64
-														_ = hiζ207
-														var loζ207 float64
-														_ = loζ207
-														sζ207 := tζ207 - eζ207.c
-														qζ207 := &eζ207.q
-														s2ζ207 := float64(sζ207 * sζ207)
-														s4ζ207 := float64(s2ζ207 * s2ζ207)
-														a0ζ207 := math.FMA(qζ207[4], sζ207, qζ207[3])
-														a1ζ207 := math.FMA(qζ207[6], sζ207, qζ207[5])
-														a2ζ207 := math.FMA(qζ207[8], sζ207, qζ207[7])
-														a3ζ207 := math.FMA(qζ207[10], sζ207, qζ207[9])
-														a4ζ207 := math.FMA(qζ207[12], sζ207, qζ207[11])
-														a5ζ207 := math.FMA(qζ207[14], sζ207, qζ207[13])
-														b0ζ207 := math.FMA(a1ζ207, s2ζ207, a0ζ207)
-														b1ζ207 := math.FMA(a3ζ207, s2ζ207, a2ζ207)
-														b2ζ207 := math.FMA(a5ζ207, s2ζ207, a4ζ207)
-														c0ζ207 := math.FMA(b1ζ207, s4ζ207, b0ζ207)
-														c1ζ207 := math.FMA(qζ207[15], s4ζ207, b2ζ207)
-														pζ207 := math.FMA(c1ζ207, s4ζ207*s4ζ207, c0ζ207)
-														pζ207 = math.FMA(math.FMA(math.FMA(pζ207, sζ207, qζ207[2]), sζ207, qζ207[1]), sζ207, qζ207[0])
-														rζ207 := float64(sζ207 * pζ207)
-														hiζ207 = eζ207.c0 + rζ207
-														loζ207 = (rζ207 - (hiζ207 - eζ207.c0)) + (math.FMA(sζ207, pζ207, -rζ207) + eζ207.c0lo)
-														ζr207_0 = float64(hiζ207)
-														ζr207_1 = float64(loζ207)
-														goto ζL207
-													}
-												ζL207:
-													fhζ206, flζ206 := ζr207_0, ζr207_1
-													uhζ206 := tζ206 - 1
-													bbζ206 := uhζ206 - tζ206
-													ulζ206 := (tζ206 - (uhζ206 - bbζ206)) + (-1 - bbζ206)
-													phζ206 := float64(uhζ206 * tζ206)
-													plζ206 := math.FMA(uhζ206, tζ206, -phζ206) + float64(ulζ206*tζ206)
-													ghζ206 := float64(phζ206 * fhζ206)
-													glζ206 := math.FMA(phζ206, fhζ206, -ghζ206) + math.FMA(phζ206, flζ206, plζ206*fhζ206)
-													hiζ206 = 1 + ghζ206
-													loζ206 = ((1 - hiζ206) + ghζ206) + glζ206
-													ζr206_0 = float64(hiζ206)
-													ζr206_1 = float64(loζ206)
-													goto ζL206
-												}
-											ζL206:
-												ζt204, ζt205 := ζr206_0, ζr206_1
-												ζr203_0 = float64(ζt204)
-												ζr203_1 = float64(ζt205)
-												goto ζL203
-											}
-											var ζr208_0 float64
-											var ζr208_1 float64
-											{
-												tζ208 := float64(xζ203 - nζ203 - 1)
-												var hiζ208 float64
-												_ = hiζ208
-												var loζ208 float64
-												_ = loζ208
-												var ζr209_0 float64
-												var ζr209_1 float64
-												{
-													eζ209 := &gamma1pEst[min(int(tζ208*4), 3)]
-													tζ209 := float64(tζ208)
-													var hiζ209 float64
-													_ = hiζ209
-													var loζ209 float64
-													_ = loζ209
-													sζ209 := tζ209 - eζ209.c
-													qζ209 := &eζ209.q
-													s2ζ209 := float64(sζ209 * sζ209)
-													s4ζ209 := float64(s2ζ209 * s2ζ209)
-													a0ζ209 := math.FMA(qζ209[4], sζ209, qζ209[3])
-													a1ζ209 := math.FMA(qζ209[6], sζ209, qζ209[5])
-													a2ζ209 := math.FMA(qζ209[8], sζ209, qζ209[7])
-													a3ζ209 := math.FMA(qζ209[10], sζ209, qζ209[9])
-													a4ζ209 := math.FMA(qζ209[12], sζ209, qζ209[11])
-													a5ζ209 := math.FMA(qζ209[14], sζ209, qζ209[13])
-													b0ζ209 := math.FMA(a1ζ209, s2ζ209, a0ζ209)
-													b1ζ209 := math.FMA(a3ζ209, s2ζ209, a2ζ209)
-													b2ζ209 := math.FMA(a5ζ209, s2ζ209, a4ζ209)
-													c0ζ209 := math.FMA(b1ζ209, s4ζ209, b0ζ209)
-													c1ζ209 := math.FMA(qζ209[15], s4ζ209, b2ζ209)
-													pζ209 := math.FMA(c1ζ209, s4ζ209*s4ζ209, c0ζ209)
-													pζ209 = math.FMA(math.FMA(math.FMA(pζ209, sζ209, qζ209[2]), sζ209, qζ209[1]), sζ209, qζ209[0])
-													rζ209 := float64(sζ209 * pζ209)
-													hiζ209 = eζ209.c0 + rζ209
-													loζ209 = (rζ209 - (hiζ209 - eζ209.c0)) + (math.FMA(sζ209, pζ209, -rζ209) + eζ209.c0lo)
-													ζr209_0 = float64(hiζ209)
-													ζr209_1 = float64(loζ209)
-													goto ζL209
-												}
-											ζL209:
-												fhζ208, flζ208 := ζr209_0, ζr209_1
-												uhζ208 := tζ208 - 1
-												bbζ208 := uhζ208 - tζ208
-												ulζ208 := (tζ208 - (uhζ208 - bbζ208)) + (-1 - bbζ208)
-												phζ208 := float64(uhζ208 * tζ208)
-												plζ208 := math.FMA(uhζ208, tζ208, -phζ208) + float64(ulζ208*tζ208)
-												ghζ208 := float64(phζ208 * fhζ208)
-												glζ208 := math.FMA(phζ208, fhζ208, -ghζ208) + math.FMA(phζ208, flζ208, plζ208*fhζ208)
-												hiζ208 = 1 + ghζ208
-												loζ208 = ((1 - hiζ208) + ghζ208) + glζ208
-												ζr208_0 = float64(hiζ208)
-												ζr208_1 = float64(loζ208)
-												goto ζL208
-											}
-										ζL208:
-											hiζ203, loζ203 = ζr208_0, ζr208_1
-											for jζ203 := 1.0; jζ203 <= nζ203; jζ203++ {
-												fζ203 := xζ203 - jζ203
-												pζ203 := float64(hiζ203 * fζ203)
-												loζ203 = math.FMA(hiζ203, fζ203, -pζ203) + float64(loζ203*fζ203)
-												hiζ203 = pζ203
-											}
-											ζr203_0 = float64(hiζ203)
-											ζr203_1 = float64(loζ203)
-											goto ζL203
+											eζ198 := &gamma1pEst[min(int(tζ197*4), 3)]
+											tζ198 := float64(tζ197)
+											var hiζ198 float64
+											_ = hiζ198
+											var loζ198 float64
+											_ = loζ198
+											sζ198 := tζ198 - eζ198.c
+											qζ198 := &eζ198.q
+											s2ζ198 := float64(sζ198 * sζ198)
+											s4ζ198 := float64(s2ζ198 * s2ζ198)
+											a0ζ198 := math.FMA(qζ198[4], sζ198, qζ198[3])
+											a1ζ198 := math.FMA(qζ198[6], sζ198, qζ198[5])
+											a2ζ198 := math.FMA(qζ198[8], sζ198, qζ198[7])
+											a3ζ198 := math.FMA(qζ198[10], sζ198, qζ198[9])
+											a4ζ198 := math.FMA(qζ198[12], sζ198, qζ198[11])
+											a5ζ198 := math.FMA(qζ198[14], sζ198, qζ198[13])
+											b0ζ198 := math.FMA(a1ζ198, s2ζ198, a0ζ198)
+											b1ζ198 := math.FMA(a3ζ198, s2ζ198, a2ζ198)
+											b2ζ198 := math.FMA(a5ζ198, s2ζ198, a4ζ198)
+											c0ζ198 := math.FMA(b1ζ198, s4ζ198, b0ζ198)
+											c1ζ198 := math.FMA(qζ198[15], s4ζ198, b2ζ198)
+											pζ198 := math.FMA(c1ζ198, s4ζ198*s4ζ198, c0ζ198)
+											pζ198 = math.FMA(math.FMA(math.FMA(pζ198, sζ198, qζ198[2]), sζ198, qζ198[1]), sζ198, qζ198[0])
+											rζ198 := float64(sζ198 * pζ198)
+											hiζ198 = eζ198.c0 + rζ198
+											loζ198 = (rζ198 - (hiζ198 - eζ198.c0)) + (math.FMA(sζ198, pζ198, -rζ198) + eζ198.c0lo)
+											ζr198_0 = float64(hiζ198)
+											ζr198_1 = float64(loζ198)
+											goto ζL198
 										}
-									ζL203:
-										ζt201, ζt202 := ζr203_0, ζr203_1
-										ζr200_0 = float64(ζt201)
-										ζr200_1 = float64(ζt202)
+									ζL198:
+										fhζ197, flζ197 := ζr198_0, ζr198_1
+										uhζ197 := tζ197 - 1
+										bbζ197 := uhζ197 - tζ197
+										ulζ197 := (tζ197 - (uhζ197 - bbζ197)) + (-1 - bbζ197)
+										phζ197 := float64(uhζ197 * tζ197)
+										plζ197 := math.FMA(uhζ197, tζ197, -phζ197) + float64(ulζ197*tζ197)
+										ghζ197 := float64(phζ197 * fhζ197)
+										glζ197 := math.FMA(phζ197, fhζ197, -ghζ197) + math.FMA(phζ197, flζ197, plζ197*fhζ197)
+										hiζ197 = 1 + ghζ197
+										loζ197 = ((1 - hiζ197) + ghζ197) + glζ197
+										ζr197_0 = float64(hiζ197)
+										ζr197_1 = float64(loζ197)
+										goto ζL197
+									}
+								ζL197:
+									ζt195, ζt196 := ζr197_0, ζr197_1
+									ζr194_0 = float64(ζt195)
+									ζr194_1 = float64(ζt196)
+									goto ζL194
+								}
+								var ζr199_0 float64
+								var ζr199_1 float64
+								{
+									tζ199 := float64(xζ194 - nζ194 - 1)
+									var hiζ199 float64
+									_ = hiζ199
+									var loζ199 float64
+									_ = loζ199
+									var ζr200_0 float64
+									var ζr200_1 float64
+									{
+										eζ200 := &gamma1pEst[min(int(tζ199*4), 3)]
+										tζ200 := float64(tζ199)
+										var hiζ200 float64
+										_ = hiζ200
+										var loζ200 float64
+										_ = loζ200
+										sζ200 := tζ200 - eζ200.c
+										qζ200 := &eζ200.q
+										s2ζ200 := float64(sζ200 * sζ200)
+										s4ζ200 := float64(s2ζ200 * s2ζ200)
+										a0ζ200 := math.FMA(qζ200[4], sζ200, qζ200[3])
+										a1ζ200 := math.FMA(qζ200[6], sζ200, qζ200[5])
+										a2ζ200 := math.FMA(qζ200[8], sζ200, qζ200[7])
+										a3ζ200 := math.FMA(qζ200[10], sζ200, qζ200[9])
+										a4ζ200 := math.FMA(qζ200[12], sζ200, qζ200[11])
+										a5ζ200 := math.FMA(qζ200[14], sζ200, qζ200[13])
+										b0ζ200 := math.FMA(a1ζ200, s2ζ200, a0ζ200)
+										b1ζ200 := math.FMA(a3ζ200, s2ζ200, a2ζ200)
+										b2ζ200 := math.FMA(a5ζ200, s2ζ200, a4ζ200)
+										c0ζ200 := math.FMA(b1ζ200, s4ζ200, b0ζ200)
+										c1ζ200 := math.FMA(qζ200[15], s4ζ200, b2ζ200)
+										pζ200 := math.FMA(c1ζ200, s4ζ200*s4ζ200, c0ζ200)
+										pζ200 = math.FMA(math.FMA(math.FMA(pζ200, sζ200, qζ200[2]), sζ200, qζ200[1]), sζ200, qζ200[0])
+										rζ200 := float64(sζ200 * pζ200)
+										hiζ200 = eζ200.c0 + rζ200
+										loζ200 = (rζ200 - (hiζ200 - eζ200.c0)) + (math.FMA(sζ200, pζ200, -rζ200) + eζ200.c0lo)
+										ζr200_0 = float64(hiζ200)
+										ζr200_1 = float64(loζ200)
 										goto ζL200
 									}
+								ζL200:
+									fhζ199, flζ199 := ζr200_0, ζr200_1
+									uhζ199 := tζ199 - 1
+									bbζ199 := uhζ199 - tζ199
+									ulζ199 := (tζ199 - (uhζ199 - bbζ199)) + (-1 - bbζ199)
+									phζ199 := float64(uhζ199 * tζ199)
+									plζ199 := math.FMA(uhζ199, tζ199, -phζ199) + float64(ulζ199*tζ199)
+									ghζ199 := float64(phζ199 * fhζ199)
+									glζ199 := math.FMA(phζ199, fhζ199, -ghζ199) + math.FMA(phζ199, flζ199, plζ199*fhζ199)
+									hiζ199 = 1 + ghζ199
+									loζ199 = ((1 - hiζ199) + ghζ199) + glζ199
+									ζr199_0 = float64(hiζ199)
+									ζr199_1 = float64(loζ199)
+									goto ζL199
+								}
+							ζL199:
+								hiζ194, loζ194 = ζr199_0, ζr199_1
+								for jζ194 := 1.0; jζ194 <= nζ194; jζ194++ {
+									fζ194 := xζ194 - jζ194
+									pζ194 := float64(hiζ194 * fζ194)
+									loζ194 = math.FMA(hiζ194, fζ194, -pζ194) + float64(loζ194*fζ194)
+									hiζ194 = pζ194
+								}
+								ζr194_0 = float64(hiζ194)
+								ζr194_1 = float64(loζ194)
+								goto ζL194
+							}
+						ζL194:
+							ζt192, ζt193 := ζr194_0, ζr194_1
+							ζr191_0 = float64(ζt192)
+							ζr191_1 = float64(ζt193)
+							goto ζL191
+						}
+						var ζr201_0 float64
+						var ζr201_1 float64
+						{
+							tζ201 := float64(xζ191)
+							var hiζ201 float64
+							_ = hiζ201
+							var loζ201 float64
+							_ = loζ201
+							var ζr202_0 float64
+							var ζr202_1 float64
+							{
+								eζ202 := &gamma1pEst[min(int(tζ201*4), 3)]
+								tζ202 := float64(tζ201)
+								var hiζ202 float64
+								_ = hiζ202
+								var loζ202 float64
+								_ = loζ202
+								sζ202 := tζ202 - eζ202.c
+								qζ202 := &eζ202.q
+								s2ζ202 := float64(sζ202 * sζ202)
+								s4ζ202 := float64(s2ζ202 * s2ζ202)
+								a0ζ202 := math.FMA(qζ202[4], sζ202, qζ202[3])
+								a1ζ202 := math.FMA(qζ202[6], sζ202, qζ202[5])
+								a2ζ202 := math.FMA(qζ202[8], sζ202, qζ202[7])
+								a3ζ202 := math.FMA(qζ202[10], sζ202, qζ202[9])
+								a4ζ202 := math.FMA(qζ202[12], sζ202, qζ202[11])
+								a5ζ202 := math.FMA(qζ202[14], sζ202, qζ202[13])
+								b0ζ202 := math.FMA(a1ζ202, s2ζ202, a0ζ202)
+								b1ζ202 := math.FMA(a3ζ202, s2ζ202, a2ζ202)
+								b2ζ202 := math.FMA(a5ζ202, s2ζ202, a4ζ202)
+								c0ζ202 := math.FMA(b1ζ202, s4ζ202, b0ζ202)
+								c1ζ202 := math.FMA(qζ202[15], s4ζ202, b2ζ202)
+								pζ202 := math.FMA(c1ζ202, s4ζ202*s4ζ202, c0ζ202)
+								pζ202 = math.FMA(math.FMA(math.FMA(pζ202, sζ202, qζ202[2]), sζ202, qζ202[1]), sζ202, qζ202[0])
+								rζ202 := float64(sζ202 * pζ202)
+								hiζ202 = eζ202.c0 + rζ202
+								loζ202 = (rζ202 - (hiζ202 - eζ202.c0)) + (math.FMA(sζ202, pζ202, -rζ202) + eζ202.c0lo)
+								ζr202_0 = float64(hiζ202)
+								ζr202_1 = float64(loζ202)
+								goto ζL202
+							}
+						ζL202:
+							fhζ201, flζ201 := ζr202_0, ζr202_1
+							uhζ201 := tζ201 - 1
+							bbζ201 := uhζ201 - tζ201
+							ulζ201 := (tζ201 - (uhζ201 - bbζ201)) + (-1 - bbζ201)
+							phζ201 := float64(uhζ201 * tζ201)
+							plζ201 := math.FMA(uhζ201, tζ201, -phζ201) + float64(ulζ201*tζ201)
+							ghζ201 := float64(phζ201 * fhζ201)
+							glζ201 := math.FMA(phζ201, fhζ201, -ghζ201) + math.FMA(phζ201, flζ201, plζ201*fhζ201)
+							hiζ201 = 1 + ghζ201
+							loζ201 = ((1 - hiζ201) + ghζ201) + glζ201
+							ζr201_0 = float64(hiζ201)
+							ζr201_1 = float64(loζ201)
+							goto ζL201
+						}
+					ζL201:
+						ghζ191, glζ191 := ζr201_0, ζr201_1
+						qζ191 := ghζ191 / xζ191
+						ζr191_0 = float64(qζ191)
+						ζr191_1 = float64((math.FMA(-qζ191, xζ191, ghζ191) + glζ191) / xζ191)
+						goto ζL191
+					}
+				ζL191:
+					ghζ0, glζ0 := ζr191_0, ζr191_1
+					var ζr203_0 float64
+					var ζr203_1 float64
+					{
+						aζ203 := float64(aζ0)
+						bζ203 := float64(bζ0)
+						sζ203 := float64(aζ0 + bζ0)
+						var hiζ203 float64
+						_ = hiζ203
+						var loζ203 float64
+						_ = loζ203
+						if aζ203/bζ203 < 1.0/64 {
+							var ζr206_0 float64
+							var ζr206_1 float64
+							{
+								aζ206 := float64(aζ203)
+								bζ206 := float64(bζ203)
+								sζ206 := float64(sζ203)
+								var hiζ206 float64
+								_ = hiζ206
+								var loζ206 float64
+								_ = loζ206
+								xhζ206 := aζ206 / bζ206
+								xlζ206 := math.FMA(-xhζ206, bζ206, aζ206) / bζ206
+								x2ζ206 := float64(xhζ206 * xhζ206)
+								x2lζ206 := math.FMA(xhζ206, xhζ206, -x2ζ206) + float64(2*xhζ206*xlζ206)
+								x4ζ206 := float64(x2ζ206 * x2ζ206)
+								pζ206 := math.FMA(math.FMA(-1.0/6, xhζ206, 1.0/5), x2ζ206, math.FMA(-1.0/4, xhζ206, 1.0/3))
+								qζ206 := math.FMA(math.FMA(-1.0/10, xhζ206, 1.0/9), x2ζ206, math.FMA(-1.0/8, xhζ206, 1.0/7))
+								rζ206 := math.FMA(math.FMA(-1.0/12, xhζ206, 1.0/11), x4ζ206, qζ206)
+								tζ206 := float64(math.FMA(rζ206, x4ζ206, pζ206) * xhζ206)
+								mhζ206 := float64(-0.5 * x2ζ206)
+								mlζ206 := math.FMA(x2ζ206, tζ206, -0.5*x2lζ206)
+								lhζ206 := xhζ206 + mhζ206
+								llζ206 := ((xhζ206 - lhζ206) + mhζ206) + (xlζ206 + mlζ206)
+								var ζr209_0 float64
+								var ζr209_1 float64
+								{
+									aζ209 := float64(aζ206)
+									bζ209 := float64(bζ206)
+									sζ209 := float64(sζ206)
+									lhζ209 := float64(lhζ206)
+									llζ209 := float64(llζ206)
+									mhζ209 := float64(mhζ206)
+									mlζ209 := float64(mlζ206)
+									var hiζ209 float64
+									_ = hiζ209
+									var loζ209 float64
+									_ = loζ209
 									var ζr210_0 float64
 									var ζr210_1 float64
 									{
-										tζ210 := float64(xζ200)
+										xζ210 := float64(bζ209)
 										var hiζ210 float64
 										_ = hiζ210
 										var loζ210 float64
 										_ = loζ210
-										var ζr211_0 float64
-										var ζr211_1 float64
+										var ζr213_0 float64
+										var ζr213_1 float64
 										{
-											eζ211 := &gamma1pEst[min(int(tζ210*4), 3)]
-											tζ211 := float64(tζ210)
-											var hiζ211 float64
-											_ = hiζ211
-											var loζ211 float64
-											_ = loζ211
-											sζ211 := tζ211 - eζ211.c
-											qζ211 := &eζ211.q
-											s2ζ211 := float64(sζ211 * sζ211)
-											s4ζ211 := float64(s2ζ211 * s2ζ211)
-											a0ζ211 := math.FMA(qζ211[4], sζ211, qζ211[3])
-											a1ζ211 := math.FMA(qζ211[6], sζ211, qζ211[5])
-											a2ζ211 := math.FMA(qζ211[8], sζ211, qζ211[7])
-											a3ζ211 := math.FMA(qζ211[10], sζ211, qζ211[9])
-											a4ζ211 := math.FMA(qζ211[12], sζ211, qζ211[11])
-											a5ζ211 := math.FMA(qζ211[14], sζ211, qζ211[13])
-											b0ζ211 := math.FMA(a1ζ211, s2ζ211, a0ζ211)
-											b1ζ211 := math.FMA(a3ζ211, s2ζ211, a2ζ211)
-											b2ζ211 := math.FMA(a5ζ211, s2ζ211, a4ζ211)
-											c0ζ211 := math.FMA(b1ζ211, s4ζ211, b0ζ211)
-											c1ζ211 := math.FMA(qζ211[15], s4ζ211, b2ζ211)
-											pζ211 := math.FMA(c1ζ211, s4ζ211*s4ζ211, c0ζ211)
-											pζ211 = math.FMA(math.FMA(math.FMA(pζ211, sζ211, qζ211[2]), sζ211, qζ211[1]), sζ211, qζ211[0])
-											rζ211 := float64(sζ211 * pζ211)
-											hiζ211 = eζ211.c0 + rζ211
-											loζ211 = (rζ211 - (hiζ211 - eζ211.c0)) + (math.FMA(sζ211, pζ211, -rζ211) + eζ211.c0lo)
-											ζr211_0 = float64(hiζ211)
-											ζr211_1 = float64(loζ211)
-											goto ζL211
+											xζ213 := float64(xζ210)
+											keζ213 := int(0)
+											var hiζ213 float64
+											_ = hiζ213
+											var loζ213 float64
+											_ = loζ213
+											ixζ213 := math.Float64bits(xζ213)
+											tmpζ213 := ixζ213 - 0x3fe8000000000000
+											keζ213 += int(int64(tmpζ213) >> 52)
+											mζ213 := math.Float64frombits(ixζ213 - uint64(int64(tmpζ213)>>52)<<52)
+											tζ213 := &logT[int(float64(mζ213*256)+0.5)-192]
+											invcζ213 := tζ213[0]
+											pζ213 := float64(mζ213 * invcζ213)
+											peζ213 := math.FMA(mζ213, invcζ213, -pζ213)
+											rζ213 := pζ213 - 1
+											r2ζ213 := float64(rζ213 * rζ213)
+											c0ζ213 := math.FMA(rζ213, 1.0/3, -0.5)
+											c1ζ213 := math.FMA(rζ213, 1.0/5, -0.25)
+											c2ζ213 := math.FMA(rζ213, 1.0/7, -1.0/6)
+											c2ζ213 = math.FMA(r2ζ213, -1.0/8, c2ζ213)
+											c1ζ213 = math.FMA(r2ζ213, c2ζ213, c1ζ213)
+											qζ213 := float64(r2ζ213 * math.FMA(r2ζ213, c1ζ213, c0ζ213))
+											kfζ213 := float64(keζ213)
+											lhζ213 := float64(kfζ213*ln2Hi42) + tζ213[1]
+											hiζ213 = lhζ213 + rζ213
+											loζ213 = (rζ213 - (hiζ213 - lhζ213)) + (math.FMA(kfζ213, ln2Lo42, tζ213[2]) + (math.FMA(peζ213, -rζ213, peζ213) + qζ213))
+											ζr213_0 = float64(hiζ213)
+											ζr213_1 = float64(loζ213)
+											goto ζL213
 										}
-									ζL211:
-										fhζ210, flζ210 := ζr211_0, ζr211_1
-										uhζ210 := tζ210 - 1
-										bbζ210 := uhζ210 - tζ210
-										ulζ210 := (tζ210 - (uhζ210 - bbζ210)) + (-1 - bbζ210)
-										phζ210 := float64(uhζ210 * tζ210)
-										plζ210 := math.FMA(uhζ210, tζ210, -phζ210) + float64(ulζ210*tζ210)
-										ghζ210 := float64(phζ210 * fhζ210)
-										glζ210 := math.FMA(phζ210, fhζ210, -ghζ210) + math.FMA(phζ210, flζ210, plζ210*fhζ210)
-										hiζ210 = 1 + ghζ210
-										loζ210 = ((1 - hiζ210) + ghζ210) + glζ210
-										ζr210_0 = float64(hiζ210)
-										ζr210_1 = float64(loζ210)
+									ζL213:
+										ζt211, ζt212 := ζr213_0, ζr213_1
+										ζr210_0 = float64(ζt211)
+										ζr210_1 = float64(ζt212)
 										goto ζL210
 									}
 								ζL210:
-									ghζ200, glζ200 := ζr210_0, ζr210_1
-									qζ200 := ghζ200 / xζ200
-									ζr200_0 = float64(qζ200)
-									ζr200_1 = float64((math.FMA(-qζ200, xζ200, ghζ200) + glζ200) / xζ200)
-									goto ζL200
+									bhζ209, blζ209 := ζr210_0, ζr210_1
+									t1hζ209 := float64(aζ209 * bhζ209)
+									t1lζ209 := math.FMA(aζ209, bhζ209, -t1hζ209) + float64(aζ209*blζ209)
+									t2hζ209 := float64(bζ209 * mhζ209)
+									t2lζ209 := math.FMA(bζ209, mhζ209, -t2hζ209) + float64(bζ209*mlζ209)
+									ahζ209 := aζ209 - 0.5
+									bbζ209 := ahζ209 - aζ209
+									alζ209 := (aζ209 - (ahζ209 - bbζ209)) + (-0.5 - bbζ209)
+									t3hζ209 := float64(ahζ209 * lhζ209)
+									t3lζ209 := math.FMA(ahζ209, lhζ209, -t3hζ209) + math.FMA(ahζ209, llζ209, alζ209*lhζ209)
+									ibζ209 := 1 / bζ209
+									isζ209 := 1 / sζ209
+									dζ209 := float64(aζ209 * ibζ209 * isζ209)
+									ib2ζ209 := float64(ibζ209 * ibζ209)
+									sgζ209 := ibζ209 + isζ209
+									is2ζ209 := float64(isζ209 * isζ209)
+									tnζ209, pwζ209 := 1.0, isζ209
+									sumζ209 := 0.0
+									for _, cζ209 := range stirlingCoef {
+										sumζ209 = math.FMA(cζ209, tnζ209, sumζ209)
+										tnζ209 = math.FMA(ib2ζ209, tnζ209, pwζ209*sgζ209)
+										pwζ209 = float64(pwζ209 * (is2ζ209))
+									}
+									dsζ209 := float64(dζ209 * sumζ209)
+									uζ209 := -t1hζ209 - t3hζ209
+									bbζ209 = uζ209 + t1hζ209
+									ueζ209 := (-t1hζ209 - (uζ209 - bbζ209)) + (-t3hζ209 - bbζ209)
+									vζ209 := uζ209 - t2hζ209
+									bbζ209 = vζ209 - uζ209
+									veζ209 := (uζ209 - (vζ209 - bbζ209)) + (-t2hζ209 - bbζ209)
+									ζr209_0 = float64(vζ209)
+									ζr209_1 = float64((ueζ209 + veζ209) + (dsζ209 - t1lζ209 - t2lζ209 - t3lζ209))
+									goto ζL209
 								}
-							ζL200:
-								ζt198, ζt199 := ζr200_0, ζr200_1
-								ζr197_0 = float64(ζt198)
-								ζr197_1 = float64(ζt199)
-								goto ζL197
+							ζL209:
+								ζt207, ζt208 := ζr209_0, ζr209_1
+								ζr206_0 = float64(ζt207)
+								ζr206_1 = float64(ζt208)
+								goto ζL206
 							}
-							var ζr212_0 float64
-							var ζr212_1 float64
-							{
-								xζ212 := float64(xζ197)
-								var hiζ212 float64
-								_ = hiζ212
-								var loζ212 float64
-								_ = loζ212
-								var ζr215_0 float64
-								var ζr215_1 float64
-								{
-									xζ215 := float64(xζ212)
-									xlζ215 := float64(0)
-									var hiζ215 float64
-									_ = hiζ215
-									var loζ215 float64
-									_ = loζ215
-									ixbζ215 := math.Float64bits(xζ215)
-									tmpζ215 := ixbζ215 - 0x3fe8000000000000
-									kfζ215 := float64(int64(tmpζ215) >> 52)
-									mζ215 := math.Float64frombits(ixbζ215 - uint64(int64(tmpζ215)>>52)<<52)
-									tζ215 := &logT[int(float64(mζ215*256)+0.5)-192]
-									invcζ215 := tζ215[0]
-									pζ215 := float64(mζ215 * invcζ215)
-									peζ215 := math.FMA(mζ215, invcζ215, -pζ215)
-									rζ215 := pζ215 - 1
-									r2ζ215 := float64(rζ215 * rζ215)
-									q0ζ215 := math.FMA(rζ215, 1.0/3, -0.5)
-									q1ζ215 := math.FMA(rζ215, 1.0/5, -0.25)
-									q2ζ215 := math.FMA(rζ215, 1.0/7, -1.0/6)
-									q2ζ215 = math.FMA(r2ζ215, -1.0/8, q2ζ215)
-									q1ζ215 = math.FMA(r2ζ215, q2ζ215, q1ζ215)
-									qζ215 := float64(r2ζ215 * math.FMA(r2ζ215, q1ζ215, q0ζ215))
-									l0ζ215 := float64(kfζ215*ln2Hi42) + tζ215[1]
-									lhζ215 := l0ζ215 + rζ215
-									llζ215 := (rζ215 - (lhζ215 - l0ζ215)) + (math.FMA(kfζ215, ln2Lo42, tζ215[2]) + (math.FMA(peζ215, -rζ215, peζ215) + qζ215))
-									ixζ215 := 1 / xζ215
-									mhζ215 := xζ215 - 0.5
-									mlζ215 := (xζ215 - mhζ215) - 0.5
-									phζ215 := float64(mhζ215 * lhζ215)
-									plζ215 := math.FMA(mhζ215, lhζ215, -phζ215) + math.FMA(mhζ215, llζ215, mlζ215*lhζ215)
-									const c1loζ215 = 4.625929269271485e-18
-									cζ215 := &stirlingCoef
-									ixlζ215 := float64(math.FMA(-ixζ215, xζ215, 1) * ixζ215)
-									zζ215 := float64(ixζ215 * ixζ215)
-									z2ζ215 := float64(zζ215 * zζ215)
-									z4ζ215 := float64(z2ζ215 * z2ζ215)
-									saζ215 := math.FMA(math.FMA(cζ215[4], zζ215, cζ215[3]), z2ζ215, math.FMA(cζ215[2], zζ215, cζ215[1]))
-									sbζ215 := math.FMA(math.FMA(cζ215[8], zζ215, cζ215[7]), z2ζ215, math.FMA(cζ215[6], zζ215, cζ215[5]))
-									tailζ215 := float64(math.FMA(sbζ215, z4ζ215, saζ215) * zζ215 * ixζ215)
-									shζ215 := float64(ixζ215 * cζ215[0])
-									slζ215 := math.FMA(ixζ215, cζ215[0], -shζ215) + math.FMA(ixlζ215, cζ215[0], math.FMA(ixζ215, c1loζ215, tailζ215))
-									vζ215 := phζ215 - xζ215
-									vlζ215 := (phζ215 - vζ215) - xζ215
-									h1ζ215 := vζ215 + lnSqrt2Pi.Hi
-									e1ζ215 := (vζ215 - h1ζ215) + lnSqrt2Pi.Hi
-									hiζ215 = h1ζ215 + shζ215
-									e2ζ215 := (h1ζ215 - hiζ215) + shζ215
-									ζr215_0 = float64(hiζ215)
-									ζr215_1 = float64((e1ζ215 + e2ζ215) + (vlζ215 + plζ215 + (lnSqrt2Pi.Lo + slζ215) + float64(xlζ215*math.FMA(-0.5, ixζ215, lhζ215))))
-									goto ζL215
-								}
-							ζL215:
-								ζt213, ζt214 := ζr215_0, ζr215_1
-								ζr212_0 = float64(ζt213)
-								ζr212_1 = float64(ζt214)
-								goto ζL212
-							}
-						ζL212:
-							hζ197, lζ197 := ζr212_0, ζr212_1
-							hnζ197 := hζ197 + lζ197
-							var ζr216_0 float64
-							var ζr216_1 float64
-							var ζr216_2 int
-							{
-								xhζ216 := float64(hnζ197)
-								xlζ216 := float64(lζ197 - (hnζ197 - hζ197))
-								var hiζ216 float64
-								_ = hiζ216
-								var loζ216 float64
-								_ = loζ216
-								var kζ216 int
-								_ = kζ216
-								kdζ216 := math.RoundToEven(xhζ216 * expInvLn2N)
-								kiζ216 := int(kdζ216)
-								rζ216 := xhζ216 - float64(kdζ216*expC1)
-								drζ216 := xlζ216 - float64(kdζ216*expC2)
-								uζ216 := rζ216 + drζ216
-								ueζ216 := drζ216 - (uζ216 - rζ216)
-								u2ζ216 := float64(uζ216 * uζ216)
-								aζ216 := math.FMA(uζ216, 1.0/6, 0.5)
-								bζ216 := math.FMA(uζ216, 1.0/120, 1.0/24)
-								bζ216 = math.FMA(u2ζ216, 1.0/720, bζ216)
-								pζ216 := float64(u2ζ216 * math.FMA(u2ζ216, bζ216, aζ216))
-								tζ216 := &expT[kiζ216&127]
-								thζ216, tlζ216 := tζ216[0], tζ216[1]
-								puζ216 := float64(thζ216 * uζ216)
-								hζ216 := thζ216 + puζ216
-								loζ216 = ((puζ216 - (hζ216 - thζ216)) + math.FMA(thζ216, uζ216, -puζ216)) + math.FMA(thζ216, ueζ216+pζ216, math.FMA(tlζ216, uζ216, tlζ216))
-								hiζ216 = hζ216 + loζ216
-								loζ216 -= hiζ216 - hζ216
-								ζr216_0 = float64(hiζ216)
-								ζr216_1 = float64(loζ216)
-								ζr216_2 = int(kiζ216 >> 7)
-								goto ζL216
-							}
-						ζL216:
-							ehζ197, elζ197, kζ197 := ζr216_0, ζr216_1, ζr216_2
+						ζL206:
+							ζt204, ζt205 := ζr206_0, ζr206_1
+							ζr203_0 = float64(ζt204)
+							ζr203_1 = float64(ζt205)
+							goto ζL203
+						}
+						xhζ203 := aζ203 / bζ203
+						xlζ203 := math.FMA(-xhζ203, bζ203, aζ203) / bζ203
+						whζ203 := 1 + xhζ203
+						wlζ203 := ((1 - whζ203) + xhζ203) + xlζ203
+						var ζr214_0 float64
+						var ζr214_1 float64
+						{
+							xζ214 := float64(whζ203)
+							var hiζ214 float64
+							_ = hiζ214
+							var loζ214 float64
+							_ = loζ214
 							var ζr217_0 float64
+							var ζr217_1 float64
 							{
-								kζ217 := int(kζ197)
-								ζr217_0 = float64(math.Float64frombits(uint64(kζ217+1023) << 52))
+								xζ217 := float64(xζ214)
+								keζ217 := int(0)
+								var hiζ217 float64
+								_ = hiζ217
+								var loζ217 float64
+								_ = loζ217
+								ixζ217 := math.Float64bits(xζ217)
+								tmpζ217 := ixζ217 - 0x3fe8000000000000
+								keζ217 += int(int64(tmpζ217) >> 52)
+								mζ217 := math.Float64frombits(ixζ217 - uint64(int64(tmpζ217)>>52)<<52)
+								tζ217 := &logT[int(float64(mζ217*256)+0.5)-192]
+								invcζ217 := tζ217[0]
+								pζ217 := float64(mζ217 * invcζ217)
+								peζ217 := math.FMA(mζ217, invcζ217, -pζ217)
+								rζ217 := pζ217 - 1
+								r2ζ217 := float64(rζ217 * rζ217)
+								c0ζ217 := math.FMA(rζ217, 1.0/3, -0.5)
+								c1ζ217 := math.FMA(rζ217, 1.0/5, -0.25)
+								c2ζ217 := math.FMA(rζ217, 1.0/7, -1.0/6)
+								c2ζ217 = math.FMA(r2ζ217, -1.0/8, c2ζ217)
+								c1ζ217 = math.FMA(r2ζ217, c2ζ217, c1ζ217)
+								qζ217 := float64(r2ζ217 * math.FMA(r2ζ217, c1ζ217, c0ζ217))
+								kfζ217 := float64(keζ217)
+								lhζ217 := float64(kfζ217*ln2Hi42) + tζ217[1]
+								hiζ217 = lhζ217 + rζ217
+								loζ217 = (rζ217 - (hiζ217 - lhζ217)) + (math.FMA(kfζ217, ln2Lo42, tζ217[2]) + (math.FMA(peζ217, -rζ217, peζ217) + qζ217))
+								ζr217_0 = float64(hiζ217)
+								ζr217_1 = float64(loζ217)
 								goto ζL217
 							}
 						ζL217:
-							sζ197 := ζr217_0
-							ζr197_0 = float64(float64(ehζ197 * sζ197))
-							ζr197_1 = float64(float64(elζ197 * sζ197))
-							goto ζL197
+							ζt215, ζt216 := ζr217_0, ζr217_1
+							ζr214_0 = float64(ζt215)
+							ζr214_1 = float64(ζt216)
+							goto ζL214
 						}
-					ζL197:
-						chζ172, clζ172 := ζr197_0, ζr197_1
-						if slζ172 != 0 {
-							clζ172 += float64(chζ172 * Digamma(sζ172) * slζ172)
-						}
-						nhζ172 := float64(ahζ172 * bhζ172)
-						nlζ172 := math.FMA(ahζ172, bhζ172, -nhζ172) + math.FMA(ahζ172, blζ172, alζ172*bhζ172)
-						qζ172 := nhζ172 / chζ172
-						rζ172 := math.FMA(-qζ172, chζ172, nhζ172) + (nlζ172 - float64(qζ172*clζ172))
-						ζr172_0 = float64(qζ172 + rζ172/chζ172)
-						goto ζL172
-					}
-				ζL172:
-					ζt171 := ζr172_0
-					ζdst[ζi] = float64(ζt171)
-					continue ζloop
-				}
-				if bζ0 >= 10 && aζ0 < 10 && aζ0 > 0x1p-56 && bζ0 <= 1e300 {
-					var ζr218_0 float64
-					var ζr218_1 float64
-					{
-						xζ218 := float64(aζ0)
-						var hiζ218 float64
-						_ = hiζ218
-						var loζ218 float64
-						_ = loζ218
-						if xζ218 >= 1 {
+					ζL214:
+						lhζ203, l2ζ203 := ζr214_0, ζr214_1
+						llζ203 := l2ζ203 + wlζ203/whζ203
+						mhζ203 := lhζ203 - xhζ203
+						mlζ203 := llζ203 - xlζ203
+						var ζr220_0 float64
+						var ζr220_1 float64
+						{
+							aζ220 := float64(aζ203)
+							bζ220 := float64(bζ203)
+							sζ220 := float64(sζ203)
+							lhζ220 := float64(lhζ203)
+							llζ220 := float64(llζ203)
+							mhζ220 := float64(mhζ203)
+							mlζ220 := float64(mlζ203)
+							var hiζ220 float64
+							_ = hiζ220
+							var loζ220 float64
+							_ = loζ220
 							var ζr221_0 float64
 							var ζr221_1 float64
 							{
-								xζ221 := float64(xζ218)
+								xζ221 := float64(bζ220)
 								var hiζ221 float64
 								_ = hiζ221
 								var loζ221 float64
 								_ = loζ221
-								nζ221 := math.Ceil(xζ221 - 2)
-								if nζ221 <= 0 {
-									var ζr224_0 float64
-									var ζr224_1 float64
-									{
-										tζ224 := float64(xζ221 - 1)
-										var hiζ224 float64
-										_ = hiζ224
-										var loζ224 float64
-										_ = loζ224
-										var ζr225_0 float64
-										var ζr225_1 float64
-										{
-											eζ225 := &gamma1pEst[min(int(tζ224*4), 3)]
-											tζ225 := float64(tζ224)
-											var hiζ225 float64
-											_ = hiζ225
-											var loζ225 float64
-											_ = loζ225
-											sζ225 := tζ225 - eζ225.c
-											qζ225 := &eζ225.q
-											s2ζ225 := float64(sζ225 * sζ225)
-											s4ζ225 := float64(s2ζ225 * s2ζ225)
-											a0ζ225 := math.FMA(qζ225[4], sζ225, qζ225[3])
-											a1ζ225 := math.FMA(qζ225[6], sζ225, qζ225[5])
-											a2ζ225 := math.FMA(qζ225[8], sζ225, qζ225[7])
-											a3ζ225 := math.FMA(qζ225[10], sζ225, qζ225[9])
-											a4ζ225 := math.FMA(qζ225[12], sζ225, qζ225[11])
-											a5ζ225 := math.FMA(qζ225[14], sζ225, qζ225[13])
-											b0ζ225 := math.FMA(a1ζ225, s2ζ225, a0ζ225)
-											b1ζ225 := math.FMA(a3ζ225, s2ζ225, a2ζ225)
-											b2ζ225 := math.FMA(a5ζ225, s2ζ225, a4ζ225)
-											c0ζ225 := math.FMA(b1ζ225, s4ζ225, b0ζ225)
-											c1ζ225 := math.FMA(qζ225[15], s4ζ225, b2ζ225)
-											pζ225 := math.FMA(c1ζ225, s4ζ225*s4ζ225, c0ζ225)
-											pζ225 = math.FMA(math.FMA(math.FMA(pζ225, sζ225, qζ225[2]), sζ225, qζ225[1]), sζ225, qζ225[0])
-											rζ225 := float64(sζ225 * pζ225)
-											hiζ225 = eζ225.c0 + rζ225
-											loζ225 = (rζ225 - (hiζ225 - eζ225.c0)) + (math.FMA(sζ225, pζ225, -rζ225) + eζ225.c0lo)
-											ζr225_0 = float64(hiζ225)
-											ζr225_1 = float64(loζ225)
-											goto ζL225
-										}
-									ζL225:
-										fhζ224, flζ224 := ζr225_0, ζr225_1
-										uhζ224 := tζ224 - 1
-										bbζ224 := uhζ224 - tζ224
-										ulζ224 := (tζ224 - (uhζ224 - bbζ224)) + (-1 - bbζ224)
-										phζ224 := float64(uhζ224 * tζ224)
-										plζ224 := math.FMA(uhζ224, tζ224, -phζ224) + float64(ulζ224*tζ224)
-										ghζ224 := float64(phζ224 * fhζ224)
-										glζ224 := math.FMA(phζ224, fhζ224, -ghζ224) + math.FMA(phζ224, flζ224, plζ224*fhζ224)
-										hiζ224 = 1 + ghζ224
-										loζ224 = ((1 - hiζ224) + ghζ224) + glζ224
-										ζr224_0 = float64(hiζ224)
-										ζr224_1 = float64(loζ224)
-										goto ζL224
-									}
-								ζL224:
-									ζt222, ζt223 := ζr224_0, ζr224_1
-									ζr221_0 = float64(ζt222)
-									ζr221_1 = float64(ζt223)
-									goto ζL221
-								}
-								var ζr226_0 float64
-								var ζr226_1 float64
+								var ζr224_0 float64
+								var ζr224_1 float64
 								{
-									tζ226 := float64(xζ221 - nζ221 - 1)
-									var hiζ226 float64
-									_ = hiζ226
-									var loζ226 float64
-									_ = loζ226
-									var ζr227_0 float64
-									var ζr227_1 float64
-									{
-										eζ227 := &gamma1pEst[min(int(tζ226*4), 3)]
-										tζ227 := float64(tζ226)
-										var hiζ227 float64
-										_ = hiζ227
-										var loζ227 float64
-										_ = loζ227
-										sζ227 := tζ227 - eζ227.c
-										qζ227 := &eζ227.q
-										s2ζ227 := float64(sζ227 * sζ227)
-										s4ζ227 := float64(s2ζ227 * s2ζ227)
-										a0ζ227 := math.FMA(qζ227[4], sζ227, qζ227[3])
-										a1ζ227 := math.FMA(qζ227[6], sζ227, qζ227[5])
-										a2ζ227 := math.FMA(qζ227[8], sζ227, qζ227[7])
-										a3ζ227 := math.FMA(qζ227[10], sζ227, qζ227[9])
-										a4ζ227 := math.FMA(qζ227[12], sζ227, qζ227[11])
-										a5ζ227 := math.FMA(qζ227[14], sζ227, qζ227[13])
-										b0ζ227 := math.FMA(a1ζ227, s2ζ227, a0ζ227)
-										b1ζ227 := math.FMA(a3ζ227, s2ζ227, a2ζ227)
-										b2ζ227 := math.FMA(a5ζ227, s2ζ227, a4ζ227)
-										c0ζ227 := math.FMA(b1ζ227, s4ζ227, b0ζ227)
-										c1ζ227 := math.FMA(qζ227[15], s4ζ227, b2ζ227)
-										pζ227 := math.FMA(c1ζ227, s4ζ227*s4ζ227, c0ζ227)
-										pζ227 = math.FMA(math.FMA(math.FMA(pζ227, sζ227, qζ227[2]), sζ227, qζ227[1]), sζ227, qζ227[0])
-										rζ227 := float64(sζ227 * pζ227)
-										hiζ227 = eζ227.c0 + rζ227
-										loζ227 = (rζ227 - (hiζ227 - eζ227.c0)) + (math.FMA(sζ227, pζ227, -rζ227) + eζ227.c0lo)
-										ζr227_0 = float64(hiζ227)
-										ζr227_1 = float64(loζ227)
-										goto ζL227
-									}
-								ζL227:
-									fhζ226, flζ226 := ζr227_0, ζr227_1
-									uhζ226 := tζ226 - 1
-									bbζ226 := uhζ226 - tζ226
-									ulζ226 := (tζ226 - (uhζ226 - bbζ226)) + (-1 - bbζ226)
-									phζ226 := float64(uhζ226 * tζ226)
-									plζ226 := math.FMA(uhζ226, tζ226, -phζ226) + float64(ulζ226*tζ226)
-									ghζ226 := float64(phζ226 * fhζ226)
-									glζ226 := math.FMA(phζ226, fhζ226, -ghζ226) + math.FMA(phζ226, flζ226, plζ226*fhζ226)
-									hiζ226 = 1 + ghζ226
-									loζ226 = ((1 - hiζ226) + ghζ226) + glζ226
-									ζr226_0 = float64(hiζ226)
-									ζr226_1 = float64(loζ226)
-									goto ζL226
+									xζ224 := float64(xζ221)
+									keζ224 := int(0)
+									var hiζ224 float64
+									_ = hiζ224
+									var loζ224 float64
+									_ = loζ224
+									ixζ224 := math.Float64bits(xζ224)
+									tmpζ224 := ixζ224 - 0x3fe8000000000000
+									keζ224 += int(int64(tmpζ224) >> 52)
+									mζ224 := math.Float64frombits(ixζ224 - uint64(int64(tmpζ224)>>52)<<52)
+									tζ224 := &logT[int(float64(mζ224*256)+0.5)-192]
+									invcζ224 := tζ224[0]
+									pζ224 := float64(mζ224 * invcζ224)
+									peζ224 := math.FMA(mζ224, invcζ224, -pζ224)
+									rζ224 := pζ224 - 1
+									r2ζ224 := float64(rζ224 * rζ224)
+									c0ζ224 := math.FMA(rζ224, 1.0/3, -0.5)
+									c1ζ224 := math.FMA(rζ224, 1.0/5, -0.25)
+									c2ζ224 := math.FMA(rζ224, 1.0/7, -1.0/6)
+									c2ζ224 = math.FMA(r2ζ224, -1.0/8, c2ζ224)
+									c1ζ224 = math.FMA(r2ζ224, c2ζ224, c1ζ224)
+									qζ224 := float64(r2ζ224 * math.FMA(r2ζ224, c1ζ224, c0ζ224))
+									kfζ224 := float64(keζ224)
+									lhζ224 := float64(kfζ224*ln2Hi42) + tζ224[1]
+									hiζ224 = lhζ224 + rζ224
+									loζ224 = (rζ224 - (hiζ224 - lhζ224)) + (math.FMA(kfζ224, ln2Lo42, tζ224[2]) + (math.FMA(peζ224, -rζ224, peζ224) + qζ224))
+									ζr224_0 = float64(hiζ224)
+									ζr224_1 = float64(loζ224)
+									goto ζL224
 								}
-							ζL226:
-								hiζ221, loζ221 = ζr226_0, ζr226_1
-								for jζ221 := 1.0; jζ221 <= nζ221; jζ221++ {
-									fζ221 := xζ221 - jζ221
-									pζ221 := float64(hiζ221 * fζ221)
-									loζ221 = math.FMA(hiζ221, fζ221, -pζ221) + float64(loζ221*fζ221)
-									hiζ221 = pζ221
-								}
-								ζr221_0 = float64(hiζ221)
-								ζr221_1 = float64(loζ221)
+							ζL224:
+								ζt222, ζt223 := ζr224_0, ζr224_1
+								ζr221_0 = float64(ζt222)
+								ζr221_1 = float64(ζt223)
 								goto ζL221
 							}
 						ζL221:
-							ζt219, ζt220 := ζr221_0, ζr221_1
-							ζr218_0 = float64(ζt219)
-							ζr218_1 = float64(ζt220)
-							goto ζL218
-						}
-						var ζr228_0 float64
-						var ζr228_1 float64
-						{
-							tζ228 := float64(xζ218)
-							var hiζ228 float64
-							_ = hiζ228
-							var loζ228 float64
-							_ = loζ228
-							var ζr229_0 float64
-							var ζr229_1 float64
-							{
-								eζ229 := &gamma1pEst[min(int(tζ228*4), 3)]
-								tζ229 := float64(tζ228)
-								var hiζ229 float64
-								_ = hiζ229
-								var loζ229 float64
-								_ = loζ229
-								sζ229 := tζ229 - eζ229.c
-								qζ229 := &eζ229.q
-								s2ζ229 := float64(sζ229 * sζ229)
-								s4ζ229 := float64(s2ζ229 * s2ζ229)
-								a0ζ229 := math.FMA(qζ229[4], sζ229, qζ229[3])
-								a1ζ229 := math.FMA(qζ229[6], sζ229, qζ229[5])
-								a2ζ229 := math.FMA(qζ229[8], sζ229, qζ229[7])
-								a3ζ229 := math.FMA(qζ229[10], sζ229, qζ229[9])
-								a4ζ229 := math.FMA(qζ229[12], sζ229, qζ229[11])
-								a5ζ229 := math.FMA(qζ229[14], sζ229, qζ229[13])
-								b0ζ229 := math.FMA(a1ζ229, s2ζ229, a0ζ229)
-								b1ζ229 := math.FMA(a3ζ229, s2ζ229, a2ζ229)
-								b2ζ229 := math.FMA(a5ζ229, s2ζ229, a4ζ229)
-								c0ζ229 := math.FMA(b1ζ229, s4ζ229, b0ζ229)
-								c1ζ229 := math.FMA(qζ229[15], s4ζ229, b2ζ229)
-								pζ229 := math.FMA(c1ζ229, s4ζ229*s4ζ229, c0ζ229)
-								pζ229 = math.FMA(math.FMA(math.FMA(pζ229, sζ229, qζ229[2]), sζ229, qζ229[1]), sζ229, qζ229[0])
-								rζ229 := float64(sζ229 * pζ229)
-								hiζ229 = eζ229.c0 + rζ229
-								loζ229 = (rζ229 - (hiζ229 - eζ229.c0)) + (math.FMA(sζ229, pζ229, -rζ229) + eζ229.c0lo)
-								ζr229_0 = float64(hiζ229)
-								ζr229_1 = float64(loζ229)
-								goto ζL229
+							bhζ220, blζ220 := ζr221_0, ζr221_1
+							t1hζ220 := float64(aζ220 * bhζ220)
+							t1lζ220 := math.FMA(aζ220, bhζ220, -t1hζ220) + float64(aζ220*blζ220)
+							t2hζ220 := float64(bζ220 * mhζ220)
+							t2lζ220 := math.FMA(bζ220, mhζ220, -t2hζ220) + float64(bζ220*mlζ220)
+							ahζ220 := aζ220 - 0.5
+							bbζ220 := ahζ220 - aζ220
+							alζ220 := (aζ220 - (ahζ220 - bbζ220)) + (-0.5 - bbζ220)
+							t3hζ220 := float64(ahζ220 * lhζ220)
+							t3lζ220 := math.FMA(ahζ220, lhζ220, -t3hζ220) + math.FMA(ahζ220, llζ220, alζ220*lhζ220)
+							ibζ220 := 1 / bζ220
+							isζ220 := 1 / sζ220
+							dζ220 := float64(aζ220 * ibζ220 * isζ220)
+							ib2ζ220 := float64(ibζ220 * ibζ220)
+							sgζ220 := ibζ220 + isζ220
+							is2ζ220 := float64(isζ220 * isζ220)
+							tnζ220, pwζ220 := 1.0, isζ220
+							sumζ220 := 0.0
+							for _, cζ220 := range stirlingCoef {
+								sumζ220 = math.FMA(cζ220, tnζ220, sumζ220)
+								tnζ220 = math.FMA(ib2ζ220, tnζ220, pwζ220*sgζ220)
+								pwζ220 = float64(pwζ220 * (is2ζ220))
 							}
-						ζL229:
-							fhζ228, flζ228 := ζr229_0, ζr229_1
-							uhζ228 := tζ228 - 1
-							bbζ228 := uhζ228 - tζ228
-							ulζ228 := (tζ228 - (uhζ228 - bbζ228)) + (-1 - bbζ228)
-							phζ228 := float64(uhζ228 * tζ228)
-							plζ228 := math.FMA(uhζ228, tζ228, -phζ228) + float64(ulζ228*tζ228)
-							ghζ228 := float64(phζ228 * fhζ228)
-							glζ228 := math.FMA(phζ228, fhζ228, -ghζ228) + math.FMA(phζ228, flζ228, plζ228*fhζ228)
-							hiζ228 = 1 + ghζ228
-							loζ228 = ((1 - hiζ228) + ghζ228) + glζ228
-							ζr228_0 = float64(hiζ228)
-							ζr228_1 = float64(loζ228)
-							goto ζL228
+							dsζ220 := float64(dζ220 * sumζ220)
+							uζ220 := -t1hζ220 - t3hζ220
+							bbζ220 = uζ220 + t1hζ220
+							ueζ220 := (-t1hζ220 - (uζ220 - bbζ220)) + (-t3hζ220 - bbζ220)
+							vζ220 := uζ220 - t2hζ220
+							bbζ220 = vζ220 - uζ220
+							veζ220 := (uζ220 - (vζ220 - bbζ220)) + (-t2hζ220 - bbζ220)
+							ζr220_0 = float64(vζ220)
+							ζr220_1 = float64((ueζ220 + veζ220) + (dsζ220 - t1lζ220 - t2lζ220 - t3lζ220))
+							goto ζL220
 						}
-					ζL228:
-						ghζ218, glζ218 := ζr228_0, ζr228_1
-						qζ218 := ghζ218 / xζ218
-						ζr218_0 = float64(qζ218)
-						ζr218_1 = float64((math.FMA(-qζ218, xζ218, ghζ218) + glζ218) / xζ218)
-						goto ζL218
+					ζL220:
+						ζt218, ζt219 := ζr220_0, ζr220_1
+						ζr203_0 = float64(ζt218)
+						ζr203_1 = float64(ζt219)
+						goto ζL203
 					}
-				ζL218:
-					ghζ0, glζ0 := ζr218_0, ζr218_1
-					var ζr230_0 float64
-					var ζr230_1 float64
-					{
-						aζ230 := float64(aζ0)
-						bζ230 := float64(bζ0)
-						sζ230 := float64(aζ0 + bζ0)
-						var hiζ230 float64
-						_ = hiζ230
-						var loζ230 float64
-						_ = loζ230
-						if aζ230/bζ230 < 1.0/64 {
-							var ζr233_0 float64
-							var ζr233_1 float64
-							{
-								aζ233 := float64(aζ230)
-								bζ233 := float64(bζ230)
-								sζ233 := float64(sζ230)
-								var hiζ233 float64
-								_ = hiζ233
-								var loζ233 float64
-								_ = loζ233
-								xhζ233 := aζ233 / bζ233
-								xlζ233 := math.FMA(-xhζ233, bζ233, aζ233) / bζ233
-								x2ζ233 := float64(xhζ233 * xhζ233)
-								x2lζ233 := math.FMA(xhζ233, xhζ233, -x2ζ233) + float64(2*xhζ233*xlζ233)
-								x4ζ233 := float64(x2ζ233 * x2ζ233)
-								pζ233 := math.FMA(math.FMA(-1.0/6, xhζ233, 1.0/5), x2ζ233, math.FMA(-1.0/4, xhζ233, 1.0/3))
-								qζ233 := math.FMA(math.FMA(-1.0/10, xhζ233, 1.0/9), x2ζ233, math.FMA(-1.0/8, xhζ233, 1.0/7))
-								rζ233 := math.FMA(math.FMA(-1.0/12, xhζ233, 1.0/11), x4ζ233, qζ233)
-								tζ233 := float64(math.FMA(rζ233, x4ζ233, pζ233) * xhζ233)
-								mhζ233 := float64(-0.5 * x2ζ233)
-								mlζ233 := math.FMA(x2ζ233, tζ233, -0.5*x2lζ233)
-								lhζ233 := xhζ233 + mhζ233
-								llζ233 := ((xhζ233 - lhζ233) + mhζ233) + (xlζ233 + mlζ233)
-								var ζr236_0 float64
-								var ζr236_1 float64
-								{
-									aζ236 := float64(aζ233)
-									bζ236 := float64(bζ233)
-									sζ236 := float64(sζ233)
-									lhζ236 := float64(lhζ233)
-									llζ236 := float64(llζ233)
-									mhζ236 := float64(mhζ233)
-									mlζ236 := float64(mlζ233)
-									var hiζ236 float64
-									_ = hiζ236
-									var loζ236 float64
-									_ = loζ236
-									var ζr237_0 float64
-									var ζr237_1 float64
-									{
-										xζ237 := float64(bζ236)
-										var hiζ237 float64
-										_ = hiζ237
-										var loζ237 float64
-										_ = loζ237
-										var ζr240_0 float64
-										var ζr240_1 float64
-										{
-											xζ240 := float64(xζ237)
-											keζ240 := int(0)
-											var hiζ240 float64
-											_ = hiζ240
-											var loζ240 float64
-											_ = loζ240
-											ixζ240 := math.Float64bits(xζ240)
-											tmpζ240 := ixζ240 - 0x3fe8000000000000
-											keζ240 += int(int64(tmpζ240) >> 52)
-											mζ240 := math.Float64frombits(ixζ240 - uint64(int64(tmpζ240)>>52)<<52)
-											tζ240 := &logT[int(float64(mζ240*256)+0.5)-192]
-											invcζ240 := tζ240[0]
-											pζ240 := float64(mζ240 * invcζ240)
-											peζ240 := math.FMA(mζ240, invcζ240, -pζ240)
-											rζ240 := pζ240 - 1
-											r2ζ240 := float64(rζ240 * rζ240)
-											c0ζ240 := math.FMA(rζ240, 1.0/3, -0.5)
-											c1ζ240 := math.FMA(rζ240, 1.0/5, -0.25)
-											c2ζ240 := math.FMA(rζ240, 1.0/7, -1.0/6)
-											c2ζ240 = math.FMA(r2ζ240, -1.0/8, c2ζ240)
-											c1ζ240 = math.FMA(r2ζ240, c2ζ240, c1ζ240)
-											qζ240 := float64(r2ζ240 * math.FMA(r2ζ240, c1ζ240, c0ζ240))
-											kfζ240 := float64(keζ240)
-											lhζ240 := float64(kfζ240*ln2Hi42) + tζ240[1]
-											hiζ240 = lhζ240 + rζ240
-											loζ240 = (rζ240 - (hiζ240 - lhζ240)) + (math.FMA(kfζ240, ln2Lo42, tζ240[2]) + (math.FMA(peζ240, -rζ240, peζ240) + qζ240))
-											ζr240_0 = float64(hiζ240)
-											ζr240_1 = float64(loζ240)
-											goto ζL240
-										}
-									ζL240:
-										ζt238, ζt239 := ζr240_0, ζr240_1
-										ζr237_0 = float64(ζt238)
-										ζr237_1 = float64(ζt239)
-										goto ζL237
-									}
-								ζL237:
-									bhζ236, blζ236 := ζr237_0, ζr237_1
-									t1hζ236 := float64(aζ236 * bhζ236)
-									t1lζ236 := math.FMA(aζ236, bhζ236, -t1hζ236) + float64(aζ236*blζ236)
-									t2hζ236 := float64(bζ236 * mhζ236)
-									t2lζ236 := math.FMA(bζ236, mhζ236, -t2hζ236) + float64(bζ236*mlζ236)
-									ahζ236 := aζ236 - 0.5
-									bbζ236 := ahζ236 - aζ236
-									alζ236 := (aζ236 - (ahζ236 - bbζ236)) + (-0.5 - bbζ236)
-									t3hζ236 := float64(ahζ236 * lhζ236)
-									t3lζ236 := math.FMA(ahζ236, lhζ236, -t3hζ236) + math.FMA(ahζ236, llζ236, alζ236*lhζ236)
-									ibζ236 := 1 / bζ236
-									isζ236 := 1 / sζ236
-									dζ236 := float64(aζ236 * ibζ236 * isζ236)
-									ib2ζ236 := float64(ibζ236 * ibζ236)
-									sgζ236 := ibζ236 + isζ236
-									is2ζ236 := float64(isζ236 * isζ236)
-									tnζ236, pwζ236 := 1.0, isζ236
-									sumζ236 := 0.0
-									for _, cζ236 := range stirlingCoef {
-										sumζ236 = math.FMA(cζ236, tnζ236, sumζ236)
-										tnζ236 = math.FMA(ib2ζ236, tnζ236, pwζ236*sgζ236)
-										pwζ236 = float64(pwζ236 * (is2ζ236))
-									}
-									dsζ236 := float64(dζ236 * sumζ236)
-									uζ236 := -t1hζ236 - t3hζ236
-									bbζ236 = uζ236 + t1hζ236
-									ueζ236 := (-t1hζ236 - (uζ236 - bbζ236)) + (-t3hζ236 - bbζ236)
-									vζ236 := uζ236 - t2hζ236
-									bbζ236 = vζ236 - uζ236
-									veζ236 := (uζ236 - (vζ236 - bbζ236)) + (-t2hζ236 - bbζ236)
-									ζr236_0 = float64(vζ236)
-									ζr236_1 = float64((ueζ236 + veζ236) + (dsζ236 - t1lζ236 - t2lζ236 - t3lζ236))
-									goto ζL236
-								}
-							ζL236:
-								ζt234, ζt235 := ζr236_0, ζr236_1
-								ζr233_0 = float64(ζt234)
-								ζr233_1 = float64(ζt235)
-								goto ζL233
-							}
-						ζL233:
-							ζt231, ζt232 := ζr233_0, ζr233_1
-							ζr230_0 = float64(ζt231)
-							ζr230_1 = float64(ζt232)
-							goto ζL230
-						}
-						xhζ230 := aζ230 / bζ230
-						xlζ230 := math.FMA(-xhζ230, bζ230, aζ230) / bζ230
-						whζ230 := 1 + xhζ230
-						wlζ230 := ((1 - whζ230) + xhζ230) + xlζ230
-						var ζr241_0 float64
-						var ζr241_1 float64
-						{
-							xζ241 := float64(whζ230)
-							var hiζ241 float64
-							_ = hiζ241
-							var loζ241 float64
-							_ = loζ241
-							var ζr244_0 float64
-							var ζr244_1 float64
-							{
-								xζ244 := float64(xζ241)
-								keζ244 := int(0)
-								var hiζ244 float64
-								_ = hiζ244
-								var loζ244 float64
-								_ = loζ244
-								ixζ244 := math.Float64bits(xζ244)
-								tmpζ244 := ixζ244 - 0x3fe8000000000000
-								keζ244 += int(int64(tmpζ244) >> 52)
-								mζ244 := math.Float64frombits(ixζ244 - uint64(int64(tmpζ244)>>52)<<52)
-								tζ244 := &logT[int(float64(mζ244*256)+0.5)-192]
-								invcζ244 := tζ244[0]
-								pζ244 := float64(mζ244 * invcζ244)
-								peζ244 := math.FMA(mζ244, invcζ244, -pζ244)
-								rζ244 := pζ244 - 1
-								r2ζ244 := float64(rζ244 * rζ244)
-								c0ζ244 := math.FMA(rζ244, 1.0/3, -0.5)
-								c1ζ244 := math.FMA(rζ244, 1.0/5, -0.25)
-								c2ζ244 := math.FMA(rζ244, 1.0/7, -1.0/6)
-								c2ζ244 = math.FMA(r2ζ244, -1.0/8, c2ζ244)
-								c1ζ244 = math.FMA(r2ζ244, c2ζ244, c1ζ244)
-								qζ244 := float64(r2ζ244 * math.FMA(r2ζ244, c1ζ244, c0ζ244))
-								kfζ244 := float64(keζ244)
-								lhζ244 := float64(kfζ244*ln2Hi42) + tζ244[1]
-								hiζ244 = lhζ244 + rζ244
-								loζ244 = (rζ244 - (hiζ244 - lhζ244)) + (math.FMA(kfζ244, ln2Lo42, tζ244[2]) + (math.FMA(peζ244, -rζ244, peζ244) + qζ244))
-								ζr244_0 = float64(hiζ244)
-								ζr244_1 = float64(loζ244)
-								goto ζL244
-							}
-						ζL244:
-							ζt242, ζt243 := ζr244_0, ζr244_1
-							ζr241_0 = float64(ζt242)
-							ζr241_1 = float64(ζt243)
-							goto ζL241
-						}
-					ζL241:
-						lhζ230, l2ζ230 := ζr241_0, ζr241_1
-						llζ230 := l2ζ230 + wlζ230/whζ230
-						mhζ230 := lhζ230 - xhζ230
-						mlζ230 := llζ230 - xlζ230
-						var ζr247_0 float64
-						var ζr247_1 float64
-						{
-							aζ247 := float64(aζ230)
-							bζ247 := float64(bζ230)
-							sζ247 := float64(sζ230)
-							lhζ247 := float64(lhζ230)
-							llζ247 := float64(llζ230)
-							mhζ247 := float64(mhζ230)
-							mlζ247 := float64(mlζ230)
-							var hiζ247 float64
-							_ = hiζ247
-							var loζ247 float64
-							_ = loζ247
-							var ζr248_0 float64
-							var ζr248_1 float64
-							{
-								xζ248 := float64(bζ247)
-								var hiζ248 float64
-								_ = hiζ248
-								var loζ248 float64
-								_ = loζ248
-								var ζr251_0 float64
-								var ζr251_1 float64
-								{
-									xζ251 := float64(xζ248)
-									keζ251 := int(0)
-									var hiζ251 float64
-									_ = hiζ251
-									var loζ251 float64
-									_ = loζ251
-									ixζ251 := math.Float64bits(xζ251)
-									tmpζ251 := ixζ251 - 0x3fe8000000000000
-									keζ251 += int(int64(tmpζ251) >> 52)
-									mζ251 := math.Float64frombits(ixζ251 - uint64(int64(tmpζ251)>>52)<<52)
-									tζ251 := &logT[int(float64(mζ251*256)+0.5)-192]
-									invcζ251 := tζ251[0]
-									pζ251 := float64(mζ251 * invcζ251)
-									peζ251 := math.FMA(mζ251, invcζ251, -pζ251)
-									rζ251 := pζ251 - 1
-									r2ζ251 := float64(rζ251 * rζ251)
-									c0ζ251 := math.FMA(rζ251, 1.0/3, -0.5)
-									c1ζ251 := math.FMA(rζ251, 1.0/5, -0.25)
-									c2ζ251 := math.FMA(rζ251, 1.0/7, -1.0/6)
-									c2ζ251 = math.FMA(r2ζ251, -1.0/8, c2ζ251)
-									c1ζ251 = math.FMA(r2ζ251, c2ζ251, c1ζ251)
-									qζ251 := float64(r2ζ251 * math.FMA(r2ζ251, c1ζ251, c0ζ251))
-									kfζ251 := float64(keζ251)
-									lhζ251 := float64(kfζ251*ln2Hi42) + tζ251[1]
-									hiζ251 = lhζ251 + rζ251
-									loζ251 = (rζ251 - (hiζ251 - lhζ251)) + (math.FMA(kfζ251, ln2Lo42, tζ251[2]) + (math.FMA(peζ251, -rζ251, peζ251) + qζ251))
-									ζr251_0 = float64(hiζ251)
-									ζr251_1 = float64(loζ251)
-									goto ζL251
-								}
-							ζL251:
-								ζt249, ζt250 := ζr251_0, ζr251_1
-								ζr248_0 = float64(ζt249)
-								ζr248_1 = float64(ζt250)
-								goto ζL248
-							}
-						ζL248:
-							bhζ247, blζ247 := ζr248_0, ζr248_1
-							t1hζ247 := float64(aζ247 * bhζ247)
-							t1lζ247 := math.FMA(aζ247, bhζ247, -t1hζ247) + float64(aζ247*blζ247)
-							t2hζ247 := float64(bζ247 * mhζ247)
-							t2lζ247 := math.FMA(bζ247, mhζ247, -t2hζ247) + float64(bζ247*mlζ247)
-							ahζ247 := aζ247 - 0.5
-							bbζ247 := ahζ247 - aζ247
-							alζ247 := (aζ247 - (ahζ247 - bbζ247)) + (-0.5 - bbζ247)
-							t3hζ247 := float64(ahζ247 * lhζ247)
-							t3lζ247 := math.FMA(ahζ247, lhζ247, -t3hζ247) + math.FMA(ahζ247, llζ247, alζ247*lhζ247)
-							ibζ247 := 1 / bζ247
-							isζ247 := 1 / sζ247
-							dζ247 := float64(aζ247 * ibζ247 * isζ247)
-							ib2ζ247 := float64(ibζ247 * ibζ247)
-							sgζ247 := ibζ247 + isζ247
-							is2ζ247 := float64(isζ247 * isζ247)
-							tnζ247, pwζ247 := 1.0, isζ247
-							sumζ247 := 0.0
-							for _, cζ247 := range stirlingCoef {
-								sumζ247 = math.FMA(cζ247, tnζ247, sumζ247)
-								tnζ247 = math.FMA(ib2ζ247, tnζ247, pwζ247*sgζ247)
-								pwζ247 = float64(pwζ247 * (is2ζ247))
-							}
-							dsζ247 := float64(dζ247 * sumζ247)
-							uζ247 := -t1hζ247 - t3hζ247
-							bbζ247 = uζ247 + t1hζ247
-							ueζ247 := (-t1hζ247 - (uζ247 - bbζ247)) + (-t3hζ247 - bbζ247)
-							vζ247 := uζ247 - t2hζ247
-							bbζ247 = vζ247 - uζ247
-							veζ247 := (uζ247 - (vζ247 - bbζ247)) + (-t2hζ247 - bbζ247)
-							ζr247_0 = float64(vζ247)
-							ζr247_1 = float64((ueζ247 + veζ247) + (dsζ247 - t1lζ247 - t2lζ247 - t3lζ247))
-							goto ζL247
-						}
-					ζL247:
-						ζt245, ζt246 := ζr247_0, ζr247_1
-						ζr230_0 = float64(ζt245)
-						ζr230_1 = float64(ζt246)
-						goto ζL230
-					}
-				ζL230:
-					dhζ0, dlζ0 := ζr230_0, ζr230_1
+				ζL203:
+					dhζ0, dlζ0 := ζr203_0, ζr203_1
 					hnζ0 := dhζ0 + dlζ0
-					var ζr252_0 float64
-					var ζr252_1 float64
-					var ζr252_2 int
+					var ζr225_0 float64
+					var ζr225_1 float64
+					var ζr225_2 int
 					{
-						xhζ252 := float64(hnζ0)
-						xlζ252 := float64(dlζ0 - (hnζ0 - dhζ0))
-						var hiζ252 float64
-						_ = hiζ252
-						var loζ252 float64
-						_ = loζ252
-						var kζ252 int
-						_ = kζ252
-						kdζ252 := math.RoundToEven(xhζ252 * expInvLn2N)
-						kiζ252 := int(kdζ252)
-						rζ252 := xhζ252 - float64(kdζ252*expC1)
-						drζ252 := xlζ252 - float64(kdζ252*expC2)
-						uζ252 := rζ252 + drζ252
-						ueζ252 := drζ252 - (uζ252 - rζ252)
-						u2ζ252 := float64(uζ252 * uζ252)
-						aζ252 := math.FMA(uζ252, 1.0/6, 0.5)
-						bζ252 := math.FMA(uζ252, 1.0/120, 1.0/24)
-						bζ252 = math.FMA(u2ζ252, 1.0/720, bζ252)
-						pζ252 := float64(u2ζ252 * math.FMA(u2ζ252, bζ252, aζ252))
-						tζ252 := &expT[kiζ252&127]
-						thζ252, tlζ252 := tζ252[0], tζ252[1]
-						puζ252 := float64(thζ252 * uζ252)
-						hζ252 := thζ252 + puζ252
-						loζ252 = ((puζ252 - (hζ252 - thζ252)) + math.FMA(thζ252, uζ252, -puζ252)) + math.FMA(thζ252, ueζ252+pζ252, math.FMA(tlζ252, uζ252, tlζ252))
-						hiζ252 = hζ252 + loζ252
-						loζ252 -= hiζ252 - hζ252
-						ζr252_0 = float64(hiζ252)
-						ζr252_1 = float64(loζ252)
-						ζr252_2 = int(kiζ252 >> 7)
-						goto ζL252
+						xhζ225 := float64(hnζ0)
+						xlζ225 := float64(dlζ0 - (hnζ0 - dhζ0))
+						var hiζ225 float64
+						_ = hiζ225
+						var loζ225 float64
+						_ = loζ225
+						var kζ225 int
+						_ = kζ225
+						kdζ225 := math.RoundToEven(xhζ225 * expInvLn2N)
+						kiζ225 := int(kdζ225)
+						rζ225 := xhζ225 - float64(kdζ225*expC1)
+						drζ225 := xlζ225 - float64(kdζ225*expC2)
+						uζ225 := rζ225 + drζ225
+						ueζ225 := drζ225 - (uζ225 - rζ225)
+						u2ζ225 := float64(uζ225 * uζ225)
+						aζ225 := math.FMA(uζ225, 1.0/6, 0.5)
+						bζ225 := math.FMA(uζ225, 1.0/120, 1.0/24)
+						bζ225 = math.FMA(u2ζ225, 1.0/720, bζ225)
+						pζ225 := float64(u2ζ225 * math.FMA(u2ζ225, bζ225, aζ225))
+						tζ225 := &expT[kiζ225&127]
+						thζ225, tlζ225 := tζ225[0], tζ225[1]
+						puζ225 := float64(thζ225 * uζ225)
+						hζ225 := thζ225 + puζ225
+						loζ225 = ((puζ225 - (hζ225 - thζ225)) + math.FMA(thζ225, uζ225, -puζ225)) + math.FMA(thζ225, ueζ225+pζ225, math.FMA(tlζ225, uζ225, tlζ225))
+						hiζ225 = hζ225 + loζ225
+						loζ225 -= hiζ225 - hζ225
+						ζr225_0 = float64(hiζ225)
+						ζr225_1 = float64(loζ225)
+						ζr225_2 = int(kiζ225 >> 7)
+						goto ζL225
 					}
-				ζL252:
-					ehζ0, elζ0, kζ0 := ζr252_0, ζr252_1, ζr252_2
+				ζL225:
+					ehζ0, elζ0, kζ0 := ζr225_0, ζr225_1, ζr225_2
 					if kζ0 >= -1021 && kζ0 <= 1022 {
 						phζ0 := float64(ghζ0 * ehζ0)
 						plζ0 := math.FMA(ghζ0, ehζ0, -phζ0) + math.FMA(ghζ0, elζ0, glζ0*ehζ0)
@@ -4873,456 +4553,456 @@ func BetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 					}
 				}
 				if bζ0 >= 10 && aζ0 >= 10 && bζ0 <= 1e300 {
-					var ζr253_0 float64
-					var ζr253_1 float64
+					var ζr226_0 float64
+					var ζr226_1 float64
 					{
-						aζ253 := float64(aζ0)
-						bζ253 := float64(bζ0)
-						var hiζ253 float64
-						_ = hiζ253
-						var loζ253 float64
-						_ = loζ253
-						sζ253 := aζ253 + bζ253
-						bbζ253 := sζ253 - aζ253
-						slζ253 := (aζ253 - (sζ253 - bbζ253)) + (bζ253 - bbζ253)
-						if bζ253 <= 64*aζ253 {
-							var ζr256_0 float64
-							var ζr256_1 float64
+						aζ226 := float64(aζ0)
+						bζ226 := float64(bζ0)
+						var hiζ226 float64
+						_ = hiζ226
+						var loζ226 float64
+						_ = loζ226
+						sζ226 := aζ226 + bζ226
+						bbζ226 := sζ226 - aζ226
+						slζ226 := (aζ226 - (sζ226 - bbζ226)) + (bζ226 - bbζ226)
+						if bζ226 <= 64*aζ226 {
+							var ζr229_0 float64
+							var ζr229_1 float64
 							{
-								aζ256 := float64(aζ253)
-								bζ256 := float64(bζ253)
-								sζ256 := float64(sζ253)
-								slζ256 := float64(slζ253)
-								var hiζ256 float64
-								_ = hiζ256
-								var loζ256 float64
-								_ = loζ256
-								var ζr257_0 float64
-								var ζr257_1 float64
+								aζ229 := float64(aζ226)
+								bζ229 := float64(bζ226)
+								sζ229 := float64(sζ226)
+								slζ229 := float64(slζ226)
+								var hiζ229 float64
+								_ = hiζ229
+								var loζ229 float64
+								_ = loζ229
+								var ζr230_0 float64
+								var ζr230_1 float64
 								{
-									xζ257 := float64(aζ256)
-									xlζ257 := float64(0)
-									var hiζ257 float64
-									_ = hiζ257
-									var loζ257 float64
-									_ = loζ257
-									ixbζ257 := math.Float64bits(xζ257)
-									tmpζ257 := ixbζ257 - 0x3fe8000000000000
-									kfζ257 := float64(int64(tmpζ257) >> 52)
-									mζ257 := math.Float64frombits(ixbζ257 - uint64(int64(tmpζ257)>>52)<<52)
-									tζ257 := &logT[int(float64(mζ257*256)+0.5)-192]
-									invcζ257 := tζ257[0]
-									pζ257 := float64(mζ257 * invcζ257)
-									peζ257 := math.FMA(mζ257, invcζ257, -pζ257)
-									rζ257 := pζ257 - 1
-									r2ζ257 := float64(rζ257 * rζ257)
-									q0ζ257 := math.FMA(rζ257, 1.0/3, -0.5)
-									q1ζ257 := math.FMA(rζ257, 1.0/5, -0.25)
-									q2ζ257 := math.FMA(rζ257, 1.0/7, -1.0/6)
-									q2ζ257 = math.FMA(r2ζ257, -1.0/8, q2ζ257)
-									q1ζ257 = math.FMA(r2ζ257, q2ζ257, q1ζ257)
-									qζ257 := float64(r2ζ257 * math.FMA(r2ζ257, q1ζ257, q0ζ257))
-									l0ζ257 := float64(kfζ257*ln2Hi42) + tζ257[1]
-									lhζ257 := l0ζ257 + rζ257
-									llζ257 := (rζ257 - (lhζ257 - l0ζ257)) + (math.FMA(kfζ257, ln2Lo42, tζ257[2]) + (math.FMA(peζ257, -rζ257, peζ257) + qζ257))
-									ixζ257 := 1 / xζ257
-									mhζ257 := xζ257 - 0.5
-									mlζ257 := (xζ257 - mhζ257) - 0.5
-									phζ257 := float64(mhζ257 * lhζ257)
-									plζ257 := math.FMA(mhζ257, lhζ257, -phζ257) + math.FMA(mhζ257, llζ257, mlζ257*lhζ257)
-									const c1loζ257 = 4.625929269271485e-18
-									cζ257 := &stirlingCoef
-									ixlζ257 := float64(math.FMA(-ixζ257, xζ257, 1) * ixζ257)
-									zζ257 := float64(ixζ257 * ixζ257)
-									z2ζ257 := float64(zζ257 * zζ257)
-									z4ζ257 := float64(z2ζ257 * z2ζ257)
-									saζ257 := math.FMA(math.FMA(cζ257[4], zζ257, cζ257[3]), z2ζ257, math.FMA(cζ257[2], zζ257, cζ257[1]))
-									sbζ257 := math.FMA(math.FMA(cζ257[8], zζ257, cζ257[7]), z2ζ257, math.FMA(cζ257[6], zζ257, cζ257[5]))
-									tailζ257 := float64(math.FMA(sbζ257, z4ζ257, saζ257) * zζ257 * ixζ257)
-									shζ257 := float64(ixζ257 * cζ257[0])
-									slζ257 := math.FMA(ixζ257, cζ257[0], -shζ257) + math.FMA(ixlζ257, cζ257[0], math.FMA(ixζ257, c1loζ257, tailζ257))
-									vζ257 := phζ257 - xζ257
-									vlζ257 := (phζ257 - vζ257) - xζ257
-									h1ζ257 := vζ257 + lnSqrt2Pi.Hi
-									e1ζ257 := (vζ257 - h1ζ257) + lnSqrt2Pi.Hi
-									hiζ257 = h1ζ257 + shζ257
-									e2ζ257 := (h1ζ257 - hiζ257) + shζ257
-									ζr257_0 = float64(hiζ257)
-									ζr257_1 = float64((e1ζ257 + e2ζ257) + (vlζ257 + plζ257 + (lnSqrt2Pi.Lo + slζ257) + float64(xlζ257*math.FMA(-0.5, ixζ257, lhζ257))))
-									goto ζL257
+									xζ230 := float64(aζ229)
+									xlζ230 := float64(0)
+									var hiζ230 float64
+									_ = hiζ230
+									var loζ230 float64
+									_ = loζ230
+									ixbζ230 := math.Float64bits(xζ230)
+									tmpζ230 := ixbζ230 - 0x3fe8000000000000
+									kfζ230 := float64(int64(tmpζ230) >> 52)
+									mζ230 := math.Float64frombits(ixbζ230 - uint64(int64(tmpζ230)>>52)<<52)
+									tζ230 := &logT[int(float64(mζ230*256)+0.5)-192]
+									invcζ230 := tζ230[0]
+									pζ230 := float64(mζ230 * invcζ230)
+									peζ230 := math.FMA(mζ230, invcζ230, -pζ230)
+									rζ230 := pζ230 - 1
+									r2ζ230 := float64(rζ230 * rζ230)
+									q0ζ230 := math.FMA(rζ230, 1.0/3, -0.5)
+									q1ζ230 := math.FMA(rζ230, 1.0/5, -0.25)
+									q2ζ230 := math.FMA(rζ230, 1.0/7, -1.0/6)
+									q2ζ230 = math.FMA(r2ζ230, -1.0/8, q2ζ230)
+									q1ζ230 = math.FMA(r2ζ230, q2ζ230, q1ζ230)
+									qζ230 := float64(r2ζ230 * math.FMA(r2ζ230, q1ζ230, q0ζ230))
+									l0ζ230 := float64(kfζ230*ln2Hi42) + tζ230[1]
+									lhζ230 := l0ζ230 + rζ230
+									llζ230 := (rζ230 - (lhζ230 - l0ζ230)) + (math.FMA(kfζ230, ln2Lo42, tζ230[2]) + (math.FMA(peζ230, -rζ230, peζ230) + qζ230))
+									ixζ230 := 1 / xζ230
+									mhζ230 := xζ230 - 0.5
+									mlζ230 := (xζ230 - mhζ230) - 0.5
+									phζ230 := float64(mhζ230 * lhζ230)
+									plζ230 := math.FMA(mhζ230, lhζ230, -phζ230) + math.FMA(mhζ230, llζ230, mlζ230*lhζ230)
+									const c1loζ230 = 4.625929269271485e-18
+									cζ230 := &stirlingCoef
+									ixlζ230 := float64(math.FMA(-ixζ230, xζ230, 1) * ixζ230)
+									zζ230 := float64(ixζ230 * ixζ230)
+									z2ζ230 := float64(zζ230 * zζ230)
+									z4ζ230 := float64(z2ζ230 * z2ζ230)
+									saζ230 := math.FMA(math.FMA(cζ230[4], zζ230, cζ230[3]), z2ζ230, math.FMA(cζ230[2], zζ230, cζ230[1]))
+									sbζ230 := math.FMA(math.FMA(cζ230[8], zζ230, cζ230[7]), z2ζ230, math.FMA(cζ230[6], zζ230, cζ230[5]))
+									tailζ230 := float64(math.FMA(sbζ230, z4ζ230, saζ230) * zζ230 * ixζ230)
+									shζ230 := float64(ixζ230 * cζ230[0])
+									slζ230 := math.FMA(ixζ230, cζ230[0], -shζ230) + math.FMA(ixlζ230, cζ230[0], math.FMA(ixζ230, c1loζ230, tailζ230))
+									vζ230 := phζ230 - xζ230
+									vlζ230 := (phζ230 - vζ230) - xζ230
+									h1ζ230 := vζ230 + lnSqrt2Pi.Hi
+									e1ζ230 := (vζ230 - h1ζ230) + lnSqrt2Pi.Hi
+									hiζ230 = h1ζ230 + shζ230
+									e2ζ230 := (h1ζ230 - hiζ230) + shζ230
+									ζr230_0 = float64(hiζ230)
+									ζr230_1 = float64((e1ζ230 + e2ζ230) + (vlζ230 + plζ230 + (lnSqrt2Pi.Lo + slζ230) + float64(xlζ230*math.FMA(-0.5, ixζ230, lhζ230))))
+									goto ζL230
 								}
-							ζL257:
-								ahζ256, alζ256 := ζr257_0, ζr257_1
-								var ζr258_0 float64
-								var ζr258_1 float64
+							ζL230:
+								ahζ229, alζ229 := ζr230_0, ζr230_1
+								var ζr231_0 float64
+								var ζr231_1 float64
 								{
-									xζ258 := float64(bζ256)
-									xlζ258 := float64(0)
-									var hiζ258 float64
-									_ = hiζ258
-									var loζ258 float64
-									_ = loζ258
-									ixbζ258 := math.Float64bits(xζ258)
-									tmpζ258 := ixbζ258 - 0x3fe8000000000000
-									kfζ258 := float64(int64(tmpζ258) >> 52)
-									mζ258 := math.Float64frombits(ixbζ258 - uint64(int64(tmpζ258)>>52)<<52)
-									tζ258 := &logT[int(float64(mζ258*256)+0.5)-192]
-									invcζ258 := tζ258[0]
-									pζ258 := float64(mζ258 * invcζ258)
-									peζ258 := math.FMA(mζ258, invcζ258, -pζ258)
-									rζ258 := pζ258 - 1
-									r2ζ258 := float64(rζ258 * rζ258)
-									q0ζ258 := math.FMA(rζ258, 1.0/3, -0.5)
-									q1ζ258 := math.FMA(rζ258, 1.0/5, -0.25)
-									q2ζ258 := math.FMA(rζ258, 1.0/7, -1.0/6)
-									q2ζ258 = math.FMA(r2ζ258, -1.0/8, q2ζ258)
-									q1ζ258 = math.FMA(r2ζ258, q2ζ258, q1ζ258)
-									qζ258 := float64(r2ζ258 * math.FMA(r2ζ258, q1ζ258, q0ζ258))
-									l0ζ258 := float64(kfζ258*ln2Hi42) + tζ258[1]
-									lhζ258 := l0ζ258 + rζ258
-									llζ258 := (rζ258 - (lhζ258 - l0ζ258)) + (math.FMA(kfζ258, ln2Lo42, tζ258[2]) + (math.FMA(peζ258, -rζ258, peζ258) + qζ258))
-									ixζ258 := 1 / xζ258
-									mhζ258 := xζ258 - 0.5
-									mlζ258 := (xζ258 - mhζ258) - 0.5
-									phζ258 := float64(mhζ258 * lhζ258)
-									plζ258 := math.FMA(mhζ258, lhζ258, -phζ258) + math.FMA(mhζ258, llζ258, mlζ258*lhζ258)
-									const c1loζ258 = 4.625929269271485e-18
-									cζ258 := &stirlingCoef
-									ixlζ258 := float64(math.FMA(-ixζ258, xζ258, 1) * ixζ258)
-									zζ258 := float64(ixζ258 * ixζ258)
-									z2ζ258 := float64(zζ258 * zζ258)
-									z4ζ258 := float64(z2ζ258 * z2ζ258)
-									saζ258 := math.FMA(math.FMA(cζ258[4], zζ258, cζ258[3]), z2ζ258, math.FMA(cζ258[2], zζ258, cζ258[1]))
-									sbζ258 := math.FMA(math.FMA(cζ258[8], zζ258, cζ258[7]), z2ζ258, math.FMA(cζ258[6], zζ258, cζ258[5]))
-									tailζ258 := float64(math.FMA(sbζ258, z4ζ258, saζ258) * zζ258 * ixζ258)
-									shζ258 := float64(ixζ258 * cζ258[0])
-									slζ258 := math.FMA(ixζ258, cζ258[0], -shζ258) + math.FMA(ixlζ258, cζ258[0], math.FMA(ixζ258, c1loζ258, tailζ258))
-									vζ258 := phζ258 - xζ258
-									vlζ258 := (phζ258 - vζ258) - xζ258
-									h1ζ258 := vζ258 + lnSqrt2Pi.Hi
-									e1ζ258 := (vζ258 - h1ζ258) + lnSqrt2Pi.Hi
-									hiζ258 = h1ζ258 + shζ258
-									e2ζ258 := (h1ζ258 - hiζ258) + shζ258
-									ζr258_0 = float64(hiζ258)
-									ζr258_1 = float64((e1ζ258 + e2ζ258) + (vlζ258 + plζ258 + (lnSqrt2Pi.Lo + slζ258) + float64(xlζ258*math.FMA(-0.5, ixζ258, lhζ258))))
-									goto ζL258
+									xζ231 := float64(bζ229)
+									xlζ231 := float64(0)
+									var hiζ231 float64
+									_ = hiζ231
+									var loζ231 float64
+									_ = loζ231
+									ixbζ231 := math.Float64bits(xζ231)
+									tmpζ231 := ixbζ231 - 0x3fe8000000000000
+									kfζ231 := float64(int64(tmpζ231) >> 52)
+									mζ231 := math.Float64frombits(ixbζ231 - uint64(int64(tmpζ231)>>52)<<52)
+									tζ231 := &logT[int(float64(mζ231*256)+0.5)-192]
+									invcζ231 := tζ231[0]
+									pζ231 := float64(mζ231 * invcζ231)
+									peζ231 := math.FMA(mζ231, invcζ231, -pζ231)
+									rζ231 := pζ231 - 1
+									r2ζ231 := float64(rζ231 * rζ231)
+									q0ζ231 := math.FMA(rζ231, 1.0/3, -0.5)
+									q1ζ231 := math.FMA(rζ231, 1.0/5, -0.25)
+									q2ζ231 := math.FMA(rζ231, 1.0/7, -1.0/6)
+									q2ζ231 = math.FMA(r2ζ231, -1.0/8, q2ζ231)
+									q1ζ231 = math.FMA(r2ζ231, q2ζ231, q1ζ231)
+									qζ231 := float64(r2ζ231 * math.FMA(r2ζ231, q1ζ231, q0ζ231))
+									l0ζ231 := float64(kfζ231*ln2Hi42) + tζ231[1]
+									lhζ231 := l0ζ231 + rζ231
+									llζ231 := (rζ231 - (lhζ231 - l0ζ231)) + (math.FMA(kfζ231, ln2Lo42, tζ231[2]) + (math.FMA(peζ231, -rζ231, peζ231) + qζ231))
+									ixζ231 := 1 / xζ231
+									mhζ231 := xζ231 - 0.5
+									mlζ231 := (xζ231 - mhζ231) - 0.5
+									phζ231 := float64(mhζ231 * lhζ231)
+									plζ231 := math.FMA(mhζ231, lhζ231, -phζ231) + math.FMA(mhζ231, llζ231, mlζ231*lhζ231)
+									const c1loζ231 = 4.625929269271485e-18
+									cζ231 := &stirlingCoef
+									ixlζ231 := float64(math.FMA(-ixζ231, xζ231, 1) * ixζ231)
+									zζ231 := float64(ixζ231 * ixζ231)
+									z2ζ231 := float64(zζ231 * zζ231)
+									z4ζ231 := float64(z2ζ231 * z2ζ231)
+									saζ231 := math.FMA(math.FMA(cζ231[4], zζ231, cζ231[3]), z2ζ231, math.FMA(cζ231[2], zζ231, cζ231[1]))
+									sbζ231 := math.FMA(math.FMA(cζ231[8], zζ231, cζ231[7]), z2ζ231, math.FMA(cζ231[6], zζ231, cζ231[5]))
+									tailζ231 := float64(math.FMA(sbζ231, z4ζ231, saζ231) * zζ231 * ixζ231)
+									shζ231 := float64(ixζ231 * cζ231[0])
+									slζ231 := math.FMA(ixζ231, cζ231[0], -shζ231) + math.FMA(ixlζ231, cζ231[0], math.FMA(ixζ231, c1loζ231, tailζ231))
+									vζ231 := phζ231 - xζ231
+									vlζ231 := (phζ231 - vζ231) - xζ231
+									h1ζ231 := vζ231 + lnSqrt2Pi.Hi
+									e1ζ231 := (vζ231 - h1ζ231) + lnSqrt2Pi.Hi
+									hiζ231 = h1ζ231 + shζ231
+									e2ζ231 := (h1ζ231 - hiζ231) + shζ231
+									ζr231_0 = float64(hiζ231)
+									ζr231_1 = float64((e1ζ231 + e2ζ231) + (vlζ231 + plζ231 + (lnSqrt2Pi.Lo + slζ231) + float64(xlζ231*math.FMA(-0.5, ixζ231, lhζ231))))
+									goto ζL231
 								}
-							ζL258:
-								bhζ256, blζ256 := ζr258_0, ζr258_1
-								var ζr259_0 float64
-								var ζr259_1 float64
+							ζL231:
+								bhζ229, blζ229 := ζr231_0, ζr231_1
+								var ζr232_0 float64
+								var ζr232_1 float64
 								{
-									xζ259 := float64(sζ256)
-									xlζ259 := float64(slζ256)
-									var hiζ259 float64
-									_ = hiζ259
-									var loζ259 float64
-									_ = loζ259
-									ixbζ259 := math.Float64bits(xζ259)
-									tmpζ259 := ixbζ259 - 0x3fe8000000000000
-									kfζ259 := float64(int64(tmpζ259) >> 52)
-									mζ259 := math.Float64frombits(ixbζ259 - uint64(int64(tmpζ259)>>52)<<52)
-									tζ259 := &logT[int(float64(mζ259*256)+0.5)-192]
-									invcζ259 := tζ259[0]
-									pζ259 := float64(mζ259 * invcζ259)
-									peζ259 := math.FMA(mζ259, invcζ259, -pζ259)
-									rζ259 := pζ259 - 1
-									r2ζ259 := float64(rζ259 * rζ259)
-									q0ζ259 := math.FMA(rζ259, 1.0/3, -0.5)
-									q1ζ259 := math.FMA(rζ259, 1.0/5, -0.25)
-									q2ζ259 := math.FMA(rζ259, 1.0/7, -1.0/6)
-									q2ζ259 = math.FMA(r2ζ259, -1.0/8, q2ζ259)
-									q1ζ259 = math.FMA(r2ζ259, q2ζ259, q1ζ259)
-									qζ259 := float64(r2ζ259 * math.FMA(r2ζ259, q1ζ259, q0ζ259))
-									l0ζ259 := float64(kfζ259*ln2Hi42) + tζ259[1]
-									lhζ259 := l0ζ259 + rζ259
-									llζ259 := (rζ259 - (lhζ259 - l0ζ259)) + (math.FMA(kfζ259, ln2Lo42, tζ259[2]) + (math.FMA(peζ259, -rζ259, peζ259) + qζ259))
-									ixζ259 := 1 / xζ259
-									mhζ259 := xζ259 - 0.5
-									mlζ259 := (xζ259 - mhζ259) - 0.5
-									phζ259 := float64(mhζ259 * lhζ259)
-									plζ259 := math.FMA(mhζ259, lhζ259, -phζ259) + math.FMA(mhζ259, llζ259, mlζ259*lhζ259)
-									const c1loζ259 = 4.625929269271485e-18
-									cζ259 := &stirlingCoef
-									ixlζ259 := float64(math.FMA(-ixζ259, xζ259, 1) * ixζ259)
-									zζ259 := float64(ixζ259 * ixζ259)
-									z2ζ259 := float64(zζ259 * zζ259)
-									z4ζ259 := float64(z2ζ259 * z2ζ259)
-									saζ259 := math.FMA(math.FMA(cζ259[4], zζ259, cζ259[3]), z2ζ259, math.FMA(cζ259[2], zζ259, cζ259[1]))
-									sbζ259 := math.FMA(math.FMA(cζ259[8], zζ259, cζ259[7]), z2ζ259, math.FMA(cζ259[6], zζ259, cζ259[5]))
-									tailζ259 := float64(math.FMA(sbζ259, z4ζ259, saζ259) * zζ259 * ixζ259)
-									shζ259 := float64(ixζ259 * cζ259[0])
-									slζ259 := math.FMA(ixζ259, cζ259[0], -shζ259) + math.FMA(ixlζ259, cζ259[0], math.FMA(ixζ259, c1loζ259, tailζ259))
-									vζ259 := phζ259 - xζ259
-									vlζ259 := (phζ259 - vζ259) - xζ259
-									h1ζ259 := vζ259 + lnSqrt2Pi.Hi
-									e1ζ259 := (vζ259 - h1ζ259) + lnSqrt2Pi.Hi
-									hiζ259 = h1ζ259 + shζ259
-									e2ζ259 := (h1ζ259 - hiζ259) + shζ259
-									ζr259_0 = float64(hiζ259)
-									ζr259_1 = float64((e1ζ259 + e2ζ259) + (vlζ259 + plζ259 + (lnSqrt2Pi.Lo + slζ259) + float64(xlζ259*math.FMA(-0.5, ixζ259, lhζ259))))
-									goto ζL259
+									xζ232 := float64(sζ229)
+									xlζ232 := float64(slζ229)
+									var hiζ232 float64
+									_ = hiζ232
+									var loζ232 float64
+									_ = loζ232
+									ixbζ232 := math.Float64bits(xζ232)
+									tmpζ232 := ixbζ232 - 0x3fe8000000000000
+									kfζ232 := float64(int64(tmpζ232) >> 52)
+									mζ232 := math.Float64frombits(ixbζ232 - uint64(int64(tmpζ232)>>52)<<52)
+									tζ232 := &logT[int(float64(mζ232*256)+0.5)-192]
+									invcζ232 := tζ232[0]
+									pζ232 := float64(mζ232 * invcζ232)
+									peζ232 := math.FMA(mζ232, invcζ232, -pζ232)
+									rζ232 := pζ232 - 1
+									r2ζ232 := float64(rζ232 * rζ232)
+									q0ζ232 := math.FMA(rζ232, 1.0/3, -0.5)
+									q1ζ232 := math.FMA(rζ232, 1.0/5, -0.25)
+									q2ζ232 := math.FMA(rζ232, 1.0/7, -1.0/6)
+									q2ζ232 = math.FMA(r2ζ232, -1.0/8, q2ζ232)
+									q1ζ232 = math.FMA(r2ζ232, q2ζ232, q1ζ232)
+									qζ232 := float64(r2ζ232 * math.FMA(r2ζ232, q1ζ232, q0ζ232))
+									l0ζ232 := float64(kfζ232*ln2Hi42) + tζ232[1]
+									lhζ232 := l0ζ232 + rζ232
+									llζ232 := (rζ232 - (lhζ232 - l0ζ232)) + (math.FMA(kfζ232, ln2Lo42, tζ232[2]) + (math.FMA(peζ232, -rζ232, peζ232) + qζ232))
+									ixζ232 := 1 / xζ232
+									mhζ232 := xζ232 - 0.5
+									mlζ232 := (xζ232 - mhζ232) - 0.5
+									phζ232 := float64(mhζ232 * lhζ232)
+									plζ232 := math.FMA(mhζ232, lhζ232, -phζ232) + math.FMA(mhζ232, llζ232, mlζ232*lhζ232)
+									const c1loζ232 = 4.625929269271485e-18
+									cζ232 := &stirlingCoef
+									ixlζ232 := float64(math.FMA(-ixζ232, xζ232, 1) * ixζ232)
+									zζ232 := float64(ixζ232 * ixζ232)
+									z2ζ232 := float64(zζ232 * zζ232)
+									z4ζ232 := float64(z2ζ232 * z2ζ232)
+									saζ232 := math.FMA(math.FMA(cζ232[4], zζ232, cζ232[3]), z2ζ232, math.FMA(cζ232[2], zζ232, cζ232[1]))
+									sbζ232 := math.FMA(math.FMA(cζ232[8], zζ232, cζ232[7]), z2ζ232, math.FMA(cζ232[6], zζ232, cζ232[5]))
+									tailζ232 := float64(math.FMA(sbζ232, z4ζ232, saζ232) * zζ232 * ixζ232)
+									shζ232 := float64(ixζ232 * cζ232[0])
+									slζ232 := math.FMA(ixζ232, cζ232[0], -shζ232) + math.FMA(ixlζ232, cζ232[0], math.FMA(ixζ232, c1loζ232, tailζ232))
+									vζ232 := phζ232 - xζ232
+									vlζ232 := (phζ232 - vζ232) - xζ232
+									h1ζ232 := vζ232 + lnSqrt2Pi.Hi
+									e1ζ232 := (vζ232 - h1ζ232) + lnSqrt2Pi.Hi
+									hiζ232 = h1ζ232 + shζ232
+									e2ζ232 := (h1ζ232 - hiζ232) + shζ232
+									ζr232_0 = float64(hiζ232)
+									ζr232_1 = float64((e1ζ232 + e2ζ232) + (vlζ232 + plζ232 + (lnSqrt2Pi.Lo + slζ232) + float64(xlζ232*math.FMA(-0.5, ixζ232, lhζ232))))
+									goto ζL232
 								}
-							ζL259:
-								chζ256, clζ256 := ζr259_0, ζr259_1
-								uζ256 := bhζ256 + ahζ256
-								ueζ256 := ahζ256 - (uζ256 - bhζ256)
-								vζ256 := uζ256 - chζ256
-								veζ256 := uζ256 - (vζ256 + chζ256)
-								ζr256_0 = float64(vζ256)
-								ζr256_1 = float64((veζ256 + ueζ256) + (alζ256 + blζ256 - clζ256))
-								goto ζL256
+							ζL232:
+								chζ229, clζ229 := ζr232_0, ζr232_1
+								uζ229 := bhζ229 + ahζ229
+								ueζ229 := ahζ229 - (uζ229 - bhζ229)
+								vζ229 := uζ229 - chζ229
+								veζ229 := uζ229 - (vζ229 + chζ229)
+								ζr229_0 = float64(vζ229)
+								ζr229_1 = float64((veζ229 + ueζ229) + (alζ229 + blζ229 - clζ229))
+								goto ζL229
 							}
-						ζL256:
-							ζt254, ζt255 := ζr256_0, ζr256_1
-							ζr253_0 = float64(ζt254)
-							ζr253_1 = float64(ζt255)
-							goto ζL253
+						ζL229:
+							ζt227, ζt228 := ζr229_0, ζr229_1
+							ζr226_0 = float64(ζt227)
+							ζr226_1 = float64(ζt228)
+							goto ζL226
 						}
-						var ζr260_0 float64
-						var ζr260_1 float64
+						var ζr233_0 float64
+						var ζr233_1 float64
 						{
-							xζ260 := float64(aζ253)
-							var hiζ260 float64
-							_ = hiζ260
-							var loζ260 float64
-							_ = loζ260
-							var ζr263_0 float64
-							var ζr263_1 float64
+							xζ233 := float64(aζ226)
+							var hiζ233 float64
+							_ = hiζ233
+							var loζ233 float64
+							_ = loζ233
+							var ζr236_0 float64
+							var ζr236_1 float64
 							{
-								xζ263 := float64(xζ260)
-								xlζ263 := float64(0)
-								var hiζ263 float64
-								_ = hiζ263
-								var loζ263 float64
-								_ = loζ263
-								ixbζ263 := math.Float64bits(xζ263)
-								tmpζ263 := ixbζ263 - 0x3fe8000000000000
-								kfζ263 := float64(int64(tmpζ263) >> 52)
-								mζ263 := math.Float64frombits(ixbζ263 - uint64(int64(tmpζ263)>>52)<<52)
-								tζ263 := &logT[int(float64(mζ263*256)+0.5)-192]
-								invcζ263 := tζ263[0]
-								pζ263 := float64(mζ263 * invcζ263)
-								peζ263 := math.FMA(mζ263, invcζ263, -pζ263)
-								rζ263 := pζ263 - 1
-								r2ζ263 := float64(rζ263 * rζ263)
-								q0ζ263 := math.FMA(rζ263, 1.0/3, -0.5)
-								q1ζ263 := math.FMA(rζ263, 1.0/5, -0.25)
-								q2ζ263 := math.FMA(rζ263, 1.0/7, -1.0/6)
-								q2ζ263 = math.FMA(r2ζ263, -1.0/8, q2ζ263)
-								q1ζ263 = math.FMA(r2ζ263, q2ζ263, q1ζ263)
-								qζ263 := float64(r2ζ263 * math.FMA(r2ζ263, q1ζ263, q0ζ263))
-								l0ζ263 := float64(kfζ263*ln2Hi42) + tζ263[1]
-								lhζ263 := l0ζ263 + rζ263
-								llζ263 := (rζ263 - (lhζ263 - l0ζ263)) + (math.FMA(kfζ263, ln2Lo42, tζ263[2]) + (math.FMA(peζ263, -rζ263, peζ263) + qζ263))
-								ixζ263 := 1 / xζ263
-								mhζ263 := xζ263 - 0.5
-								mlζ263 := (xζ263 - mhζ263) - 0.5
-								phζ263 := float64(mhζ263 * lhζ263)
-								plζ263 := math.FMA(mhζ263, lhζ263, -phζ263) + math.FMA(mhζ263, llζ263, mlζ263*lhζ263)
-								const c1loζ263 = 4.625929269271485e-18
-								cζ263 := &stirlingCoef
-								ixlζ263 := float64(math.FMA(-ixζ263, xζ263, 1) * ixζ263)
-								zζ263 := float64(ixζ263 * ixζ263)
-								z2ζ263 := float64(zζ263 * zζ263)
-								z4ζ263 := float64(z2ζ263 * z2ζ263)
-								saζ263 := math.FMA(math.FMA(cζ263[4], zζ263, cζ263[3]), z2ζ263, math.FMA(cζ263[2], zζ263, cζ263[1]))
-								sbζ263 := math.FMA(math.FMA(cζ263[8], zζ263, cζ263[7]), z2ζ263, math.FMA(cζ263[6], zζ263, cζ263[5]))
-								tailζ263 := float64(math.FMA(sbζ263, z4ζ263, saζ263) * zζ263 * ixζ263)
-								shζ263 := float64(ixζ263 * cζ263[0])
-								slζ263 := math.FMA(ixζ263, cζ263[0], -shζ263) + math.FMA(ixlζ263, cζ263[0], math.FMA(ixζ263, c1loζ263, tailζ263))
-								vζ263 := phζ263 - xζ263
-								vlζ263 := (phζ263 - vζ263) - xζ263
-								h1ζ263 := vζ263 + lnSqrt2Pi.Hi
-								e1ζ263 := (vζ263 - h1ζ263) + lnSqrt2Pi.Hi
-								hiζ263 = h1ζ263 + shζ263
-								e2ζ263 := (h1ζ263 - hiζ263) + shζ263
-								ζr263_0 = float64(hiζ263)
-								ζr263_1 = float64((e1ζ263 + e2ζ263) + (vlζ263 + plζ263 + (lnSqrt2Pi.Lo + slζ263) + float64(xlζ263*math.FMA(-0.5, ixζ263, lhζ263))))
-								goto ζL263
+								xζ236 := float64(xζ233)
+								xlζ236 := float64(0)
+								var hiζ236 float64
+								_ = hiζ236
+								var loζ236 float64
+								_ = loζ236
+								ixbζ236 := math.Float64bits(xζ236)
+								tmpζ236 := ixbζ236 - 0x3fe8000000000000
+								kfζ236 := float64(int64(tmpζ236) >> 52)
+								mζ236 := math.Float64frombits(ixbζ236 - uint64(int64(tmpζ236)>>52)<<52)
+								tζ236 := &logT[int(float64(mζ236*256)+0.5)-192]
+								invcζ236 := tζ236[0]
+								pζ236 := float64(mζ236 * invcζ236)
+								peζ236 := math.FMA(mζ236, invcζ236, -pζ236)
+								rζ236 := pζ236 - 1
+								r2ζ236 := float64(rζ236 * rζ236)
+								q0ζ236 := math.FMA(rζ236, 1.0/3, -0.5)
+								q1ζ236 := math.FMA(rζ236, 1.0/5, -0.25)
+								q2ζ236 := math.FMA(rζ236, 1.0/7, -1.0/6)
+								q2ζ236 = math.FMA(r2ζ236, -1.0/8, q2ζ236)
+								q1ζ236 = math.FMA(r2ζ236, q2ζ236, q1ζ236)
+								qζ236 := float64(r2ζ236 * math.FMA(r2ζ236, q1ζ236, q0ζ236))
+								l0ζ236 := float64(kfζ236*ln2Hi42) + tζ236[1]
+								lhζ236 := l0ζ236 + rζ236
+								llζ236 := (rζ236 - (lhζ236 - l0ζ236)) + (math.FMA(kfζ236, ln2Lo42, tζ236[2]) + (math.FMA(peζ236, -rζ236, peζ236) + qζ236))
+								ixζ236 := 1 / xζ236
+								mhζ236 := xζ236 - 0.5
+								mlζ236 := (xζ236 - mhζ236) - 0.5
+								phζ236 := float64(mhζ236 * lhζ236)
+								plζ236 := math.FMA(mhζ236, lhζ236, -phζ236) + math.FMA(mhζ236, llζ236, mlζ236*lhζ236)
+								const c1loζ236 = 4.625929269271485e-18
+								cζ236 := &stirlingCoef
+								ixlζ236 := float64(math.FMA(-ixζ236, xζ236, 1) * ixζ236)
+								zζ236 := float64(ixζ236 * ixζ236)
+								z2ζ236 := float64(zζ236 * zζ236)
+								z4ζ236 := float64(z2ζ236 * z2ζ236)
+								saζ236 := math.FMA(math.FMA(cζ236[4], zζ236, cζ236[3]), z2ζ236, math.FMA(cζ236[2], zζ236, cζ236[1]))
+								sbζ236 := math.FMA(math.FMA(cζ236[8], zζ236, cζ236[7]), z2ζ236, math.FMA(cζ236[6], zζ236, cζ236[5]))
+								tailζ236 := float64(math.FMA(sbζ236, z4ζ236, saζ236) * zζ236 * ixζ236)
+								shζ236 := float64(ixζ236 * cζ236[0])
+								slζ236 := math.FMA(ixζ236, cζ236[0], -shζ236) + math.FMA(ixlζ236, cζ236[0], math.FMA(ixζ236, c1loζ236, tailζ236))
+								vζ236 := phζ236 - xζ236
+								vlζ236 := (phζ236 - vζ236) - xζ236
+								h1ζ236 := vζ236 + lnSqrt2Pi.Hi
+								e1ζ236 := (vζ236 - h1ζ236) + lnSqrt2Pi.Hi
+								hiζ236 = h1ζ236 + shζ236
+								e2ζ236 := (h1ζ236 - hiζ236) + shζ236
+								ζr236_0 = float64(hiζ236)
+								ζr236_1 = float64((e1ζ236 + e2ζ236) + (vlζ236 + plζ236 + (lnSqrt2Pi.Lo + slζ236) + float64(xlζ236*math.FMA(-0.5, ixζ236, lhζ236))))
+								goto ζL236
 							}
-						ζL263:
-							ζt261, ζt262 := ζr263_0, ζr263_1
-							ζr260_0 = float64(ζt261)
-							ζr260_1 = float64(ζt262)
-							goto ζL260
+						ζL236:
+							ζt234, ζt235 := ζr236_0, ζr236_1
+							ζr233_0 = float64(ζt234)
+							ζr233_1 = float64(ζt235)
+							goto ζL233
 						}
-					ζL260:
-						ghζ253, glζ253 := ζr260_0, ζr260_1
-						var ζr264_0 float64
-						var ζr264_1 float64
+					ζL233:
+						ghζ226, glζ226 := ζr233_0, ζr233_1
+						var ζr237_0 float64
+						var ζr237_1 float64
 						{
-							aζ264 := float64(aζ253)
-							bζ264 := float64(bζ253)
-							sζ264 := float64(sζ253)
-							var hiζ264 float64
-							_ = hiζ264
-							var loζ264 float64
-							_ = loζ264
-							xhζ264 := aζ264 / bζ264
-							xlζ264 := math.FMA(-xhζ264, bζ264, aζ264) / bζ264
-							x2ζ264 := float64(xhζ264 * xhζ264)
-							x2lζ264 := math.FMA(xhζ264, xhζ264, -x2ζ264) + float64(2*xhζ264*xlζ264)
-							x4ζ264 := float64(x2ζ264 * x2ζ264)
-							pζ264 := math.FMA(math.FMA(-1.0/6, xhζ264, 1.0/5), x2ζ264, math.FMA(-1.0/4, xhζ264, 1.0/3))
-							qζ264 := math.FMA(math.FMA(-1.0/10, xhζ264, 1.0/9), x2ζ264, math.FMA(-1.0/8, xhζ264, 1.0/7))
-							rζ264 := math.FMA(math.FMA(-1.0/12, xhζ264, 1.0/11), x4ζ264, qζ264)
-							tζ264 := float64(math.FMA(rζ264, x4ζ264, pζ264) * xhζ264)
-							mhζ264 := float64(-0.5 * x2ζ264)
-							mlζ264 := math.FMA(x2ζ264, tζ264, -0.5*x2lζ264)
-							lhζ264 := xhζ264 + mhζ264
-							llζ264 := ((xhζ264 - lhζ264) + mhζ264) + (xlζ264 + mlζ264)
-							var ζr267_0 float64
-							var ζr267_1 float64
+							aζ237 := float64(aζ226)
+							bζ237 := float64(bζ226)
+							sζ237 := float64(sζ226)
+							var hiζ237 float64
+							_ = hiζ237
+							var loζ237 float64
+							_ = loζ237
+							xhζ237 := aζ237 / bζ237
+							xlζ237 := math.FMA(-xhζ237, bζ237, aζ237) / bζ237
+							x2ζ237 := float64(xhζ237 * xhζ237)
+							x2lζ237 := math.FMA(xhζ237, xhζ237, -x2ζ237) + float64(2*xhζ237*xlζ237)
+							x4ζ237 := float64(x2ζ237 * x2ζ237)
+							pζ237 := math.FMA(math.FMA(-1.0/6, xhζ237, 1.0/5), x2ζ237, math.FMA(-1.0/4, xhζ237, 1.0/3))
+							qζ237 := math.FMA(math.FMA(-1.0/10, xhζ237, 1.0/9), x2ζ237, math.FMA(-1.0/8, xhζ237, 1.0/7))
+							rζ237 := math.FMA(math.FMA(-1.0/12, xhζ237, 1.0/11), x4ζ237, qζ237)
+							tζ237 := float64(math.FMA(rζ237, x4ζ237, pζ237) * xhζ237)
+							mhζ237 := float64(-0.5 * x2ζ237)
+							mlζ237 := math.FMA(x2ζ237, tζ237, -0.5*x2lζ237)
+							lhζ237 := xhζ237 + mhζ237
+							llζ237 := ((xhζ237 - lhζ237) + mhζ237) + (xlζ237 + mlζ237)
+							var ζr240_0 float64
+							var ζr240_1 float64
 							{
-								aζ267 := float64(aζ264)
-								bζ267 := float64(bζ264)
-								sζ267 := float64(sζ264)
-								lhζ267 := float64(lhζ264)
-								llζ267 := float64(llζ264)
-								mhζ267 := float64(mhζ264)
-								mlζ267 := float64(mlζ264)
-								var hiζ267 float64
-								_ = hiζ267
-								var loζ267 float64
-								_ = loζ267
-								var ζr268_0 float64
-								var ζr268_1 float64
+								aζ240 := float64(aζ237)
+								bζ240 := float64(bζ237)
+								sζ240 := float64(sζ237)
+								lhζ240 := float64(lhζ237)
+								llζ240 := float64(llζ237)
+								mhζ240 := float64(mhζ237)
+								mlζ240 := float64(mlζ237)
+								var hiζ240 float64
+								_ = hiζ240
+								var loζ240 float64
+								_ = loζ240
+								var ζr241_0 float64
+								var ζr241_1 float64
 								{
-									xζ268 := float64(bζ267)
-									var hiζ268 float64
-									_ = hiζ268
-									var loζ268 float64
-									_ = loζ268
-									var ζr271_0 float64
-									var ζr271_1 float64
+									xζ241 := float64(bζ240)
+									var hiζ241 float64
+									_ = hiζ241
+									var loζ241 float64
+									_ = loζ241
+									var ζr244_0 float64
+									var ζr244_1 float64
 									{
-										xζ271 := float64(xζ268)
-										keζ271 := int(0)
-										var hiζ271 float64
-										_ = hiζ271
-										var loζ271 float64
-										_ = loζ271
-										ixζ271 := math.Float64bits(xζ271)
-										tmpζ271 := ixζ271 - 0x3fe8000000000000
-										keζ271 += int(int64(tmpζ271) >> 52)
-										mζ271 := math.Float64frombits(ixζ271 - uint64(int64(tmpζ271)>>52)<<52)
-										tζ271 := &logT[int(float64(mζ271*256)+0.5)-192]
-										invcζ271 := tζ271[0]
-										pζ271 := float64(mζ271 * invcζ271)
-										peζ271 := math.FMA(mζ271, invcζ271, -pζ271)
-										rζ271 := pζ271 - 1
-										r2ζ271 := float64(rζ271 * rζ271)
-										c0ζ271 := math.FMA(rζ271, 1.0/3, -0.5)
-										c1ζ271 := math.FMA(rζ271, 1.0/5, -0.25)
-										c2ζ271 := math.FMA(rζ271, 1.0/7, -1.0/6)
-										c2ζ271 = math.FMA(r2ζ271, -1.0/8, c2ζ271)
-										c1ζ271 = math.FMA(r2ζ271, c2ζ271, c1ζ271)
-										qζ271 := float64(r2ζ271 * math.FMA(r2ζ271, c1ζ271, c0ζ271))
-										kfζ271 := float64(keζ271)
-										lhζ271 := float64(kfζ271*ln2Hi42) + tζ271[1]
-										hiζ271 = lhζ271 + rζ271
-										loζ271 = (rζ271 - (hiζ271 - lhζ271)) + (math.FMA(kfζ271, ln2Lo42, tζ271[2]) + (math.FMA(peζ271, -rζ271, peζ271) + qζ271))
-										ζr271_0 = float64(hiζ271)
-										ζr271_1 = float64(loζ271)
-										goto ζL271
+										xζ244 := float64(xζ241)
+										keζ244 := int(0)
+										var hiζ244 float64
+										_ = hiζ244
+										var loζ244 float64
+										_ = loζ244
+										ixζ244 := math.Float64bits(xζ244)
+										tmpζ244 := ixζ244 - 0x3fe8000000000000
+										keζ244 += int(int64(tmpζ244) >> 52)
+										mζ244 := math.Float64frombits(ixζ244 - uint64(int64(tmpζ244)>>52)<<52)
+										tζ244 := &logT[int(float64(mζ244*256)+0.5)-192]
+										invcζ244 := tζ244[0]
+										pζ244 := float64(mζ244 * invcζ244)
+										peζ244 := math.FMA(mζ244, invcζ244, -pζ244)
+										rζ244 := pζ244 - 1
+										r2ζ244 := float64(rζ244 * rζ244)
+										c0ζ244 := math.FMA(rζ244, 1.0/3, -0.5)
+										c1ζ244 := math.FMA(rζ244, 1.0/5, -0.25)
+										c2ζ244 := math.FMA(rζ244, 1.0/7, -1.0/6)
+										c2ζ244 = math.FMA(r2ζ244, -1.0/8, c2ζ244)
+										c1ζ244 = math.FMA(r2ζ244, c2ζ244, c1ζ244)
+										qζ244 := float64(r2ζ244 * math.FMA(r2ζ244, c1ζ244, c0ζ244))
+										kfζ244 := float64(keζ244)
+										lhζ244 := float64(kfζ244*ln2Hi42) + tζ244[1]
+										hiζ244 = lhζ244 + rζ244
+										loζ244 = (rζ244 - (hiζ244 - lhζ244)) + (math.FMA(kfζ244, ln2Lo42, tζ244[2]) + (math.FMA(peζ244, -rζ244, peζ244) + qζ244))
+										ζr244_0 = float64(hiζ244)
+										ζr244_1 = float64(loζ244)
+										goto ζL244
 									}
-								ζL271:
-									ζt269, ζt270 := ζr271_0, ζr271_1
-									ζr268_0 = float64(ζt269)
-									ζr268_1 = float64(ζt270)
-									goto ζL268
+								ζL244:
+									ζt242, ζt243 := ζr244_0, ζr244_1
+									ζr241_0 = float64(ζt242)
+									ζr241_1 = float64(ζt243)
+									goto ζL241
 								}
-							ζL268:
-								bhζ267, blζ267 := ζr268_0, ζr268_1
-								t1hζ267 := float64(aζ267 * bhζ267)
-								t1lζ267 := math.FMA(aζ267, bhζ267, -t1hζ267) + float64(aζ267*blζ267)
-								t2hζ267 := float64(bζ267 * mhζ267)
-								t2lζ267 := math.FMA(bζ267, mhζ267, -t2hζ267) + float64(bζ267*mlζ267)
-								ahζ267 := aζ267 - 0.5
-								bbζ267 := ahζ267 - aζ267
-								alζ267 := (aζ267 - (ahζ267 - bbζ267)) + (-0.5 - bbζ267)
-								t3hζ267 := float64(ahζ267 * lhζ267)
-								t3lζ267 := math.FMA(ahζ267, lhζ267, -t3hζ267) + math.FMA(ahζ267, llζ267, alζ267*lhζ267)
-								ibζ267 := 1 / bζ267
-								isζ267 := 1 / sζ267
-								dζ267 := float64(aζ267 * ibζ267 * isζ267)
-								ib2ζ267 := float64(ibζ267 * ibζ267)
-								sgζ267 := ibζ267 + isζ267
-								is2ζ267 := float64(isζ267 * isζ267)
-								tnζ267, pwζ267 := 1.0, isζ267
-								sumζ267 := 0.0
-								for _, cζ267 := range stirlingCoef {
-									sumζ267 = math.FMA(cζ267, tnζ267, sumζ267)
-									tnζ267 = math.FMA(ib2ζ267, tnζ267, pwζ267*sgζ267)
-									pwζ267 = float64(pwζ267 * (is2ζ267))
+							ζL241:
+								bhζ240, blζ240 := ζr241_0, ζr241_1
+								t1hζ240 := float64(aζ240 * bhζ240)
+								t1lζ240 := math.FMA(aζ240, bhζ240, -t1hζ240) + float64(aζ240*blζ240)
+								t2hζ240 := float64(bζ240 * mhζ240)
+								t2lζ240 := math.FMA(bζ240, mhζ240, -t2hζ240) + float64(bζ240*mlζ240)
+								ahζ240 := aζ240 - 0.5
+								bbζ240 := ahζ240 - aζ240
+								alζ240 := (aζ240 - (ahζ240 - bbζ240)) + (-0.5 - bbζ240)
+								t3hζ240 := float64(ahζ240 * lhζ240)
+								t3lζ240 := math.FMA(ahζ240, lhζ240, -t3hζ240) + math.FMA(ahζ240, llζ240, alζ240*lhζ240)
+								ibζ240 := 1 / bζ240
+								isζ240 := 1 / sζ240
+								dζ240 := float64(aζ240 * ibζ240 * isζ240)
+								ib2ζ240 := float64(ibζ240 * ibζ240)
+								sgζ240 := ibζ240 + isζ240
+								is2ζ240 := float64(isζ240 * isζ240)
+								tnζ240, pwζ240 := 1.0, isζ240
+								sumζ240 := 0.0
+								for _, cζ240 := range stirlingCoef {
+									sumζ240 = math.FMA(cζ240, tnζ240, sumζ240)
+									tnζ240 = math.FMA(ib2ζ240, tnζ240, pwζ240*sgζ240)
+									pwζ240 = float64(pwζ240 * (is2ζ240))
 								}
-								dsζ267 := float64(dζ267 * sumζ267)
-								uζ267 := -t1hζ267 - t3hζ267
-								bbζ267 = uζ267 + t1hζ267
-								ueζ267 := (-t1hζ267 - (uζ267 - bbζ267)) + (-t3hζ267 - bbζ267)
-								vζ267 := uζ267 - t2hζ267
-								bbζ267 = vζ267 - uζ267
-								veζ267 := (uζ267 - (vζ267 - bbζ267)) + (-t2hζ267 - bbζ267)
-								ζr267_0 = float64(vζ267)
-								ζr267_1 = float64((ueζ267 + veζ267) + (dsζ267 - t1lζ267 - t2lζ267 - t3lζ267))
-								goto ζL267
+								dsζ240 := float64(dζ240 * sumζ240)
+								uζ240 := -t1hζ240 - t3hζ240
+								bbζ240 = uζ240 + t1hζ240
+								ueζ240 := (-t1hζ240 - (uζ240 - bbζ240)) + (-t3hζ240 - bbζ240)
+								vζ240 := uζ240 - t2hζ240
+								bbζ240 = vζ240 - uζ240
+								veζ240 := (uζ240 - (vζ240 - bbζ240)) + (-t2hζ240 - bbζ240)
+								ζr240_0 = float64(vζ240)
+								ζr240_1 = float64((ueζ240 + veζ240) + (dsζ240 - t1lζ240 - t2lζ240 - t3lζ240))
+								goto ζL240
 							}
-						ζL267:
-							ζt265, ζt266 := ζr267_0, ζr267_1
-							ζr264_0 = float64(ζt265)
-							ζr264_1 = float64(ζt266)
-							goto ζL264
+						ζL240:
+							ζt238, ζt239 := ζr240_0, ζr240_1
+							ζr237_0 = float64(ζt238)
+							ζr237_1 = float64(ζt239)
+							goto ζL237
 						}
-					ζL264:
-						dhζ253, dlζ253 := ζr264_0, ζr264_1
-						vζ253 := ghζ253 + dhζ253
-						bbζ253 = vζ253 - ghζ253
-						veζ253 := (ghζ253 - (vζ253 - bbζ253)) + (dhζ253 - bbζ253)
-						ζr253_0 = float64(vζ253)
-						ζr253_1 = float64(veζ253 + (glζ253 + dlζ253))
-						goto ζL253
+					ζL237:
+						dhζ226, dlζ226 := ζr237_0, ζr237_1
+						vζ226 := ghζ226 + dhζ226
+						bbζ226 = vζ226 - ghζ226
+						veζ226 := (ghζ226 - (vζ226 - bbζ226)) + (dhζ226 - bbζ226)
+						ζr226_0 = float64(vζ226)
+						ζr226_1 = float64(veζ226 + (glζ226 + dlζ226))
+						goto ζL226
 					}
-				ζL253:
-					hζ0, lζ0 := ζr253_0, ζr253_1
+				ζL226:
+					hζ0, lζ0 := ζr226_0, ζr226_1
 					hnζ0 := hζ0 + lζ0
-					var ζr272_0 float64
-					var ζr272_1 float64
-					var ζr272_2 int
+					var ζr245_0 float64
+					var ζr245_1 float64
+					var ζr245_2 int
 					{
-						xhζ272 := float64(hnζ0)
-						xlζ272 := float64(lζ0 - (hnζ0 - hζ0))
-						var hiζ272 float64
-						_ = hiζ272
-						var loζ272 float64
-						_ = loζ272
-						var kζ272 int
-						_ = kζ272
-						kdζ272 := math.RoundToEven(xhζ272 * expInvLn2N)
-						kiζ272 := int(kdζ272)
-						rζ272 := xhζ272 - float64(kdζ272*expC1)
-						drζ272 := xlζ272 - float64(kdζ272*expC2)
-						uζ272 := rζ272 + drζ272
-						ueζ272 := drζ272 - (uζ272 - rζ272)
-						u2ζ272 := float64(uζ272 * uζ272)
-						aζ272 := math.FMA(uζ272, 1.0/6, 0.5)
-						bζ272 := math.FMA(uζ272, 1.0/120, 1.0/24)
-						bζ272 = math.FMA(u2ζ272, 1.0/720, bζ272)
-						pζ272 := float64(u2ζ272 * math.FMA(u2ζ272, bζ272, aζ272))
-						tζ272 := &expT[kiζ272&127]
-						thζ272, tlζ272 := tζ272[0], tζ272[1]
-						puζ272 := float64(thζ272 * uζ272)
-						hζ272 := thζ272 + puζ272
-						loζ272 = ((puζ272 - (hζ272 - thζ272)) + math.FMA(thζ272, uζ272, -puζ272)) + math.FMA(thζ272, ueζ272+pζ272, math.FMA(tlζ272, uζ272, tlζ272))
-						hiζ272 = hζ272 + loζ272
-						loζ272 -= hiζ272 - hζ272
-						ζr272_0 = float64(hiζ272)
-						ζr272_1 = float64(loζ272)
-						ζr272_2 = int(kiζ272 >> 7)
-						goto ζL272
+						xhζ245 := float64(hnζ0)
+						xlζ245 := float64(lζ0 - (hnζ0 - hζ0))
+						var hiζ245 float64
+						_ = hiζ245
+						var loζ245 float64
+						_ = loζ245
+						var kζ245 int
+						_ = kζ245
+						kdζ245 := math.RoundToEven(xhζ245 * expInvLn2N)
+						kiζ245 := int(kdζ245)
+						rζ245 := xhζ245 - float64(kdζ245*expC1)
+						drζ245 := xlζ245 - float64(kdζ245*expC2)
+						uζ245 := rζ245 + drζ245
+						ueζ245 := drζ245 - (uζ245 - rζ245)
+						u2ζ245 := float64(uζ245 * uζ245)
+						aζ245 := math.FMA(uζ245, 1.0/6, 0.5)
+						bζ245 := math.FMA(uζ245, 1.0/120, 1.0/24)
+						bζ245 = math.FMA(u2ζ245, 1.0/720, bζ245)
+						pζ245 := float64(u2ζ245 * math.FMA(u2ζ245, bζ245, aζ245))
+						tζ245 := &expT[kiζ245&127]
+						thζ245, tlζ245 := tζ245[0], tζ245[1]
+						puζ245 := float64(thζ245 * uζ245)
+						hζ245 := thζ245 + puζ245
+						loζ245 = ((puζ245 - (hζ245 - thζ245)) + math.FMA(thζ245, uζ245, -puζ245)) + math.FMA(thζ245, ueζ245+pζ245, math.FMA(tlζ245, uζ245, tlζ245))
+						hiζ245 = hζ245 + loζ245
+						loζ245 -= hiζ245 - hζ245
+						ζr245_0 = float64(hiζ245)
+						ζr245_1 = float64(loζ245)
+						ζr245_2 = int(kiζ245 >> 7)
+						goto ζL245
 					}
-				ζL272:
-					ehζ0, elζ0, kζ0 := ζr272_0, ζr272_1, ζr272_2
+				ζL245:
+					ehζ0, elζ0, kζ0 := ζr245_0, ζr245_1, ζr245_2
 					if kζ0 >= -1021 && kζ0 <= 1022 {
 						ζdst[ζi] = float64(float64((ehζ0 + elζ0) * pow2(kζ0)))
 						continue ζloop
@@ -5369,744 +5049,744 @@ func LogBetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 			}
 			if aζ0 > 0 {
 				if bζ0 >= 10 && bζ0 <= 1e300 {
-					var ζr273_0 float64
-					var ζr273_1 float64
+					var ζr246_0 float64
+					var ζr246_1 float64
 					{
-						aζ273 := float64(aζ0)
-						bζ273 := float64(bζ0)
-						var hiζ273 float64
-						_ = hiζ273
-						var loζ273 float64
-						_ = loζ273
-						if aζ273 >= 10 {
-							var ζr276_0 float64
-							var ζr276_1 float64
+						aζ246 := float64(aζ0)
+						bζ246 := float64(bζ0)
+						var hiζ246 float64
+						_ = hiζ246
+						var loζ246 float64
+						_ = loζ246
+						if aζ246 >= 10 {
+							var ζr249_0 float64
+							var ζr249_1 float64
 							{
-								aζ276 := float64(aζ273)
-								bζ276 := float64(bζ273)
-								var hiζ276 float64
-								_ = hiζ276
-								var loζ276 float64
-								_ = loζ276
-								sζ276 := aζ276 + bζ276
-								bbζ276 := sζ276 - aζ276
-								slζ276 := (aζ276 - (sζ276 - bbζ276)) + (bζ276 - bbζ276)
-								if bζ276 <= 64*aζ276 {
-									var ζr279_0 float64
-									var ζr279_1 float64
+								aζ249 := float64(aζ246)
+								bζ249 := float64(bζ246)
+								var hiζ249 float64
+								_ = hiζ249
+								var loζ249 float64
+								_ = loζ249
+								sζ249 := aζ249 + bζ249
+								bbζ249 := sζ249 - aζ249
+								slζ249 := (aζ249 - (sζ249 - bbζ249)) + (bζ249 - bbζ249)
+								if bζ249 <= 64*aζ249 {
+									var ζr252_0 float64
+									var ζr252_1 float64
 									{
-										aζ279 := float64(aζ276)
-										bζ279 := float64(bζ276)
-										sζ279 := float64(sζ276)
-										slζ279 := float64(slζ276)
-										var hiζ279 float64
-										_ = hiζ279
-										var loζ279 float64
-										_ = loζ279
-										var ζr280_0 float64
-										var ζr280_1 float64
+										aζ252 := float64(aζ249)
+										bζ252 := float64(bζ249)
+										sζ252 := float64(sζ249)
+										slζ252 := float64(slζ249)
+										var hiζ252 float64
+										_ = hiζ252
+										var loζ252 float64
+										_ = loζ252
+										var ζr253_0 float64
+										var ζr253_1 float64
 										{
-											xζ280 := float64(aζ279)
-											xlζ280 := float64(0)
-											var hiζ280 float64
-											_ = hiζ280
-											var loζ280 float64
-											_ = loζ280
-											ixbζ280 := math.Float64bits(xζ280)
-											tmpζ280 := ixbζ280 - 0x3fe8000000000000
-											kfζ280 := float64(int64(tmpζ280) >> 52)
-											mζ280 := math.Float64frombits(ixbζ280 - uint64(int64(tmpζ280)>>52)<<52)
-											tζ280 := &logT[int(float64(mζ280*256)+0.5)-192]
-											invcζ280 := tζ280[0]
-											pζ280 := float64(mζ280 * invcζ280)
-											peζ280 := math.FMA(mζ280, invcζ280, -pζ280)
-											rζ280 := pζ280 - 1
-											r2ζ280 := float64(rζ280 * rζ280)
-											q0ζ280 := math.FMA(rζ280, 1.0/3, -0.5)
-											q1ζ280 := math.FMA(rζ280, 1.0/5, -0.25)
-											q2ζ280 := math.FMA(rζ280, 1.0/7, -1.0/6)
-											q2ζ280 = math.FMA(r2ζ280, -1.0/8, q2ζ280)
-											q1ζ280 = math.FMA(r2ζ280, q2ζ280, q1ζ280)
-											qζ280 := float64(r2ζ280 * math.FMA(r2ζ280, q1ζ280, q0ζ280))
-											l0ζ280 := float64(kfζ280*ln2Hi42) + tζ280[1]
-											lhζ280 := l0ζ280 + rζ280
-											llζ280 := (rζ280 - (lhζ280 - l0ζ280)) + (math.FMA(kfζ280, ln2Lo42, tζ280[2]) + (math.FMA(peζ280, -rζ280, peζ280) + qζ280))
-											ixζ280 := 1 / xζ280
-											mhζ280 := xζ280 - 0.5
-											mlζ280 := (xζ280 - mhζ280) - 0.5
-											phζ280 := float64(mhζ280 * lhζ280)
-											plζ280 := math.FMA(mhζ280, lhζ280, -phζ280) + math.FMA(mhζ280, llζ280, mlζ280*lhζ280)
-											const c1loζ280 = 4.625929269271485e-18
-											cζ280 := &stirlingCoef
-											ixlζ280 := float64(math.FMA(-ixζ280, xζ280, 1) * ixζ280)
-											zζ280 := float64(ixζ280 * ixζ280)
-											z2ζ280 := float64(zζ280 * zζ280)
-											z4ζ280 := float64(z2ζ280 * z2ζ280)
-											saζ280 := math.FMA(math.FMA(cζ280[4], zζ280, cζ280[3]), z2ζ280, math.FMA(cζ280[2], zζ280, cζ280[1]))
-											sbζ280 := math.FMA(math.FMA(cζ280[8], zζ280, cζ280[7]), z2ζ280, math.FMA(cζ280[6], zζ280, cζ280[5]))
-											tailζ280 := float64(math.FMA(sbζ280, z4ζ280, saζ280) * zζ280 * ixζ280)
-											shζ280 := float64(ixζ280 * cζ280[0])
-											slζ280 := math.FMA(ixζ280, cζ280[0], -shζ280) + math.FMA(ixlζ280, cζ280[0], math.FMA(ixζ280, c1loζ280, tailζ280))
-											vζ280 := phζ280 - xζ280
-											vlζ280 := (phζ280 - vζ280) - xζ280
-											h1ζ280 := vζ280 + lnSqrt2Pi.Hi
-											e1ζ280 := (vζ280 - h1ζ280) + lnSqrt2Pi.Hi
-											hiζ280 = h1ζ280 + shζ280
-											e2ζ280 := (h1ζ280 - hiζ280) + shζ280
-											ζr280_0 = float64(hiζ280)
-											ζr280_1 = float64((e1ζ280 + e2ζ280) + (vlζ280 + plζ280 + (lnSqrt2Pi.Lo + slζ280) + float64(xlζ280*math.FMA(-0.5, ixζ280, lhζ280))))
-											goto ζL280
+											xζ253 := float64(aζ252)
+											xlζ253 := float64(0)
+											var hiζ253 float64
+											_ = hiζ253
+											var loζ253 float64
+											_ = loζ253
+											ixbζ253 := math.Float64bits(xζ253)
+											tmpζ253 := ixbζ253 - 0x3fe8000000000000
+											kfζ253 := float64(int64(tmpζ253) >> 52)
+											mζ253 := math.Float64frombits(ixbζ253 - uint64(int64(tmpζ253)>>52)<<52)
+											tζ253 := &logT[int(float64(mζ253*256)+0.5)-192]
+											invcζ253 := tζ253[0]
+											pζ253 := float64(mζ253 * invcζ253)
+											peζ253 := math.FMA(mζ253, invcζ253, -pζ253)
+											rζ253 := pζ253 - 1
+											r2ζ253 := float64(rζ253 * rζ253)
+											q0ζ253 := math.FMA(rζ253, 1.0/3, -0.5)
+											q1ζ253 := math.FMA(rζ253, 1.0/5, -0.25)
+											q2ζ253 := math.FMA(rζ253, 1.0/7, -1.0/6)
+											q2ζ253 = math.FMA(r2ζ253, -1.0/8, q2ζ253)
+											q1ζ253 = math.FMA(r2ζ253, q2ζ253, q1ζ253)
+											qζ253 := float64(r2ζ253 * math.FMA(r2ζ253, q1ζ253, q0ζ253))
+											l0ζ253 := float64(kfζ253*ln2Hi42) + tζ253[1]
+											lhζ253 := l0ζ253 + rζ253
+											llζ253 := (rζ253 - (lhζ253 - l0ζ253)) + (math.FMA(kfζ253, ln2Lo42, tζ253[2]) + (math.FMA(peζ253, -rζ253, peζ253) + qζ253))
+											ixζ253 := 1 / xζ253
+											mhζ253 := xζ253 - 0.5
+											mlζ253 := (xζ253 - mhζ253) - 0.5
+											phζ253 := float64(mhζ253 * lhζ253)
+											plζ253 := math.FMA(mhζ253, lhζ253, -phζ253) + math.FMA(mhζ253, llζ253, mlζ253*lhζ253)
+											const c1loζ253 = 4.625929269271485e-18
+											cζ253 := &stirlingCoef
+											ixlζ253 := float64(math.FMA(-ixζ253, xζ253, 1) * ixζ253)
+											zζ253 := float64(ixζ253 * ixζ253)
+											z2ζ253 := float64(zζ253 * zζ253)
+											z4ζ253 := float64(z2ζ253 * z2ζ253)
+											saζ253 := math.FMA(math.FMA(cζ253[4], zζ253, cζ253[3]), z2ζ253, math.FMA(cζ253[2], zζ253, cζ253[1]))
+											sbζ253 := math.FMA(math.FMA(cζ253[8], zζ253, cζ253[7]), z2ζ253, math.FMA(cζ253[6], zζ253, cζ253[5]))
+											tailζ253 := float64(math.FMA(sbζ253, z4ζ253, saζ253) * zζ253 * ixζ253)
+											shζ253 := float64(ixζ253 * cζ253[0])
+											slζ253 := math.FMA(ixζ253, cζ253[0], -shζ253) + math.FMA(ixlζ253, cζ253[0], math.FMA(ixζ253, c1loζ253, tailζ253))
+											vζ253 := phζ253 - xζ253
+											vlζ253 := (phζ253 - vζ253) - xζ253
+											h1ζ253 := vζ253 + lnSqrt2Pi.Hi
+											e1ζ253 := (vζ253 - h1ζ253) + lnSqrt2Pi.Hi
+											hiζ253 = h1ζ253 + shζ253
+											e2ζ253 := (h1ζ253 - hiζ253) + shζ253
+											ζr253_0 = float64(hiζ253)
+											ζr253_1 = float64((e1ζ253 + e2ζ253) + (vlζ253 + plζ253 + (lnSqrt2Pi.Lo + slζ253) + float64(xlζ253*math.FMA(-0.5, ixζ253, lhζ253))))
+											goto ζL253
 										}
-									ζL280:
-										ahζ279, alζ279 := ζr280_0, ζr280_1
-										var ζr281_0 float64
-										var ζr281_1 float64
+									ζL253:
+										ahζ252, alζ252 := ζr253_0, ζr253_1
+										var ζr254_0 float64
+										var ζr254_1 float64
 										{
-											xζ281 := float64(bζ279)
-											xlζ281 := float64(0)
-											var hiζ281 float64
-											_ = hiζ281
-											var loζ281 float64
-											_ = loζ281
-											ixbζ281 := math.Float64bits(xζ281)
-											tmpζ281 := ixbζ281 - 0x3fe8000000000000
-											kfζ281 := float64(int64(tmpζ281) >> 52)
-											mζ281 := math.Float64frombits(ixbζ281 - uint64(int64(tmpζ281)>>52)<<52)
-											tζ281 := &logT[int(float64(mζ281*256)+0.5)-192]
-											invcζ281 := tζ281[0]
-											pζ281 := float64(mζ281 * invcζ281)
-											peζ281 := math.FMA(mζ281, invcζ281, -pζ281)
-											rζ281 := pζ281 - 1
-											r2ζ281 := float64(rζ281 * rζ281)
-											q0ζ281 := math.FMA(rζ281, 1.0/3, -0.5)
-											q1ζ281 := math.FMA(rζ281, 1.0/5, -0.25)
-											q2ζ281 := math.FMA(rζ281, 1.0/7, -1.0/6)
-											q2ζ281 = math.FMA(r2ζ281, -1.0/8, q2ζ281)
-											q1ζ281 = math.FMA(r2ζ281, q2ζ281, q1ζ281)
-											qζ281 := float64(r2ζ281 * math.FMA(r2ζ281, q1ζ281, q0ζ281))
-											l0ζ281 := float64(kfζ281*ln2Hi42) + tζ281[1]
-											lhζ281 := l0ζ281 + rζ281
-											llζ281 := (rζ281 - (lhζ281 - l0ζ281)) + (math.FMA(kfζ281, ln2Lo42, tζ281[2]) + (math.FMA(peζ281, -rζ281, peζ281) + qζ281))
-											ixζ281 := 1 / xζ281
-											mhζ281 := xζ281 - 0.5
-											mlζ281 := (xζ281 - mhζ281) - 0.5
-											phζ281 := float64(mhζ281 * lhζ281)
-											plζ281 := math.FMA(mhζ281, lhζ281, -phζ281) + math.FMA(mhζ281, llζ281, mlζ281*lhζ281)
-											const c1loζ281 = 4.625929269271485e-18
-											cζ281 := &stirlingCoef
-											ixlζ281 := float64(math.FMA(-ixζ281, xζ281, 1) * ixζ281)
-											zζ281 := float64(ixζ281 * ixζ281)
-											z2ζ281 := float64(zζ281 * zζ281)
-											z4ζ281 := float64(z2ζ281 * z2ζ281)
-											saζ281 := math.FMA(math.FMA(cζ281[4], zζ281, cζ281[3]), z2ζ281, math.FMA(cζ281[2], zζ281, cζ281[1]))
-											sbζ281 := math.FMA(math.FMA(cζ281[8], zζ281, cζ281[7]), z2ζ281, math.FMA(cζ281[6], zζ281, cζ281[5]))
-											tailζ281 := float64(math.FMA(sbζ281, z4ζ281, saζ281) * zζ281 * ixζ281)
-											shζ281 := float64(ixζ281 * cζ281[0])
-											slζ281 := math.FMA(ixζ281, cζ281[0], -shζ281) + math.FMA(ixlζ281, cζ281[0], math.FMA(ixζ281, c1loζ281, tailζ281))
-											vζ281 := phζ281 - xζ281
-											vlζ281 := (phζ281 - vζ281) - xζ281
-											h1ζ281 := vζ281 + lnSqrt2Pi.Hi
-											e1ζ281 := (vζ281 - h1ζ281) + lnSqrt2Pi.Hi
-											hiζ281 = h1ζ281 + shζ281
-											e2ζ281 := (h1ζ281 - hiζ281) + shζ281
-											ζr281_0 = float64(hiζ281)
-											ζr281_1 = float64((e1ζ281 + e2ζ281) + (vlζ281 + plζ281 + (lnSqrt2Pi.Lo + slζ281) + float64(xlζ281*math.FMA(-0.5, ixζ281, lhζ281))))
-											goto ζL281
+											xζ254 := float64(bζ252)
+											xlζ254 := float64(0)
+											var hiζ254 float64
+											_ = hiζ254
+											var loζ254 float64
+											_ = loζ254
+											ixbζ254 := math.Float64bits(xζ254)
+											tmpζ254 := ixbζ254 - 0x3fe8000000000000
+											kfζ254 := float64(int64(tmpζ254) >> 52)
+											mζ254 := math.Float64frombits(ixbζ254 - uint64(int64(tmpζ254)>>52)<<52)
+											tζ254 := &logT[int(float64(mζ254*256)+0.5)-192]
+											invcζ254 := tζ254[0]
+											pζ254 := float64(mζ254 * invcζ254)
+											peζ254 := math.FMA(mζ254, invcζ254, -pζ254)
+											rζ254 := pζ254 - 1
+											r2ζ254 := float64(rζ254 * rζ254)
+											q0ζ254 := math.FMA(rζ254, 1.0/3, -0.5)
+											q1ζ254 := math.FMA(rζ254, 1.0/5, -0.25)
+											q2ζ254 := math.FMA(rζ254, 1.0/7, -1.0/6)
+											q2ζ254 = math.FMA(r2ζ254, -1.0/8, q2ζ254)
+											q1ζ254 = math.FMA(r2ζ254, q2ζ254, q1ζ254)
+											qζ254 := float64(r2ζ254 * math.FMA(r2ζ254, q1ζ254, q0ζ254))
+											l0ζ254 := float64(kfζ254*ln2Hi42) + tζ254[1]
+											lhζ254 := l0ζ254 + rζ254
+											llζ254 := (rζ254 - (lhζ254 - l0ζ254)) + (math.FMA(kfζ254, ln2Lo42, tζ254[2]) + (math.FMA(peζ254, -rζ254, peζ254) + qζ254))
+											ixζ254 := 1 / xζ254
+											mhζ254 := xζ254 - 0.5
+											mlζ254 := (xζ254 - mhζ254) - 0.5
+											phζ254 := float64(mhζ254 * lhζ254)
+											plζ254 := math.FMA(mhζ254, lhζ254, -phζ254) + math.FMA(mhζ254, llζ254, mlζ254*lhζ254)
+											const c1loζ254 = 4.625929269271485e-18
+											cζ254 := &stirlingCoef
+											ixlζ254 := float64(math.FMA(-ixζ254, xζ254, 1) * ixζ254)
+											zζ254 := float64(ixζ254 * ixζ254)
+											z2ζ254 := float64(zζ254 * zζ254)
+											z4ζ254 := float64(z2ζ254 * z2ζ254)
+											saζ254 := math.FMA(math.FMA(cζ254[4], zζ254, cζ254[3]), z2ζ254, math.FMA(cζ254[2], zζ254, cζ254[1]))
+											sbζ254 := math.FMA(math.FMA(cζ254[8], zζ254, cζ254[7]), z2ζ254, math.FMA(cζ254[6], zζ254, cζ254[5]))
+											tailζ254 := float64(math.FMA(sbζ254, z4ζ254, saζ254) * zζ254 * ixζ254)
+											shζ254 := float64(ixζ254 * cζ254[0])
+											slζ254 := math.FMA(ixζ254, cζ254[0], -shζ254) + math.FMA(ixlζ254, cζ254[0], math.FMA(ixζ254, c1loζ254, tailζ254))
+											vζ254 := phζ254 - xζ254
+											vlζ254 := (phζ254 - vζ254) - xζ254
+											h1ζ254 := vζ254 + lnSqrt2Pi.Hi
+											e1ζ254 := (vζ254 - h1ζ254) + lnSqrt2Pi.Hi
+											hiζ254 = h1ζ254 + shζ254
+											e2ζ254 := (h1ζ254 - hiζ254) + shζ254
+											ζr254_0 = float64(hiζ254)
+											ζr254_1 = float64((e1ζ254 + e2ζ254) + (vlζ254 + plζ254 + (lnSqrt2Pi.Lo + slζ254) + float64(xlζ254*math.FMA(-0.5, ixζ254, lhζ254))))
+											goto ζL254
 										}
-									ζL281:
-										bhζ279, blζ279 := ζr281_0, ζr281_1
-										var ζr282_0 float64
-										var ζr282_1 float64
+									ζL254:
+										bhζ252, blζ252 := ζr254_0, ζr254_1
+										var ζr255_0 float64
+										var ζr255_1 float64
 										{
-											xζ282 := float64(sζ279)
-											xlζ282 := float64(slζ279)
-											var hiζ282 float64
-											_ = hiζ282
-											var loζ282 float64
-											_ = loζ282
-											ixbζ282 := math.Float64bits(xζ282)
-											tmpζ282 := ixbζ282 - 0x3fe8000000000000
-											kfζ282 := float64(int64(tmpζ282) >> 52)
-											mζ282 := math.Float64frombits(ixbζ282 - uint64(int64(tmpζ282)>>52)<<52)
-											tζ282 := &logT[int(float64(mζ282*256)+0.5)-192]
-											invcζ282 := tζ282[0]
-											pζ282 := float64(mζ282 * invcζ282)
-											peζ282 := math.FMA(mζ282, invcζ282, -pζ282)
-											rζ282 := pζ282 - 1
-											r2ζ282 := float64(rζ282 * rζ282)
-											q0ζ282 := math.FMA(rζ282, 1.0/3, -0.5)
-											q1ζ282 := math.FMA(rζ282, 1.0/5, -0.25)
-											q2ζ282 := math.FMA(rζ282, 1.0/7, -1.0/6)
-											q2ζ282 = math.FMA(r2ζ282, -1.0/8, q2ζ282)
-											q1ζ282 = math.FMA(r2ζ282, q2ζ282, q1ζ282)
-											qζ282 := float64(r2ζ282 * math.FMA(r2ζ282, q1ζ282, q0ζ282))
-											l0ζ282 := float64(kfζ282*ln2Hi42) + tζ282[1]
-											lhζ282 := l0ζ282 + rζ282
-											llζ282 := (rζ282 - (lhζ282 - l0ζ282)) + (math.FMA(kfζ282, ln2Lo42, tζ282[2]) + (math.FMA(peζ282, -rζ282, peζ282) + qζ282))
-											ixζ282 := 1 / xζ282
-											mhζ282 := xζ282 - 0.5
-											mlζ282 := (xζ282 - mhζ282) - 0.5
-											phζ282 := float64(mhζ282 * lhζ282)
-											plζ282 := math.FMA(mhζ282, lhζ282, -phζ282) + math.FMA(mhζ282, llζ282, mlζ282*lhζ282)
-											const c1loζ282 = 4.625929269271485e-18
-											cζ282 := &stirlingCoef
-											ixlζ282 := float64(math.FMA(-ixζ282, xζ282, 1) * ixζ282)
-											zζ282 := float64(ixζ282 * ixζ282)
-											z2ζ282 := float64(zζ282 * zζ282)
-											z4ζ282 := float64(z2ζ282 * z2ζ282)
-											saζ282 := math.FMA(math.FMA(cζ282[4], zζ282, cζ282[3]), z2ζ282, math.FMA(cζ282[2], zζ282, cζ282[1]))
-											sbζ282 := math.FMA(math.FMA(cζ282[8], zζ282, cζ282[7]), z2ζ282, math.FMA(cζ282[6], zζ282, cζ282[5]))
-											tailζ282 := float64(math.FMA(sbζ282, z4ζ282, saζ282) * zζ282 * ixζ282)
-											shζ282 := float64(ixζ282 * cζ282[0])
-											slζ282 := math.FMA(ixζ282, cζ282[0], -shζ282) + math.FMA(ixlζ282, cζ282[0], math.FMA(ixζ282, c1loζ282, tailζ282))
-											vζ282 := phζ282 - xζ282
-											vlζ282 := (phζ282 - vζ282) - xζ282
-											h1ζ282 := vζ282 + lnSqrt2Pi.Hi
-											e1ζ282 := (vζ282 - h1ζ282) + lnSqrt2Pi.Hi
-											hiζ282 = h1ζ282 + shζ282
-											e2ζ282 := (h1ζ282 - hiζ282) + shζ282
-											ζr282_0 = float64(hiζ282)
-											ζr282_1 = float64((e1ζ282 + e2ζ282) + (vlζ282 + plζ282 + (lnSqrt2Pi.Lo + slζ282) + float64(xlζ282*math.FMA(-0.5, ixζ282, lhζ282))))
-											goto ζL282
+											xζ255 := float64(sζ252)
+											xlζ255 := float64(slζ252)
+											var hiζ255 float64
+											_ = hiζ255
+											var loζ255 float64
+											_ = loζ255
+											ixbζ255 := math.Float64bits(xζ255)
+											tmpζ255 := ixbζ255 - 0x3fe8000000000000
+											kfζ255 := float64(int64(tmpζ255) >> 52)
+											mζ255 := math.Float64frombits(ixbζ255 - uint64(int64(tmpζ255)>>52)<<52)
+											tζ255 := &logT[int(float64(mζ255*256)+0.5)-192]
+											invcζ255 := tζ255[0]
+											pζ255 := float64(mζ255 * invcζ255)
+											peζ255 := math.FMA(mζ255, invcζ255, -pζ255)
+											rζ255 := pζ255 - 1
+											r2ζ255 := float64(rζ255 * rζ255)
+											q0ζ255 := math.FMA(rζ255, 1.0/3, -0.5)
+											q1ζ255 := math.FMA(rζ255, 1.0/5, -0.25)
+											q2ζ255 := math.FMA(rζ255, 1.0/7, -1.0/6)
+											q2ζ255 = math.FMA(r2ζ255, -1.0/8, q2ζ255)
+											q1ζ255 = math.FMA(r2ζ255, q2ζ255, q1ζ255)
+											qζ255 := float64(r2ζ255 * math.FMA(r2ζ255, q1ζ255, q0ζ255))
+											l0ζ255 := float64(kfζ255*ln2Hi42) + tζ255[1]
+											lhζ255 := l0ζ255 + rζ255
+											llζ255 := (rζ255 - (lhζ255 - l0ζ255)) + (math.FMA(kfζ255, ln2Lo42, tζ255[2]) + (math.FMA(peζ255, -rζ255, peζ255) + qζ255))
+											ixζ255 := 1 / xζ255
+											mhζ255 := xζ255 - 0.5
+											mlζ255 := (xζ255 - mhζ255) - 0.5
+											phζ255 := float64(mhζ255 * lhζ255)
+											plζ255 := math.FMA(mhζ255, lhζ255, -phζ255) + math.FMA(mhζ255, llζ255, mlζ255*lhζ255)
+											const c1loζ255 = 4.625929269271485e-18
+											cζ255 := &stirlingCoef
+											ixlζ255 := float64(math.FMA(-ixζ255, xζ255, 1) * ixζ255)
+											zζ255 := float64(ixζ255 * ixζ255)
+											z2ζ255 := float64(zζ255 * zζ255)
+											z4ζ255 := float64(z2ζ255 * z2ζ255)
+											saζ255 := math.FMA(math.FMA(cζ255[4], zζ255, cζ255[3]), z2ζ255, math.FMA(cζ255[2], zζ255, cζ255[1]))
+											sbζ255 := math.FMA(math.FMA(cζ255[8], zζ255, cζ255[7]), z2ζ255, math.FMA(cζ255[6], zζ255, cζ255[5]))
+											tailζ255 := float64(math.FMA(sbζ255, z4ζ255, saζ255) * zζ255 * ixζ255)
+											shζ255 := float64(ixζ255 * cζ255[0])
+											slζ255 := math.FMA(ixζ255, cζ255[0], -shζ255) + math.FMA(ixlζ255, cζ255[0], math.FMA(ixζ255, c1loζ255, tailζ255))
+											vζ255 := phζ255 - xζ255
+											vlζ255 := (phζ255 - vζ255) - xζ255
+											h1ζ255 := vζ255 + lnSqrt2Pi.Hi
+											e1ζ255 := (vζ255 - h1ζ255) + lnSqrt2Pi.Hi
+											hiζ255 = h1ζ255 + shζ255
+											e2ζ255 := (h1ζ255 - hiζ255) + shζ255
+											ζr255_0 = float64(hiζ255)
+											ζr255_1 = float64((e1ζ255 + e2ζ255) + (vlζ255 + plζ255 + (lnSqrt2Pi.Lo + slζ255) + float64(xlζ255*math.FMA(-0.5, ixζ255, lhζ255))))
+											goto ζL255
 										}
-									ζL282:
-										chζ279, clζ279 := ζr282_0, ζr282_1
-										uζ279 := bhζ279 + ahζ279
-										ueζ279 := ahζ279 - (uζ279 - bhζ279)
-										vζ279 := uζ279 - chζ279
-										veζ279 := uζ279 - (vζ279 + chζ279)
-										ζr279_0 = float64(vζ279)
-										ζr279_1 = float64((veζ279 + ueζ279) + (alζ279 + blζ279 - clζ279))
-										goto ζL279
+									ζL255:
+										chζ252, clζ252 := ζr255_0, ζr255_1
+										uζ252 := bhζ252 + ahζ252
+										ueζ252 := ahζ252 - (uζ252 - bhζ252)
+										vζ252 := uζ252 - chζ252
+										veζ252 := uζ252 - (vζ252 + chζ252)
+										ζr252_0 = float64(vζ252)
+										ζr252_1 = float64((veζ252 + ueζ252) + (alζ252 + blζ252 - clζ252))
+										goto ζL252
 									}
-								ζL279:
-									ζt277, ζt278 := ζr279_0, ζr279_1
-									ζr276_0 = float64(ζt277)
-									ζr276_1 = float64(ζt278)
-									goto ζL276
+								ζL252:
+									ζt250, ζt251 := ζr252_0, ζr252_1
+									ζr249_0 = float64(ζt250)
+									ζr249_1 = float64(ζt251)
+									goto ζL249
 								}
-								var ζr283_0 float64
-								var ζr283_1 float64
+								var ζr256_0 float64
+								var ζr256_1 float64
 								{
-									xζ283 := float64(aζ276)
-									var hiζ283 float64
-									_ = hiζ283
-									var loζ283 float64
-									_ = loζ283
-									var ζr286_0 float64
-									var ζr286_1 float64
+									xζ256 := float64(aζ249)
+									var hiζ256 float64
+									_ = hiζ256
+									var loζ256 float64
+									_ = loζ256
+									var ζr259_0 float64
+									var ζr259_1 float64
 									{
-										xζ286 := float64(xζ283)
-										xlζ286 := float64(0)
-										var hiζ286 float64
-										_ = hiζ286
-										var loζ286 float64
-										_ = loζ286
-										ixbζ286 := math.Float64bits(xζ286)
-										tmpζ286 := ixbζ286 - 0x3fe8000000000000
-										kfζ286 := float64(int64(tmpζ286) >> 52)
-										mζ286 := math.Float64frombits(ixbζ286 - uint64(int64(tmpζ286)>>52)<<52)
-										tζ286 := &logT[int(float64(mζ286*256)+0.5)-192]
-										invcζ286 := tζ286[0]
-										pζ286 := float64(mζ286 * invcζ286)
-										peζ286 := math.FMA(mζ286, invcζ286, -pζ286)
-										rζ286 := pζ286 - 1
-										r2ζ286 := float64(rζ286 * rζ286)
-										q0ζ286 := math.FMA(rζ286, 1.0/3, -0.5)
-										q1ζ286 := math.FMA(rζ286, 1.0/5, -0.25)
-										q2ζ286 := math.FMA(rζ286, 1.0/7, -1.0/6)
-										q2ζ286 = math.FMA(r2ζ286, -1.0/8, q2ζ286)
-										q1ζ286 = math.FMA(r2ζ286, q2ζ286, q1ζ286)
-										qζ286 := float64(r2ζ286 * math.FMA(r2ζ286, q1ζ286, q0ζ286))
-										l0ζ286 := float64(kfζ286*ln2Hi42) + tζ286[1]
-										lhζ286 := l0ζ286 + rζ286
-										llζ286 := (rζ286 - (lhζ286 - l0ζ286)) + (math.FMA(kfζ286, ln2Lo42, tζ286[2]) + (math.FMA(peζ286, -rζ286, peζ286) + qζ286))
-										ixζ286 := 1 / xζ286
-										mhζ286 := xζ286 - 0.5
-										mlζ286 := (xζ286 - mhζ286) - 0.5
-										phζ286 := float64(mhζ286 * lhζ286)
-										plζ286 := math.FMA(mhζ286, lhζ286, -phζ286) + math.FMA(mhζ286, llζ286, mlζ286*lhζ286)
-										const c1loζ286 = 4.625929269271485e-18
-										cζ286 := &stirlingCoef
-										ixlζ286 := float64(math.FMA(-ixζ286, xζ286, 1) * ixζ286)
-										zζ286 := float64(ixζ286 * ixζ286)
-										z2ζ286 := float64(zζ286 * zζ286)
-										z4ζ286 := float64(z2ζ286 * z2ζ286)
-										saζ286 := math.FMA(math.FMA(cζ286[4], zζ286, cζ286[3]), z2ζ286, math.FMA(cζ286[2], zζ286, cζ286[1]))
-										sbζ286 := math.FMA(math.FMA(cζ286[8], zζ286, cζ286[7]), z2ζ286, math.FMA(cζ286[6], zζ286, cζ286[5]))
-										tailζ286 := float64(math.FMA(sbζ286, z4ζ286, saζ286) * zζ286 * ixζ286)
-										shζ286 := float64(ixζ286 * cζ286[0])
-										slζ286 := math.FMA(ixζ286, cζ286[0], -shζ286) + math.FMA(ixlζ286, cζ286[0], math.FMA(ixζ286, c1loζ286, tailζ286))
-										vζ286 := phζ286 - xζ286
-										vlζ286 := (phζ286 - vζ286) - xζ286
-										h1ζ286 := vζ286 + lnSqrt2Pi.Hi
-										e1ζ286 := (vζ286 - h1ζ286) + lnSqrt2Pi.Hi
-										hiζ286 = h1ζ286 + shζ286
-										e2ζ286 := (h1ζ286 - hiζ286) + shζ286
-										ζr286_0 = float64(hiζ286)
-										ζr286_1 = float64((e1ζ286 + e2ζ286) + (vlζ286 + plζ286 + (lnSqrt2Pi.Lo + slζ286) + float64(xlζ286*math.FMA(-0.5, ixζ286, lhζ286))))
-										goto ζL286
+										xζ259 := float64(xζ256)
+										xlζ259 := float64(0)
+										var hiζ259 float64
+										_ = hiζ259
+										var loζ259 float64
+										_ = loζ259
+										ixbζ259 := math.Float64bits(xζ259)
+										tmpζ259 := ixbζ259 - 0x3fe8000000000000
+										kfζ259 := float64(int64(tmpζ259) >> 52)
+										mζ259 := math.Float64frombits(ixbζ259 - uint64(int64(tmpζ259)>>52)<<52)
+										tζ259 := &logT[int(float64(mζ259*256)+0.5)-192]
+										invcζ259 := tζ259[0]
+										pζ259 := float64(mζ259 * invcζ259)
+										peζ259 := math.FMA(mζ259, invcζ259, -pζ259)
+										rζ259 := pζ259 - 1
+										r2ζ259 := float64(rζ259 * rζ259)
+										q0ζ259 := math.FMA(rζ259, 1.0/3, -0.5)
+										q1ζ259 := math.FMA(rζ259, 1.0/5, -0.25)
+										q2ζ259 := math.FMA(rζ259, 1.0/7, -1.0/6)
+										q2ζ259 = math.FMA(r2ζ259, -1.0/8, q2ζ259)
+										q1ζ259 = math.FMA(r2ζ259, q2ζ259, q1ζ259)
+										qζ259 := float64(r2ζ259 * math.FMA(r2ζ259, q1ζ259, q0ζ259))
+										l0ζ259 := float64(kfζ259*ln2Hi42) + tζ259[1]
+										lhζ259 := l0ζ259 + rζ259
+										llζ259 := (rζ259 - (lhζ259 - l0ζ259)) + (math.FMA(kfζ259, ln2Lo42, tζ259[2]) + (math.FMA(peζ259, -rζ259, peζ259) + qζ259))
+										ixζ259 := 1 / xζ259
+										mhζ259 := xζ259 - 0.5
+										mlζ259 := (xζ259 - mhζ259) - 0.5
+										phζ259 := float64(mhζ259 * lhζ259)
+										plζ259 := math.FMA(mhζ259, lhζ259, -phζ259) + math.FMA(mhζ259, llζ259, mlζ259*lhζ259)
+										const c1loζ259 = 4.625929269271485e-18
+										cζ259 := &stirlingCoef
+										ixlζ259 := float64(math.FMA(-ixζ259, xζ259, 1) * ixζ259)
+										zζ259 := float64(ixζ259 * ixζ259)
+										z2ζ259 := float64(zζ259 * zζ259)
+										z4ζ259 := float64(z2ζ259 * z2ζ259)
+										saζ259 := math.FMA(math.FMA(cζ259[4], zζ259, cζ259[3]), z2ζ259, math.FMA(cζ259[2], zζ259, cζ259[1]))
+										sbζ259 := math.FMA(math.FMA(cζ259[8], zζ259, cζ259[7]), z2ζ259, math.FMA(cζ259[6], zζ259, cζ259[5]))
+										tailζ259 := float64(math.FMA(sbζ259, z4ζ259, saζ259) * zζ259 * ixζ259)
+										shζ259 := float64(ixζ259 * cζ259[0])
+										slζ259 := math.FMA(ixζ259, cζ259[0], -shζ259) + math.FMA(ixlζ259, cζ259[0], math.FMA(ixζ259, c1loζ259, tailζ259))
+										vζ259 := phζ259 - xζ259
+										vlζ259 := (phζ259 - vζ259) - xζ259
+										h1ζ259 := vζ259 + lnSqrt2Pi.Hi
+										e1ζ259 := (vζ259 - h1ζ259) + lnSqrt2Pi.Hi
+										hiζ259 = h1ζ259 + shζ259
+										e2ζ259 := (h1ζ259 - hiζ259) + shζ259
+										ζr259_0 = float64(hiζ259)
+										ζr259_1 = float64((e1ζ259 + e2ζ259) + (vlζ259 + plζ259 + (lnSqrt2Pi.Lo + slζ259) + float64(xlζ259*math.FMA(-0.5, ixζ259, lhζ259))))
+										goto ζL259
 									}
-								ζL286:
-									ζt284, ζt285 := ζr286_0, ζr286_1
-									ζr283_0 = float64(ζt284)
-									ζr283_1 = float64(ζt285)
-									goto ζL283
+								ζL259:
+									ζt257, ζt258 := ζr259_0, ζr259_1
+									ζr256_0 = float64(ζt257)
+									ζr256_1 = float64(ζt258)
+									goto ζL256
 								}
-							ζL283:
-								ghζ276, glζ276 := ζr283_0, ζr283_1
-								var ζr287_0 float64
-								var ζr287_1 float64
+							ζL256:
+								ghζ249, glζ249 := ζr256_0, ζr256_1
+								var ζr260_0 float64
+								var ζr260_1 float64
 								{
-									aζ287 := float64(aζ276)
-									bζ287 := float64(bζ276)
-									sζ287 := float64(sζ276)
-									var hiζ287 float64
-									_ = hiζ287
-									var loζ287 float64
-									_ = loζ287
-									xhζ287 := aζ287 / bζ287
-									xlζ287 := math.FMA(-xhζ287, bζ287, aζ287) / bζ287
-									x2ζ287 := float64(xhζ287 * xhζ287)
-									x2lζ287 := math.FMA(xhζ287, xhζ287, -x2ζ287) + float64(2*xhζ287*xlζ287)
-									x4ζ287 := float64(x2ζ287 * x2ζ287)
-									pζ287 := math.FMA(math.FMA(-1.0/6, xhζ287, 1.0/5), x2ζ287, math.FMA(-1.0/4, xhζ287, 1.0/3))
-									qζ287 := math.FMA(math.FMA(-1.0/10, xhζ287, 1.0/9), x2ζ287, math.FMA(-1.0/8, xhζ287, 1.0/7))
-									rζ287 := math.FMA(math.FMA(-1.0/12, xhζ287, 1.0/11), x4ζ287, qζ287)
-									tζ287 := float64(math.FMA(rζ287, x4ζ287, pζ287) * xhζ287)
-									mhζ287 := float64(-0.5 * x2ζ287)
-									mlζ287 := math.FMA(x2ζ287, tζ287, -0.5*x2lζ287)
-									lhζ287 := xhζ287 + mhζ287
-									llζ287 := ((xhζ287 - lhζ287) + mhζ287) + (xlζ287 + mlζ287)
-									var ζr290_0 float64
-									var ζr290_1 float64
+									aζ260 := float64(aζ249)
+									bζ260 := float64(bζ249)
+									sζ260 := float64(sζ249)
+									var hiζ260 float64
+									_ = hiζ260
+									var loζ260 float64
+									_ = loζ260
+									xhζ260 := aζ260 / bζ260
+									xlζ260 := math.FMA(-xhζ260, bζ260, aζ260) / bζ260
+									x2ζ260 := float64(xhζ260 * xhζ260)
+									x2lζ260 := math.FMA(xhζ260, xhζ260, -x2ζ260) + float64(2*xhζ260*xlζ260)
+									x4ζ260 := float64(x2ζ260 * x2ζ260)
+									pζ260 := math.FMA(math.FMA(-1.0/6, xhζ260, 1.0/5), x2ζ260, math.FMA(-1.0/4, xhζ260, 1.0/3))
+									qζ260 := math.FMA(math.FMA(-1.0/10, xhζ260, 1.0/9), x2ζ260, math.FMA(-1.0/8, xhζ260, 1.0/7))
+									rζ260 := math.FMA(math.FMA(-1.0/12, xhζ260, 1.0/11), x4ζ260, qζ260)
+									tζ260 := float64(math.FMA(rζ260, x4ζ260, pζ260) * xhζ260)
+									mhζ260 := float64(-0.5 * x2ζ260)
+									mlζ260 := math.FMA(x2ζ260, tζ260, -0.5*x2lζ260)
+									lhζ260 := xhζ260 + mhζ260
+									llζ260 := ((xhζ260 - lhζ260) + mhζ260) + (xlζ260 + mlζ260)
+									var ζr263_0 float64
+									var ζr263_1 float64
 									{
-										aζ290 := float64(aζ287)
-										bζ290 := float64(bζ287)
-										sζ290 := float64(sζ287)
-										lhζ290 := float64(lhζ287)
-										llζ290 := float64(llζ287)
-										mhζ290 := float64(mhζ287)
-										mlζ290 := float64(mlζ287)
-										var hiζ290 float64
-										_ = hiζ290
-										var loζ290 float64
-										_ = loζ290
-										var ζr291_0 float64
-										var ζr291_1 float64
+										aζ263 := float64(aζ260)
+										bζ263 := float64(bζ260)
+										sζ263 := float64(sζ260)
+										lhζ263 := float64(lhζ260)
+										llζ263 := float64(llζ260)
+										mhζ263 := float64(mhζ260)
+										mlζ263 := float64(mlζ260)
+										var hiζ263 float64
+										_ = hiζ263
+										var loζ263 float64
+										_ = loζ263
+										var ζr264_0 float64
+										var ζr264_1 float64
 										{
-											xζ291 := float64(bζ290)
-											var hiζ291 float64
-											_ = hiζ291
-											var loζ291 float64
-											_ = loζ291
-											var ζr294_0 float64
-											var ζr294_1 float64
+											xζ264 := float64(bζ263)
+											var hiζ264 float64
+											_ = hiζ264
+											var loζ264 float64
+											_ = loζ264
+											var ζr267_0 float64
+											var ζr267_1 float64
 											{
-												xζ294 := float64(xζ291)
-												keζ294 := int(0)
-												var hiζ294 float64
-												_ = hiζ294
-												var loζ294 float64
-												_ = loζ294
-												ixζ294 := math.Float64bits(xζ294)
-												tmpζ294 := ixζ294 - 0x3fe8000000000000
-												keζ294 += int(int64(tmpζ294) >> 52)
-												mζ294 := math.Float64frombits(ixζ294 - uint64(int64(tmpζ294)>>52)<<52)
-												tζ294 := &logT[int(float64(mζ294*256)+0.5)-192]
-												invcζ294 := tζ294[0]
-												pζ294 := float64(mζ294 * invcζ294)
-												peζ294 := math.FMA(mζ294, invcζ294, -pζ294)
-												rζ294 := pζ294 - 1
-												r2ζ294 := float64(rζ294 * rζ294)
-												c0ζ294 := math.FMA(rζ294, 1.0/3, -0.5)
-												c1ζ294 := math.FMA(rζ294, 1.0/5, -0.25)
-												c2ζ294 := math.FMA(rζ294, 1.0/7, -1.0/6)
-												c2ζ294 = math.FMA(r2ζ294, -1.0/8, c2ζ294)
-												c1ζ294 = math.FMA(r2ζ294, c2ζ294, c1ζ294)
-												qζ294 := float64(r2ζ294 * math.FMA(r2ζ294, c1ζ294, c0ζ294))
-												kfζ294 := float64(keζ294)
-												lhζ294 := float64(kfζ294*ln2Hi42) + tζ294[1]
-												hiζ294 = lhζ294 + rζ294
-												loζ294 = (rζ294 - (hiζ294 - lhζ294)) + (math.FMA(kfζ294, ln2Lo42, tζ294[2]) + (math.FMA(peζ294, -rζ294, peζ294) + qζ294))
-												ζr294_0 = float64(hiζ294)
-												ζr294_1 = float64(loζ294)
-												goto ζL294
+												xζ267 := float64(xζ264)
+												keζ267 := int(0)
+												var hiζ267 float64
+												_ = hiζ267
+												var loζ267 float64
+												_ = loζ267
+												ixζ267 := math.Float64bits(xζ267)
+												tmpζ267 := ixζ267 - 0x3fe8000000000000
+												keζ267 += int(int64(tmpζ267) >> 52)
+												mζ267 := math.Float64frombits(ixζ267 - uint64(int64(tmpζ267)>>52)<<52)
+												tζ267 := &logT[int(float64(mζ267*256)+0.5)-192]
+												invcζ267 := tζ267[0]
+												pζ267 := float64(mζ267 * invcζ267)
+												peζ267 := math.FMA(mζ267, invcζ267, -pζ267)
+												rζ267 := pζ267 - 1
+												r2ζ267 := float64(rζ267 * rζ267)
+												c0ζ267 := math.FMA(rζ267, 1.0/3, -0.5)
+												c1ζ267 := math.FMA(rζ267, 1.0/5, -0.25)
+												c2ζ267 := math.FMA(rζ267, 1.0/7, -1.0/6)
+												c2ζ267 = math.FMA(r2ζ267, -1.0/8, c2ζ267)
+												c1ζ267 = math.FMA(r2ζ267, c2ζ267, c1ζ267)
+												qζ267 := float64(r2ζ267 * math.FMA(r2ζ267, c1ζ267, c0ζ267))
+												kfζ267 := float64(keζ267)
+												lhζ267 := float64(kfζ267*ln2Hi42) + tζ267[1]
+												hiζ267 = lhζ267 + rζ267
+												loζ267 = (rζ267 - (hiζ267 - lhζ267)) + (math.FMA(kfζ267, ln2Lo42, tζ267[2]) + (math.FMA(peζ267, -rζ267, peζ267) + qζ267))
+												ζr267_0 = float64(hiζ267)
+												ζr267_1 = float64(loζ267)
+												goto ζL267
 											}
-										ζL294:
-											ζt292, ζt293 := ζr294_0, ζr294_1
-											ζr291_0 = float64(ζt292)
-											ζr291_1 = float64(ζt293)
-											goto ζL291
+										ζL267:
+											ζt265, ζt266 := ζr267_0, ζr267_1
+											ζr264_0 = float64(ζt265)
+											ζr264_1 = float64(ζt266)
+											goto ζL264
 										}
-									ζL291:
-										bhζ290, blζ290 := ζr291_0, ζr291_1
-										t1hζ290 := float64(aζ290 * bhζ290)
-										t1lζ290 := math.FMA(aζ290, bhζ290, -t1hζ290) + float64(aζ290*blζ290)
-										t2hζ290 := float64(bζ290 * mhζ290)
-										t2lζ290 := math.FMA(bζ290, mhζ290, -t2hζ290) + float64(bζ290*mlζ290)
-										ahζ290 := aζ290 - 0.5
-										bbζ290 := ahζ290 - aζ290
-										alζ290 := (aζ290 - (ahζ290 - bbζ290)) + (-0.5 - bbζ290)
-										t3hζ290 := float64(ahζ290 * lhζ290)
-										t3lζ290 := math.FMA(ahζ290, lhζ290, -t3hζ290) + math.FMA(ahζ290, llζ290, alζ290*lhζ290)
-										ibζ290 := 1 / bζ290
-										isζ290 := 1 / sζ290
-										dζ290 := float64(aζ290 * ibζ290 * isζ290)
-										ib2ζ290 := float64(ibζ290 * ibζ290)
-										sgζ290 := ibζ290 + isζ290
-										is2ζ290 := float64(isζ290 * isζ290)
-										tnζ290, pwζ290 := 1.0, isζ290
-										sumζ290 := 0.0
-										for _, cζ290 := range stirlingCoef {
-											sumζ290 = math.FMA(cζ290, tnζ290, sumζ290)
-											tnζ290 = math.FMA(ib2ζ290, tnζ290, pwζ290*sgζ290)
-											pwζ290 = float64(pwζ290 * (is2ζ290))
+									ζL264:
+										bhζ263, blζ263 := ζr264_0, ζr264_1
+										t1hζ263 := float64(aζ263 * bhζ263)
+										t1lζ263 := math.FMA(aζ263, bhζ263, -t1hζ263) + float64(aζ263*blζ263)
+										t2hζ263 := float64(bζ263 * mhζ263)
+										t2lζ263 := math.FMA(bζ263, mhζ263, -t2hζ263) + float64(bζ263*mlζ263)
+										ahζ263 := aζ263 - 0.5
+										bbζ263 := ahζ263 - aζ263
+										alζ263 := (aζ263 - (ahζ263 - bbζ263)) + (-0.5 - bbζ263)
+										t3hζ263 := float64(ahζ263 * lhζ263)
+										t3lζ263 := math.FMA(ahζ263, lhζ263, -t3hζ263) + math.FMA(ahζ263, llζ263, alζ263*lhζ263)
+										ibζ263 := 1 / bζ263
+										isζ263 := 1 / sζ263
+										dζ263 := float64(aζ263 * ibζ263 * isζ263)
+										ib2ζ263 := float64(ibζ263 * ibζ263)
+										sgζ263 := ibζ263 + isζ263
+										is2ζ263 := float64(isζ263 * isζ263)
+										tnζ263, pwζ263 := 1.0, isζ263
+										sumζ263 := 0.0
+										for _, cζ263 := range stirlingCoef {
+											sumζ263 = math.FMA(cζ263, tnζ263, sumζ263)
+											tnζ263 = math.FMA(ib2ζ263, tnζ263, pwζ263*sgζ263)
+											pwζ263 = float64(pwζ263 * (is2ζ263))
 										}
-										dsζ290 := float64(dζ290 * sumζ290)
-										uζ290 := -t1hζ290 - t3hζ290
-										bbζ290 = uζ290 + t1hζ290
-										ueζ290 := (-t1hζ290 - (uζ290 - bbζ290)) + (-t3hζ290 - bbζ290)
-										vζ290 := uζ290 - t2hζ290
-										bbζ290 = vζ290 - uζ290
-										veζ290 := (uζ290 - (vζ290 - bbζ290)) + (-t2hζ290 - bbζ290)
-										ζr290_0 = float64(vζ290)
-										ζr290_1 = float64((ueζ290 + veζ290) + (dsζ290 - t1lζ290 - t2lζ290 - t3lζ290))
-										goto ζL290
+										dsζ263 := float64(dζ263 * sumζ263)
+										uζ263 := -t1hζ263 - t3hζ263
+										bbζ263 = uζ263 + t1hζ263
+										ueζ263 := (-t1hζ263 - (uζ263 - bbζ263)) + (-t3hζ263 - bbζ263)
+										vζ263 := uζ263 - t2hζ263
+										bbζ263 = vζ263 - uζ263
+										veζ263 := (uζ263 - (vζ263 - bbζ263)) + (-t2hζ263 - bbζ263)
+										ζr263_0 = float64(vζ263)
+										ζr263_1 = float64((ueζ263 + veζ263) + (dsζ263 - t1lζ263 - t2lζ263 - t3lζ263))
+										goto ζL263
 									}
-								ζL290:
-									ζt288, ζt289 := ζr290_0, ζr290_1
-									ζr287_0 = float64(ζt288)
-									ζr287_1 = float64(ζt289)
-									goto ζL287
+								ζL263:
+									ζt261, ζt262 := ζr263_0, ζr263_1
+									ζr260_0 = float64(ζt261)
+									ζr260_1 = float64(ζt262)
+									goto ζL260
 								}
-							ζL287:
-								dhζ276, dlζ276 := ζr287_0, ζr287_1
-								vζ276 := ghζ276 + dhζ276
-								bbζ276 = vζ276 - ghζ276
-								veζ276 := (ghζ276 - (vζ276 - bbζ276)) + (dhζ276 - bbζ276)
-								ζr276_0 = float64(vζ276)
-								ζr276_1 = float64(veζ276 + (glζ276 + dlζ276))
-								goto ζL276
+							ζL260:
+								dhζ249, dlζ249 := ζr260_0, ζr260_1
+								vζ249 := ghζ249 + dhζ249
+								bbζ249 = vζ249 - ghζ249
+								veζ249 := (ghζ249 - (vζ249 - bbζ249)) + (dhζ249 - bbζ249)
+								ζr249_0 = float64(vζ249)
+								ζr249_1 = float64(veζ249 + (glζ249 + dlζ249))
+								goto ζL249
 							}
-						ζL276:
-							ζt274, ζt275 := ζr276_0, ζr276_1
-							ζr273_0 = float64(ζt274)
-							ζr273_1 = float64(ζt275)
-							goto ζL273
+						ζL249:
+							ζt247, ζt248 := ζr249_0, ζr249_1
+							ζr246_0 = float64(ζt247)
+							ζr246_1 = float64(ζt248)
+							goto ζL246
 						}
-						gζ273 := logGammaPos(aζ273)
-						var ζr295_0 float64
-						var ζr295_1 float64
+						gζ246 := logGammaPos(aζ246)
+						var ζr268_0 float64
+						var ζr268_1 float64
 						{
-							aζ295 := float64(aζ273)
-							bζ295 := float64(bζ273)
-							sζ295 := float64(aζ273 + bζ273)
-							var hiζ295 float64
-							_ = hiζ295
-							var loζ295 float64
-							_ = loζ295
-							if aζ295/bζ295 < 1.0/64 {
-								var ζr298_0 float64
-								var ζr298_1 float64
+							aζ268 := float64(aζ246)
+							bζ268 := float64(bζ246)
+							sζ268 := float64(aζ246 + bζ246)
+							var hiζ268 float64
+							_ = hiζ268
+							var loζ268 float64
+							_ = loζ268
+							if aζ268/bζ268 < 1.0/64 {
+								var ζr271_0 float64
+								var ζr271_1 float64
 								{
-									aζ298 := float64(aζ295)
-									bζ298 := float64(bζ295)
-									sζ298 := float64(sζ295)
-									var hiζ298 float64
-									_ = hiζ298
-									var loζ298 float64
-									_ = loζ298
-									xhζ298 := aζ298 / bζ298
-									xlζ298 := math.FMA(-xhζ298, bζ298, aζ298) / bζ298
-									x2ζ298 := float64(xhζ298 * xhζ298)
-									x2lζ298 := math.FMA(xhζ298, xhζ298, -x2ζ298) + float64(2*xhζ298*xlζ298)
-									x4ζ298 := float64(x2ζ298 * x2ζ298)
-									pζ298 := math.FMA(math.FMA(-1.0/6, xhζ298, 1.0/5), x2ζ298, math.FMA(-1.0/4, xhζ298, 1.0/3))
-									qζ298 := math.FMA(math.FMA(-1.0/10, xhζ298, 1.0/9), x2ζ298, math.FMA(-1.0/8, xhζ298, 1.0/7))
-									rζ298 := math.FMA(math.FMA(-1.0/12, xhζ298, 1.0/11), x4ζ298, qζ298)
-									tζ298 := float64(math.FMA(rζ298, x4ζ298, pζ298) * xhζ298)
-									mhζ298 := float64(-0.5 * x2ζ298)
-									mlζ298 := math.FMA(x2ζ298, tζ298, -0.5*x2lζ298)
-									lhζ298 := xhζ298 + mhζ298
-									llζ298 := ((xhζ298 - lhζ298) + mhζ298) + (xlζ298 + mlζ298)
-									var ζr301_0 float64
-									var ζr301_1 float64
+									aζ271 := float64(aζ268)
+									bζ271 := float64(bζ268)
+									sζ271 := float64(sζ268)
+									var hiζ271 float64
+									_ = hiζ271
+									var loζ271 float64
+									_ = loζ271
+									xhζ271 := aζ271 / bζ271
+									xlζ271 := math.FMA(-xhζ271, bζ271, aζ271) / bζ271
+									x2ζ271 := float64(xhζ271 * xhζ271)
+									x2lζ271 := math.FMA(xhζ271, xhζ271, -x2ζ271) + float64(2*xhζ271*xlζ271)
+									x4ζ271 := float64(x2ζ271 * x2ζ271)
+									pζ271 := math.FMA(math.FMA(-1.0/6, xhζ271, 1.0/5), x2ζ271, math.FMA(-1.0/4, xhζ271, 1.0/3))
+									qζ271 := math.FMA(math.FMA(-1.0/10, xhζ271, 1.0/9), x2ζ271, math.FMA(-1.0/8, xhζ271, 1.0/7))
+									rζ271 := math.FMA(math.FMA(-1.0/12, xhζ271, 1.0/11), x4ζ271, qζ271)
+									tζ271 := float64(math.FMA(rζ271, x4ζ271, pζ271) * xhζ271)
+									mhζ271 := float64(-0.5 * x2ζ271)
+									mlζ271 := math.FMA(x2ζ271, tζ271, -0.5*x2lζ271)
+									lhζ271 := xhζ271 + mhζ271
+									llζ271 := ((xhζ271 - lhζ271) + mhζ271) + (xlζ271 + mlζ271)
+									var ζr274_0 float64
+									var ζr274_1 float64
 									{
-										aζ301 := float64(aζ298)
-										bζ301 := float64(bζ298)
-										sζ301 := float64(sζ298)
-										lhζ301 := float64(lhζ298)
-										llζ301 := float64(llζ298)
-										mhζ301 := float64(mhζ298)
-										mlζ301 := float64(mlζ298)
-										var hiζ301 float64
-										_ = hiζ301
-										var loζ301 float64
-										_ = loζ301
-										var ζr302_0 float64
-										var ζr302_1 float64
+										aζ274 := float64(aζ271)
+										bζ274 := float64(bζ271)
+										sζ274 := float64(sζ271)
+										lhζ274 := float64(lhζ271)
+										llζ274 := float64(llζ271)
+										mhζ274 := float64(mhζ271)
+										mlζ274 := float64(mlζ271)
+										var hiζ274 float64
+										_ = hiζ274
+										var loζ274 float64
+										_ = loζ274
+										var ζr275_0 float64
+										var ζr275_1 float64
 										{
-											xζ302 := float64(bζ301)
-											var hiζ302 float64
-											_ = hiζ302
-											var loζ302 float64
-											_ = loζ302
-											var ζr305_0 float64
-											var ζr305_1 float64
+											xζ275 := float64(bζ274)
+											var hiζ275 float64
+											_ = hiζ275
+											var loζ275 float64
+											_ = loζ275
+											var ζr278_0 float64
+											var ζr278_1 float64
 											{
-												xζ305 := float64(xζ302)
-												keζ305 := int(0)
-												var hiζ305 float64
-												_ = hiζ305
-												var loζ305 float64
-												_ = loζ305
-												ixζ305 := math.Float64bits(xζ305)
-												tmpζ305 := ixζ305 - 0x3fe8000000000000
-												keζ305 += int(int64(tmpζ305) >> 52)
-												mζ305 := math.Float64frombits(ixζ305 - uint64(int64(tmpζ305)>>52)<<52)
-												tζ305 := &logT[int(float64(mζ305*256)+0.5)-192]
-												invcζ305 := tζ305[0]
-												pζ305 := float64(mζ305 * invcζ305)
-												peζ305 := math.FMA(mζ305, invcζ305, -pζ305)
-												rζ305 := pζ305 - 1
-												r2ζ305 := float64(rζ305 * rζ305)
-												c0ζ305 := math.FMA(rζ305, 1.0/3, -0.5)
-												c1ζ305 := math.FMA(rζ305, 1.0/5, -0.25)
-												c2ζ305 := math.FMA(rζ305, 1.0/7, -1.0/6)
-												c2ζ305 = math.FMA(r2ζ305, -1.0/8, c2ζ305)
-												c1ζ305 = math.FMA(r2ζ305, c2ζ305, c1ζ305)
-												qζ305 := float64(r2ζ305 * math.FMA(r2ζ305, c1ζ305, c0ζ305))
-												kfζ305 := float64(keζ305)
-												lhζ305 := float64(kfζ305*ln2Hi42) + tζ305[1]
-												hiζ305 = lhζ305 + rζ305
-												loζ305 = (rζ305 - (hiζ305 - lhζ305)) + (math.FMA(kfζ305, ln2Lo42, tζ305[2]) + (math.FMA(peζ305, -rζ305, peζ305) + qζ305))
-												ζr305_0 = float64(hiζ305)
-												ζr305_1 = float64(loζ305)
-												goto ζL305
+												xζ278 := float64(xζ275)
+												keζ278 := int(0)
+												var hiζ278 float64
+												_ = hiζ278
+												var loζ278 float64
+												_ = loζ278
+												ixζ278 := math.Float64bits(xζ278)
+												tmpζ278 := ixζ278 - 0x3fe8000000000000
+												keζ278 += int(int64(tmpζ278) >> 52)
+												mζ278 := math.Float64frombits(ixζ278 - uint64(int64(tmpζ278)>>52)<<52)
+												tζ278 := &logT[int(float64(mζ278*256)+0.5)-192]
+												invcζ278 := tζ278[0]
+												pζ278 := float64(mζ278 * invcζ278)
+												peζ278 := math.FMA(mζ278, invcζ278, -pζ278)
+												rζ278 := pζ278 - 1
+												r2ζ278 := float64(rζ278 * rζ278)
+												c0ζ278 := math.FMA(rζ278, 1.0/3, -0.5)
+												c1ζ278 := math.FMA(rζ278, 1.0/5, -0.25)
+												c2ζ278 := math.FMA(rζ278, 1.0/7, -1.0/6)
+												c2ζ278 = math.FMA(r2ζ278, -1.0/8, c2ζ278)
+												c1ζ278 = math.FMA(r2ζ278, c2ζ278, c1ζ278)
+												qζ278 := float64(r2ζ278 * math.FMA(r2ζ278, c1ζ278, c0ζ278))
+												kfζ278 := float64(keζ278)
+												lhζ278 := float64(kfζ278*ln2Hi42) + tζ278[1]
+												hiζ278 = lhζ278 + rζ278
+												loζ278 = (rζ278 - (hiζ278 - lhζ278)) + (math.FMA(kfζ278, ln2Lo42, tζ278[2]) + (math.FMA(peζ278, -rζ278, peζ278) + qζ278))
+												ζr278_0 = float64(hiζ278)
+												ζr278_1 = float64(loζ278)
+												goto ζL278
 											}
-										ζL305:
-											ζt303, ζt304 := ζr305_0, ζr305_1
-											ζr302_0 = float64(ζt303)
-											ζr302_1 = float64(ζt304)
-											goto ζL302
+										ζL278:
+											ζt276, ζt277 := ζr278_0, ζr278_1
+											ζr275_0 = float64(ζt276)
+											ζr275_1 = float64(ζt277)
+											goto ζL275
 										}
-									ζL302:
-										bhζ301, blζ301 := ζr302_0, ζr302_1
-										t1hζ301 := float64(aζ301 * bhζ301)
-										t1lζ301 := math.FMA(aζ301, bhζ301, -t1hζ301) + float64(aζ301*blζ301)
-										t2hζ301 := float64(bζ301 * mhζ301)
-										t2lζ301 := math.FMA(bζ301, mhζ301, -t2hζ301) + float64(bζ301*mlζ301)
-										ahζ301 := aζ301 - 0.5
-										bbζ301 := ahζ301 - aζ301
-										alζ301 := (aζ301 - (ahζ301 - bbζ301)) + (-0.5 - bbζ301)
-										t3hζ301 := float64(ahζ301 * lhζ301)
-										t3lζ301 := math.FMA(ahζ301, lhζ301, -t3hζ301) + math.FMA(ahζ301, llζ301, alζ301*lhζ301)
-										ibζ301 := 1 / bζ301
-										isζ301 := 1 / sζ301
-										dζ301 := float64(aζ301 * ibζ301 * isζ301)
-										ib2ζ301 := float64(ibζ301 * ibζ301)
-										sgζ301 := ibζ301 + isζ301
-										is2ζ301 := float64(isζ301 * isζ301)
-										tnζ301, pwζ301 := 1.0, isζ301
-										sumζ301 := 0.0
-										for _, cζ301 := range stirlingCoef {
-											sumζ301 = math.FMA(cζ301, tnζ301, sumζ301)
-											tnζ301 = math.FMA(ib2ζ301, tnζ301, pwζ301*sgζ301)
-											pwζ301 = float64(pwζ301 * (is2ζ301))
+									ζL275:
+										bhζ274, blζ274 := ζr275_0, ζr275_1
+										t1hζ274 := float64(aζ274 * bhζ274)
+										t1lζ274 := math.FMA(aζ274, bhζ274, -t1hζ274) + float64(aζ274*blζ274)
+										t2hζ274 := float64(bζ274 * mhζ274)
+										t2lζ274 := math.FMA(bζ274, mhζ274, -t2hζ274) + float64(bζ274*mlζ274)
+										ahζ274 := aζ274 - 0.5
+										bbζ274 := ahζ274 - aζ274
+										alζ274 := (aζ274 - (ahζ274 - bbζ274)) + (-0.5 - bbζ274)
+										t3hζ274 := float64(ahζ274 * lhζ274)
+										t3lζ274 := math.FMA(ahζ274, lhζ274, -t3hζ274) + math.FMA(ahζ274, llζ274, alζ274*lhζ274)
+										ibζ274 := 1 / bζ274
+										isζ274 := 1 / sζ274
+										dζ274 := float64(aζ274 * ibζ274 * isζ274)
+										ib2ζ274 := float64(ibζ274 * ibζ274)
+										sgζ274 := ibζ274 + isζ274
+										is2ζ274 := float64(isζ274 * isζ274)
+										tnζ274, pwζ274 := 1.0, isζ274
+										sumζ274 := 0.0
+										for _, cζ274 := range stirlingCoef {
+											sumζ274 = math.FMA(cζ274, tnζ274, sumζ274)
+											tnζ274 = math.FMA(ib2ζ274, tnζ274, pwζ274*sgζ274)
+											pwζ274 = float64(pwζ274 * (is2ζ274))
 										}
-										dsζ301 := float64(dζ301 * sumζ301)
-										uζ301 := -t1hζ301 - t3hζ301
-										bbζ301 = uζ301 + t1hζ301
-										ueζ301 := (-t1hζ301 - (uζ301 - bbζ301)) + (-t3hζ301 - bbζ301)
-										vζ301 := uζ301 - t2hζ301
-										bbζ301 = vζ301 - uζ301
-										veζ301 := (uζ301 - (vζ301 - bbζ301)) + (-t2hζ301 - bbζ301)
-										ζr301_0 = float64(vζ301)
-										ζr301_1 = float64((ueζ301 + veζ301) + (dsζ301 - t1lζ301 - t2lζ301 - t3lζ301))
-										goto ζL301
+										dsζ274 := float64(dζ274 * sumζ274)
+										uζ274 := -t1hζ274 - t3hζ274
+										bbζ274 = uζ274 + t1hζ274
+										ueζ274 := (-t1hζ274 - (uζ274 - bbζ274)) + (-t3hζ274 - bbζ274)
+										vζ274 := uζ274 - t2hζ274
+										bbζ274 = vζ274 - uζ274
+										veζ274 := (uζ274 - (vζ274 - bbζ274)) + (-t2hζ274 - bbζ274)
+										ζr274_0 = float64(vζ274)
+										ζr274_1 = float64((ueζ274 + veζ274) + (dsζ274 - t1lζ274 - t2lζ274 - t3lζ274))
+										goto ζL274
 									}
-								ζL301:
-									ζt299, ζt300 := ζr301_0, ζr301_1
-									ζr298_0 = float64(ζt299)
-									ζr298_1 = float64(ζt300)
-									goto ζL298
+								ζL274:
+									ζt272, ζt273 := ζr274_0, ζr274_1
+									ζr271_0 = float64(ζt272)
+									ζr271_1 = float64(ζt273)
+									goto ζL271
 								}
-							ζL298:
-								ζt296, ζt297 := ζr298_0, ζr298_1
-								ζr295_0 = float64(ζt296)
-								ζr295_1 = float64(ζt297)
-								goto ζL295
+							ζL271:
+								ζt269, ζt270 := ζr271_0, ζr271_1
+								ζr268_0 = float64(ζt269)
+								ζr268_1 = float64(ζt270)
+								goto ζL268
 							}
-							xhζ295 := aζ295 / bζ295
-							xlζ295 := math.FMA(-xhζ295, bζ295, aζ295) / bζ295
-							whζ295 := 1 + xhζ295
-							wlζ295 := ((1 - whζ295) + xhζ295) + xlζ295
-							var ζr306_0 float64
-							var ζr306_1 float64
+							xhζ268 := aζ268 / bζ268
+							xlζ268 := math.FMA(-xhζ268, bζ268, aζ268) / bζ268
+							whζ268 := 1 + xhζ268
+							wlζ268 := ((1 - whζ268) + xhζ268) + xlζ268
+							var ζr279_0 float64
+							var ζr279_1 float64
 							{
-								xζ306 := float64(whζ295)
-								var hiζ306 float64
-								_ = hiζ306
-								var loζ306 float64
-								_ = loζ306
-								var ζr309_0 float64
-								var ζr309_1 float64
+								xζ279 := float64(whζ268)
+								var hiζ279 float64
+								_ = hiζ279
+								var loζ279 float64
+								_ = loζ279
+								var ζr282_0 float64
+								var ζr282_1 float64
 								{
-									xζ309 := float64(xζ306)
-									keζ309 := int(0)
-									var hiζ309 float64
-									_ = hiζ309
-									var loζ309 float64
-									_ = loζ309
-									ixζ309 := math.Float64bits(xζ309)
-									tmpζ309 := ixζ309 - 0x3fe8000000000000
-									keζ309 += int(int64(tmpζ309) >> 52)
-									mζ309 := math.Float64frombits(ixζ309 - uint64(int64(tmpζ309)>>52)<<52)
-									tζ309 := &logT[int(float64(mζ309*256)+0.5)-192]
-									invcζ309 := tζ309[0]
-									pζ309 := float64(mζ309 * invcζ309)
-									peζ309 := math.FMA(mζ309, invcζ309, -pζ309)
-									rζ309 := pζ309 - 1
-									r2ζ309 := float64(rζ309 * rζ309)
-									c0ζ309 := math.FMA(rζ309, 1.0/3, -0.5)
-									c1ζ309 := math.FMA(rζ309, 1.0/5, -0.25)
-									c2ζ309 := math.FMA(rζ309, 1.0/7, -1.0/6)
-									c2ζ309 = math.FMA(r2ζ309, -1.0/8, c2ζ309)
-									c1ζ309 = math.FMA(r2ζ309, c2ζ309, c1ζ309)
-									qζ309 := float64(r2ζ309 * math.FMA(r2ζ309, c1ζ309, c0ζ309))
-									kfζ309 := float64(keζ309)
-									lhζ309 := float64(kfζ309*ln2Hi42) + tζ309[1]
-									hiζ309 = lhζ309 + rζ309
-									loζ309 = (rζ309 - (hiζ309 - lhζ309)) + (math.FMA(kfζ309, ln2Lo42, tζ309[2]) + (math.FMA(peζ309, -rζ309, peζ309) + qζ309))
-									ζr309_0 = float64(hiζ309)
-									ζr309_1 = float64(loζ309)
-									goto ζL309
+									xζ282 := float64(xζ279)
+									keζ282 := int(0)
+									var hiζ282 float64
+									_ = hiζ282
+									var loζ282 float64
+									_ = loζ282
+									ixζ282 := math.Float64bits(xζ282)
+									tmpζ282 := ixζ282 - 0x3fe8000000000000
+									keζ282 += int(int64(tmpζ282) >> 52)
+									mζ282 := math.Float64frombits(ixζ282 - uint64(int64(tmpζ282)>>52)<<52)
+									tζ282 := &logT[int(float64(mζ282*256)+0.5)-192]
+									invcζ282 := tζ282[0]
+									pζ282 := float64(mζ282 * invcζ282)
+									peζ282 := math.FMA(mζ282, invcζ282, -pζ282)
+									rζ282 := pζ282 - 1
+									r2ζ282 := float64(rζ282 * rζ282)
+									c0ζ282 := math.FMA(rζ282, 1.0/3, -0.5)
+									c1ζ282 := math.FMA(rζ282, 1.0/5, -0.25)
+									c2ζ282 := math.FMA(rζ282, 1.0/7, -1.0/6)
+									c2ζ282 = math.FMA(r2ζ282, -1.0/8, c2ζ282)
+									c1ζ282 = math.FMA(r2ζ282, c2ζ282, c1ζ282)
+									qζ282 := float64(r2ζ282 * math.FMA(r2ζ282, c1ζ282, c0ζ282))
+									kfζ282 := float64(keζ282)
+									lhζ282 := float64(kfζ282*ln2Hi42) + tζ282[1]
+									hiζ282 = lhζ282 + rζ282
+									loζ282 = (rζ282 - (hiζ282 - lhζ282)) + (math.FMA(kfζ282, ln2Lo42, tζ282[2]) + (math.FMA(peζ282, -rζ282, peζ282) + qζ282))
+									ζr282_0 = float64(hiζ282)
+									ζr282_1 = float64(loζ282)
+									goto ζL282
 								}
-							ζL309:
-								ζt307, ζt308 := ζr309_0, ζr309_1
-								ζr306_0 = float64(ζt307)
-								ζr306_1 = float64(ζt308)
-								goto ζL306
+							ζL282:
+								ζt280, ζt281 := ζr282_0, ζr282_1
+								ζr279_0 = float64(ζt280)
+								ζr279_1 = float64(ζt281)
+								goto ζL279
 							}
-						ζL306:
-							lhζ295, l2ζ295 := ζr306_0, ζr306_1
-							llζ295 := l2ζ295 + wlζ295/whζ295
-							mhζ295 := lhζ295 - xhζ295
-							mlζ295 := llζ295 - xlζ295
-							var ζr312_0 float64
-							var ζr312_1 float64
+						ζL279:
+							lhζ268, l2ζ268 := ζr279_0, ζr279_1
+							llζ268 := l2ζ268 + wlζ268/whζ268
+							mhζ268 := lhζ268 - xhζ268
+							mlζ268 := llζ268 - xlζ268
+							var ζr285_0 float64
+							var ζr285_1 float64
 							{
-								aζ312 := float64(aζ295)
-								bζ312 := float64(bζ295)
-								sζ312 := float64(sζ295)
-								lhζ312 := float64(lhζ295)
-								llζ312 := float64(llζ295)
-								mhζ312 := float64(mhζ295)
-								mlζ312 := float64(mlζ295)
-								var hiζ312 float64
-								_ = hiζ312
-								var loζ312 float64
-								_ = loζ312
-								var ζr313_0 float64
-								var ζr313_1 float64
+								aζ285 := float64(aζ268)
+								bζ285 := float64(bζ268)
+								sζ285 := float64(sζ268)
+								lhζ285 := float64(lhζ268)
+								llζ285 := float64(llζ268)
+								mhζ285 := float64(mhζ268)
+								mlζ285 := float64(mlζ268)
+								var hiζ285 float64
+								_ = hiζ285
+								var loζ285 float64
+								_ = loζ285
+								var ζr286_0 float64
+								var ζr286_1 float64
 								{
-									xζ313 := float64(bζ312)
-									var hiζ313 float64
-									_ = hiζ313
-									var loζ313 float64
-									_ = loζ313
-									var ζr316_0 float64
-									var ζr316_1 float64
+									xζ286 := float64(bζ285)
+									var hiζ286 float64
+									_ = hiζ286
+									var loζ286 float64
+									_ = loζ286
+									var ζr289_0 float64
+									var ζr289_1 float64
 									{
-										xζ316 := float64(xζ313)
-										keζ316 := int(0)
-										var hiζ316 float64
-										_ = hiζ316
-										var loζ316 float64
-										_ = loζ316
-										ixζ316 := math.Float64bits(xζ316)
-										tmpζ316 := ixζ316 - 0x3fe8000000000000
-										keζ316 += int(int64(tmpζ316) >> 52)
-										mζ316 := math.Float64frombits(ixζ316 - uint64(int64(tmpζ316)>>52)<<52)
-										tζ316 := &logT[int(float64(mζ316*256)+0.5)-192]
-										invcζ316 := tζ316[0]
-										pζ316 := float64(mζ316 * invcζ316)
-										peζ316 := math.FMA(mζ316, invcζ316, -pζ316)
-										rζ316 := pζ316 - 1
-										r2ζ316 := float64(rζ316 * rζ316)
-										c0ζ316 := math.FMA(rζ316, 1.0/3, -0.5)
-										c1ζ316 := math.FMA(rζ316, 1.0/5, -0.25)
-										c2ζ316 := math.FMA(rζ316, 1.0/7, -1.0/6)
-										c2ζ316 = math.FMA(r2ζ316, -1.0/8, c2ζ316)
-										c1ζ316 = math.FMA(r2ζ316, c2ζ316, c1ζ316)
-										qζ316 := float64(r2ζ316 * math.FMA(r2ζ316, c1ζ316, c0ζ316))
-										kfζ316 := float64(keζ316)
-										lhζ316 := float64(kfζ316*ln2Hi42) + tζ316[1]
-										hiζ316 = lhζ316 + rζ316
-										loζ316 = (rζ316 - (hiζ316 - lhζ316)) + (math.FMA(kfζ316, ln2Lo42, tζ316[2]) + (math.FMA(peζ316, -rζ316, peζ316) + qζ316))
-										ζr316_0 = float64(hiζ316)
-										ζr316_1 = float64(loζ316)
-										goto ζL316
+										xζ289 := float64(xζ286)
+										keζ289 := int(0)
+										var hiζ289 float64
+										_ = hiζ289
+										var loζ289 float64
+										_ = loζ289
+										ixζ289 := math.Float64bits(xζ289)
+										tmpζ289 := ixζ289 - 0x3fe8000000000000
+										keζ289 += int(int64(tmpζ289) >> 52)
+										mζ289 := math.Float64frombits(ixζ289 - uint64(int64(tmpζ289)>>52)<<52)
+										tζ289 := &logT[int(float64(mζ289*256)+0.5)-192]
+										invcζ289 := tζ289[0]
+										pζ289 := float64(mζ289 * invcζ289)
+										peζ289 := math.FMA(mζ289, invcζ289, -pζ289)
+										rζ289 := pζ289 - 1
+										r2ζ289 := float64(rζ289 * rζ289)
+										c0ζ289 := math.FMA(rζ289, 1.0/3, -0.5)
+										c1ζ289 := math.FMA(rζ289, 1.0/5, -0.25)
+										c2ζ289 := math.FMA(rζ289, 1.0/7, -1.0/6)
+										c2ζ289 = math.FMA(r2ζ289, -1.0/8, c2ζ289)
+										c1ζ289 = math.FMA(r2ζ289, c2ζ289, c1ζ289)
+										qζ289 := float64(r2ζ289 * math.FMA(r2ζ289, c1ζ289, c0ζ289))
+										kfζ289 := float64(keζ289)
+										lhζ289 := float64(kfζ289*ln2Hi42) + tζ289[1]
+										hiζ289 = lhζ289 + rζ289
+										loζ289 = (rζ289 - (hiζ289 - lhζ289)) + (math.FMA(kfζ289, ln2Lo42, tζ289[2]) + (math.FMA(peζ289, -rζ289, peζ289) + qζ289))
+										ζr289_0 = float64(hiζ289)
+										ζr289_1 = float64(loζ289)
+										goto ζL289
 									}
-								ζL316:
-									ζt314, ζt315 := ζr316_0, ζr316_1
-									ζr313_0 = float64(ζt314)
-									ζr313_1 = float64(ζt315)
-									goto ζL313
+								ζL289:
+									ζt287, ζt288 := ζr289_0, ζr289_1
+									ζr286_0 = float64(ζt287)
+									ζr286_1 = float64(ζt288)
+									goto ζL286
 								}
-							ζL313:
-								bhζ312, blζ312 := ζr313_0, ζr313_1
-								t1hζ312 := float64(aζ312 * bhζ312)
-								t1lζ312 := math.FMA(aζ312, bhζ312, -t1hζ312) + float64(aζ312*blζ312)
-								t2hζ312 := float64(bζ312 * mhζ312)
-								t2lζ312 := math.FMA(bζ312, mhζ312, -t2hζ312) + float64(bζ312*mlζ312)
-								ahζ312 := aζ312 - 0.5
-								bbζ312 := ahζ312 - aζ312
-								alζ312 := (aζ312 - (ahζ312 - bbζ312)) + (-0.5 - bbζ312)
-								t3hζ312 := float64(ahζ312 * lhζ312)
-								t3lζ312 := math.FMA(ahζ312, lhζ312, -t3hζ312) + math.FMA(ahζ312, llζ312, alζ312*lhζ312)
-								ibζ312 := 1 / bζ312
-								isζ312 := 1 / sζ312
-								dζ312 := float64(aζ312 * ibζ312 * isζ312)
-								ib2ζ312 := float64(ibζ312 * ibζ312)
-								sgζ312 := ibζ312 + isζ312
-								is2ζ312 := float64(isζ312 * isζ312)
-								tnζ312, pwζ312 := 1.0, isζ312
-								sumζ312 := 0.0
-								for _, cζ312 := range stirlingCoef {
-									sumζ312 = math.FMA(cζ312, tnζ312, sumζ312)
-									tnζ312 = math.FMA(ib2ζ312, tnζ312, pwζ312*sgζ312)
-									pwζ312 = float64(pwζ312 * (is2ζ312))
+							ζL286:
+								bhζ285, blζ285 := ζr286_0, ζr286_1
+								t1hζ285 := float64(aζ285 * bhζ285)
+								t1lζ285 := math.FMA(aζ285, bhζ285, -t1hζ285) + float64(aζ285*blζ285)
+								t2hζ285 := float64(bζ285 * mhζ285)
+								t2lζ285 := math.FMA(bζ285, mhζ285, -t2hζ285) + float64(bζ285*mlζ285)
+								ahζ285 := aζ285 - 0.5
+								bbζ285 := ahζ285 - aζ285
+								alζ285 := (aζ285 - (ahζ285 - bbζ285)) + (-0.5 - bbζ285)
+								t3hζ285 := float64(ahζ285 * lhζ285)
+								t3lζ285 := math.FMA(ahζ285, lhζ285, -t3hζ285) + math.FMA(ahζ285, llζ285, alζ285*lhζ285)
+								ibζ285 := 1 / bζ285
+								isζ285 := 1 / sζ285
+								dζ285 := float64(aζ285 * ibζ285 * isζ285)
+								ib2ζ285 := float64(ibζ285 * ibζ285)
+								sgζ285 := ibζ285 + isζ285
+								is2ζ285 := float64(isζ285 * isζ285)
+								tnζ285, pwζ285 := 1.0, isζ285
+								sumζ285 := 0.0
+								for _, cζ285 := range stirlingCoef {
+									sumζ285 = math.FMA(cζ285, tnζ285, sumζ285)
+									tnζ285 = math.FMA(ib2ζ285, tnζ285, pwζ285*sgζ285)
+									pwζ285 = float64(pwζ285 * (is2ζ285))
 								}
-								dsζ312 := float64(dζ312 * sumζ312)
-								uζ312 := -t1hζ312 - t3hζ312
-								bbζ312 = uζ312 + t1hζ312
-								ueζ312 := (-t1hζ312 - (uζ312 - bbζ312)) + (-t3hζ312 - bbζ312)
-								vζ312 := uζ312 - t2hζ312
-								bbζ312 = vζ312 - uζ312
-								veζ312 := (uζ312 - (vζ312 - bbζ312)) + (-t2hζ312 - bbζ312)
-								ζr312_0 = float64(vζ312)
-								ζr312_1 = float64((ueζ312 + veζ312) + (dsζ312 - t1lζ312 - t2lζ312 - t3lζ312))
-								goto ζL312
+								dsζ285 := float64(dζ285 * sumζ285)
+								uζ285 := -t1hζ285 - t3hζ285
+								bbζ285 = uζ285 + t1hζ285
+								ueζ285 := (-t1hζ285 - (uζ285 - bbζ285)) + (-t3hζ285 - bbζ285)
+								vζ285 := uζ285 - t2hζ285
+								bbζ285 = vζ285 - uζ285
+								veζ285 := (uζ285 - (vζ285 - bbζ285)) + (-t2hζ285 - bbζ285)
+								ζr285_0 = float64(vζ285)
+								ζr285_1 = float64((ueζ285 + veζ285) + (dsζ285 - t1lζ285 - t2lζ285 - t3lζ285))
+								goto ζL285
 							}
-						ζL312:
-							ζt310, ζt311 := ζr312_0, ζr312_1
-							ζr295_0 = float64(ζt310)
-							ζr295_1 = float64(ζt311)
-							goto ζL295
+						ζL285:
+							ζt283, ζt284 := ζr285_0, ζr285_1
+							ζr268_0 = float64(ζt283)
+							ζr268_1 = float64(ζt284)
+							goto ζL268
 						}
-					ζL295:
-						dhζ273, dlζ273 := ζr295_0, ζr295_1
-						vζ273 := gζ273.Hi + dhζ273
-						bbζ273 := vζ273 - gζ273.Hi
-						veζ273 := (gζ273.Hi - (vζ273 - bbζ273)) + (dhζ273 - bbζ273)
-						ζr273_0 = float64(vζ273)
-						ζr273_1 = float64(veζ273 + (gζ273.Lo + dlζ273))
-						goto ζL273
+					ζL268:
+						dhζ246, dlζ246 := ζr268_0, ζr268_1
+						vζ246 := gζ246.Hi + dhζ246
+						bbζ246 := vζ246 - gζ246.Hi
+						veζ246 := (gζ246.Hi - (vζ246 - bbζ246)) + (dhζ246 - bbζ246)
+						ζr246_0 = float64(vζ246)
+						ζr246_1 = float64(veζ246 + (gζ246.Lo + dlζ246))
+						goto ζL246
 					}
-				ζL273:
-					hζ0, lζ0 := ζr273_0, ζr273_1
+				ζL246:
+					hζ0, lζ0 := ζr246_0, ζr246_1
 					ζdst[ζi] = float64(hζ0 + lζ0)
 					continue ζloop
 				}

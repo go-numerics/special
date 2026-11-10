@@ -157,12 +157,68 @@ func ErfcInv(q float64) float64 {
 // Special values: Ndtri(0) = -Inf, Ndtri(1) = +Inf, Ndtri(1/2) = 0; NaN
 // outside [0, 1] or for NaN.
 //
-// Algorithm: -sqrt(2) erfcinv(2p) with erfcinv from ErfcInv's fitted
-// approximations as hi + lo and sqrt(2) as a double-double, multiplied
-// before the single rounding (so p in the far lower tail, down to
-// subnormals, keeps full relative accuracy). For p > 1/2,
-// Ndtri(p) = -Ndtri(1-p) with 1-p exact.
+// Algorithm: for q = min(p, 1-p) (1-p is exact for p >= 1/2) in [2^-29, 1/2],
+// Ndtri(q) = (q - 1/2) G(q) with G fitted directly on 8 pieces per octave
+// of q (ndtriPieces; the piece is the top 15 bits of q's float64 pattern),
+// G and q - 1/2 each carried as hi + lo and multiplied before the single
+// rounding; no logarithm, square root or division. Ndtri(p) = -Ndtri(1-p)
+// for p > 1/2. Below 2^-28 (and for the special values), ndtriSlow:
+// -sqrt(2) erfcinv(2p) with erfcinv from ErfcInv's fitted approximations
+// as hi + lo and sqrt(2) as a double-double, multiplied before the single
+// rounding (so p in the far lower tail, down to subnormals, keeps full
+// relative accuracy).
 func Ndtri(p float64) float64 {
+	q := min(p, 1-p) // NaN stays NaN; p outside [0, 1] or 0, 1 fail the range test below
+	i := math.Float64bits(q)>>49 - ndtriBase
+	if i >= ndtriN {
+		return ndtriSlow(p)
+	}
+	e := &ndtriEst[i&255]
+	s := q - e.c // exact: q and c are in the same binade, c has 4 significant bits
+	k := &e.q
+	s2 := float64(s * s)
+	s4 := float64(s2 * s2)
+	a0 := math.FMA(k[5], s, k[4])
+	a1 := math.FMA(k[7], s, k[6])
+	a2 := math.FMA(k[9], s, k[8])
+	a3 := math.FMA(k[11], s, k[10])
+	a4 := math.FMA(k[13], s, k[12])
+	a5 := math.FMA(k[15], s, k[14])
+	b0 := math.FMA(a1, s2, a0)
+	b1 := math.FMA(a3, s2, a2)
+	b2 := math.FMA(a5, s2, a4)
+	r := math.FMA(b2, s4*s4, math.FMA(b1, s4, b0))
+	r = math.FMA(math.FMA(math.FMA(r, s, k[3]), s, k[2]), s, k[1]) // Q(s)
+	r1 := float64(s * k[0])                                        // float64(): not fused into gh
+	r1l := math.FMA(s, k[0], -r1) + float64(s*e.c1lo)
+	gh := e.c0 + r1 // Fast2Sum: |s c1| < |c0| on every piece
+	gl := (r1 - (gh - e.c0)) + (r1l + math.FMA(s2, r, e.c0lo))
+	mh := q - 0.5 // q - 1/2 = mh + ml, Fast2Sum
+	ml := q - (mh + 0.5)
+	v := float64(mh * gh)
+	lo := math.FMA(mh, gh, -v) + math.FMA(mh, gl, float64(ml*gh))
+	// p > 1/2: negate (the sign of 1/2 - p, exact zero only at p = 1/2)
+	return math.Float64frombits(math.Float64bits(v+lo) ^ (math.Float64bits(0.5-p) & (1 << 63)))
+}
+
+// ndtriBase is the top 15 bits of 2^-29; ndtriN the number of pieces used
+// (28 octaves below 1/2, and the octave of q = 1/2 itself, where q - 1/2 = 0).
+const (
+	ndtriBase = (1023 - 29) << 3
+	ndtriN    = 29 * 8
+)
+
+// ndtriEst holds ndtriPieces, the last octave padded with the last piece.
+var ndtriEst = func() (t [256]estPiece) {
+	p := estPieces(ndtriPieces[:])
+	for i := range t {
+		t[i] = p[min(i, len(p)-1)]
+	}
+	return t
+}()
+
+// ndtriSlow is Ndtri outside [2^-29, 1 - 2^-29] and at the special values.
+func ndtriSlow(p float64) float64 {
 	var h, l float64
 	switch {
 	case p > 0.25 && p < 0.75:

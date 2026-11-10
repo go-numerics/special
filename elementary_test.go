@@ -22,7 +22,7 @@ func TestEvalShortDegrees(t *testing.T) {
 	}
 	for name, p := range map[string][]polyPiece{
 		"erfcx": erfcxPieces[:], "gamma1p[0,1]": gamma1pPieces[2:], "digamma1p": digamma1pPieces[:],
-		"digammaMid": digammaMidPieces[:], "erfInvSmall": erfInvSmallPieces[:], "erfcInv": erfcInvPieces[:],
+		"digammaMid": digammaMidPieces[:], "erfInvSmall": erfInvSmallPieces[:], "erfcInv": erfcInvPieces[:], "ndtri": ndtriPieces[:],
 		"logErfcx": logErfcxPieces[:], "zetaTail[1:]": zetaTailPieces[1:],
 	} {
 		if d := maxDegree(p); d > 16 {

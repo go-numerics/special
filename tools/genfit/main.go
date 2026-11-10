@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"os"
 
@@ -67,6 +68,29 @@ var jobs = []job{
 			return "mp.findroot(lambda x: mp.log(mp.erfc(x)) + t * t, (t if t > 2 else mp.erfinv(1 - mp.exp(-t * t))), tol=mpf(2) ** -(mp.prec + 20))", prec + 40
 		},
 		append(seq(0.8125, 0.25, 10), 4.0625, 5.0625, 6.0625, 7.0625, 9.0625, 11.0625, 15.0625, 19.0625, 23.0625, 27.0625, 31.0625)},
+}
+
+// ndtriEdges: eight equal pieces per octave of q on [2^-29, 1/2], the index
+// being the top 15 bits of the float64 (sign, exponent, 3 mantissa bits).
+func ndtriEdges() []float64 {
+	var e []float64
+	for k := 29; k >= 2; k-- {
+		for j := 0; j < 8; j++ {
+			e = append(e, math.Ldexp(1+float64(j)/8, -k))
+		}
+	}
+	return append(e, 0.5)
+}
+
+func init() {
+	jobs = append(jobs, job{"ndtriPieces", "ndtriPieces: G(q) = ndtri(q)/(q - 1/2) on [2^-29, 1/2], 8 pieces per octave; ndtri(q) = (q - 1/2) G(q).",
+		func(t *big.Float) (string, uint) {
+			if t.Cmp(big.NewFloat(0.5)) == 0 {
+				return "mp.sqrt(2 * mp.pi)", prec
+			}
+			return "(lambda x: -mp.sqrt(2) * x / (t - mpf(1) / 2))(mp.findroot(lambda x: mp.log(mp.erfc(x)) - mp.log(2 * t), mp.erfinv(1 - 2 * t), tol=mpf(2) ** -(mp.prec + 20)))", prec + 60
+		},
+		ndtriEdges()})
 }
 
 // seq returns a + step*k, k = 0..n-1, in float64 as Python computes it.
