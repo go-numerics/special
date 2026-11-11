@@ -82,22 +82,22 @@ Full method, sources of every algorithm, negative control and limitations:
 ## Speed
 
 Accuracy has a price. Measured against SciPy 1.18.1 on one core (refbench,
-tag v0.6.0, 2026-11-10, 10 000-point calls, host load 4.8–7.9, valid run;
-ratios are Go time over SciPy time):
+tag v0.8.0, 2026-11-10, 10 000-point calls, host load 6.4–7.9, valid run (151
+rows, 2 rounds retried above the gate); ratios are Go time over SciPy time):
 
-- faster than SciPy: Gamma 0.85 (8.11 vs 9.59 ns/element; `nd.Gamma` 0.84),
-  LogGamma 0.76, Digamma 0.80, Beta 0.83, the order 0 and 1 Bessel functions
-  (J0 0.76, I0e 0.30, I1 0.96, K1 0.93, K1e 0.37), the elliptic integrals
-  (0.37–0.44), Zeta 0.64, Polygamma 0.05, Comb 0.85, Factorial2 0.03; the
-  `…To` forms of Gamma and LogGamma are 0.79 and 0.67;
-- still 1.1–1.5x slower, the elementwise families: Erf 1.12, Erfc 1.23,
-  Ndtr 1.15, Ndtri 1.45, LogNdtr 1.23, Expit 1.23, Logit 1.39, GammaP 1.17,
-  GammaQ 1.15, GammaSign 1.21, LogBeta 1.20, Jv 1.27, Perm 1.26;
+- faster than SciPy: Gamma 0.83 (8.14 vs 9.82 ns/element; `nd.Gamma` 0.83),
+  LogGamma 0.77, Ndtri 0.57, LogNdtr 0.59, Ndtr 0.84, Erf 0.88, Digamma 0.78,
+  Beta 0.83, the order 0 and 1 Bessel functions (J0 0.76, I0e 0.29, I1 0.96,
+  K1 0.94, K1e 0.39), the elliptic integrals (0.39–0.43), Zeta 0.64,
+  Polygamma 0.05, Comb 0.85, Factorial2 0.02;
+- still slower, the elementwise families, 1.0–1.5x: Erfc 1.01, LogExpit 1.07,
+  Xlogy 1.08, ErfInv 1.12, GammaP and GammaQ 1.15, GammaSign 1.21, LogBeta
+  1.20, Perm 1.22, Yv 1.22, Expit 1.23, ErfcInv 1.24, Jv 1.28, Logit 1.37,
+  LogSumExp 1.48, GammaPInv and GammaQInv 1.5, Jn 1.52;
 - several times slower, where a double-double continued fraction or series
-  produces the rounded result: Yn 33.5, Iv 7.9, Binom 5.6, In 5.3, Softmax
-  5.1, LogSoftmax 4.1, BetaIncInv 3.5, Kv 2.3, Xlog1py 2.2, BetaInc 2.1
-  (open defects, #33). The run is on v0.6.0; v0.6.1's certified `Binom`
-  fast path (#50) is not in these numbers.
+  produces the rounded result: Yn 33.4, Iv 8.0, In 5.3, Softmax 5.0,
+  LogSoftmax 4.1, BetaIncInv 3.5, Binom 3.1, Kv 2.3, Xlog1py 2.2, BetaInc 2.1,
+  Kn 1.88, Factorial of non-integers 1.87, Ive 1.71 (open defects, #33).
 
 Since v0.5.6, `I1`, `I1e`, `K1` and `K1e` use the same fitted octave
 interpolants as `I0e` and `K0e` (and are more accurate: worst case against
