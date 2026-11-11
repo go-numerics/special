@@ -25,12 +25,16 @@ func Factorial(n float64) float64 {
 		}
 		return math.Inf(1)
 	case n < 1:
+		gh, gl := gamma1pFast(n)
+		if zivRound(gh, gl, float64(gammaErrRecip*gh)) {
+			return gh
+		}
 		return gamma1p(n).Float()
 	case n > gammaMax-1:
 		return math.Inf(1)
 	}
 	// Γ(n+1) = exp(log n + log Γ(n))
-	if n >= 10 && n <= 170 {
+	if n <= 170 {
 		if v, ok := factorialLargeFast(n); ok {
 			return v
 		}
@@ -45,27 +49,65 @@ func Factorial(n float64) float64 {
 // absolute error in the exponent is its logarithm's 2^-72.9 relative times
 // (n - 1/2) log n < 2^10, below 2^-62.5. Their sum is under 2^-60; 2^-59 is
 // used.
+//
+// The sweep of factorial_small_test.go (2·10^7 points) found that 2^-59 is
+// not enough just above 10: the distance reaches 2^-58.79 on [10, 10.6]
+// (2^-59.3 up to 14, 2^-60.6 from 30), where the reference's stirlingSeries
+// (truncated to 2^-60 of log Γ, a float64 sum) and the fast kernel differ by
+// their roundings. A bound shrinking with n was refuted too (n = 16.43): the
+// distance is not proportional to the exponent. The bound is therefore
+// piecewise (factorialBound): 2^-57.5 on [10, 12), 2^-58.5 on [12, 30), 2^-59
+// from 30, each at least 1.6 times the largest distance measured on its piece.
+// For 1 < n < 10 (logGammaMidHL, the product Γ(z) Π (n-j) carried as hi + lo,
+// error below 2^-100) the exponent is at most log 9! = 12.8: two log kernels
+// (2^-68 each), the exponential (2^-68) and the reference's logarithm
+// (2^-72.9 · 12.8) sum to 2^-66, the bound 2^-63 leaves 8 times, and the
+// sweep measures 2^-68.8.
 const factorialErr = 0x1p-59
 
-// factorialLargeFast returns n! = exp(log Γ(n) + log n) for 10 <= n <= 170
+// factorialBound returns the bound of |h + l - D| for the value h at n.
+func factorialBound(n, h float64) float64 {
+	e := factorialErr
+	switch {
+	case n < 10:
+		e = 0x1p-63
+	case n < 12:
+		e = 0x1.6a09e667f3bcdp-58 // 2^-57.5
+	case n < 30:
+		e = 0x1.6a09e667f3bcdp-59 // 2^-58.5
+	}
+	return float64(e * h)
+}
+
+// factorialLargeFast returns n! = exp(log Γ(n) + log n) for 1 < n <= 170
 // from the float64 kernels as an unevaluated sum, and whether it is certified
 // equal to the double-double reference's rounding (the Ziv test of
 // gamma_fast.go).
 func factorialLargeFast(n float64) (float64, bool) {
-	gh, gl := logGammaLargeHL(n)
-	lh, ll := logHLn(n)
-	s := gh + lh // Fast2Sum: log Γ(n) >= 12.8 > log n
-	e := (gh - s) + lh
+	h, l := factorialLargeHL(n)
+	if !zivRound(h, l, factorialBound(n, h)) {
+		return 0, false
+	}
+	return h, true
+}
+
+// factorialLargeHL is the unevaluated sum h + l of factorialLargeFast.
+func factorialLargeHL(n float64) (h, l float64) {
+	var gh, gl, lh, ll float64
+	if n < 10 {
+		gh, gl = logGammaMidHL(n) // 1 < n < 10: Binom's kernel, the reference's own product
+		lh, ll = logHLn(n)
+	} else {
+		gh, gl, lh, ll = logGammaLargeHLL(n)
+	}
+	s := gh + lh // TwoSum (the two terms have either sign below 2)
+	bb := s - gh
+	e := (gh - (s - bb)) + (lh - bb)
 	lo := e + (gl + ll)
 	hn := s + lo
 	eh, el, k := expHL(hn, lo-(hn-s))
 	p := pow2(k) // k <= 1023
-	h := float64(eh * p)
-	l := float64(el * p)
-	if !zivRound(h, l, float64(factorialErr*h)) {
-		return 0, false
-	}
-	return h, true
+	return float64(eh * p), float64(el * p)
 }
 
 // LogFactorial returns log(n!) = log Γ(n+1) for n >= 0 without forming

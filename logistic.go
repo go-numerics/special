@@ -303,6 +303,9 @@ func xlogyTail(x, y float64) float64 {
 // Xlog1py returns x*log1p(y), defined as 0 when x = 0 and y is not NaN, as
 // SciPy's xlog1py, with log1p(y) in double-double: one rounding.
 func Xlog1py(x, y float64) float64 {
+	if v, ok := xlog1pyFast(x, y); ok { // NaN, x = 0, y <= -1, y or x infinite: never ok
+		return v
+	}
 	if x == 0 && !math.IsNaN(y) {
 		return 0
 	}
@@ -311,9 +314,6 @@ func Xlog1py(x, y float64) float64 {
 	}
 	if y == -1 || math.IsInf(y, 1) || math.IsInf(x, 0) {
 		return float64(x * libm.Log1p(y))
-	}
-	if v, ok := xlog1pyFast(x, y); ok {
-		return v
 	}
 	return dd.MulF(log1pDD(dd.F(y)), x).Float()
 }
@@ -330,7 +330,8 @@ const xlog1pyErr = 0x1p-60
 // log(wh) comes from the log kernel as hi + lo, log1p(y) = log(wh) + wl/wh
 // to 2^-86, and the product x (hi + lo) is kept as an unevaluated sum.
 func xlog1pyFast(x, y float64) (float64, bool) {
-	if !(math.Abs(y) >= 0x1p-20) || math.IsInf(y, 0) || math.IsInf(x, 0) {
+	// y > -1 here (the caller's NaN and y < -1 cases come after this call)
+	if !(y >= 0x1p-20 || (y <= -0x1p-20 && y > -1)) || y > math.MaxFloat64 || math.Abs(x) > math.MaxFloat64 {
 		return 0, false
 	}
 	wh := 1 + y

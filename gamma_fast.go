@@ -34,7 +34,7 @@ const (
 func zivRound(h, l, e float64) bool {
 	b := math.Float64bits(h)
 	ex := b >> 52 & 0x7ff
-	if ex <= 54 || ex == 0x7ff {
+	if ex-55 >= 0x7ff-55 { // ex <= 54 (wraps) or ex == 0x7ff
 		return false
 	}
 	if b>>63 != 0 {
@@ -45,7 +45,7 @@ func zivRound(h, l, e float64) bool {
 	if b&(1<<52-1) == 0 {
 		low = float64(half / 2)
 	}
-	return l+e < half && l-e > -low
+	return l+e < half && e-l < low // e-l = -(l-e) exactly, as rounded
 }
 
 // gamma1pFast returns Γ(1+t) = 1 + t(t-1)F(t) for t in [-1/2, 1] as
