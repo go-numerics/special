@@ -87,6 +87,43 @@ func erfcInvLog(lh, ll float64) (hi, lo float64) {
 	return erfcInvEst[int(t[2])+int((u-t[0])*t[1])].evalLow(wh, wl)
 }
 
+// erfcInvDirEst is erfcinv(q) fitted directly in q (erfcInvDirPieces, degree
+// <= 11): 8 pieces per octave of q on [2^-53, 1/2), the piece being the top
+// 15 bits of q's float64 pattern less erfcInvDirBase. No logarithm, square
+// root or division.
+var erfcInvDirEst = [erfcInvDirN]estPiece(estPieces(erfcInvDirPieces[:]))
+
+const (
+	erfcInvDirBase = (1023 - 53) << 3
+	erfcInvDirN    = 52 * 8
+)
+
+// erfcInvDirHL returns erfcinv(q) as hi + lo for the piece i = top 15 bits
+// of q less erfcInvDirBase, i < erfcInvDirN (2^-53 <= q < 1/2): c0 + s c1 +
+// s² Q(s), s = q - c exact (q and c share a binade, c has 5 significant
+// bits), c0 and c1 as double-doubles and s c1 formed exactly, so that only
+// the rounding of Q(s), scaled down by s²|Q|/result < 2^-58, remains.
+func erfcInvDirHL(q float64, i uint64) (hi, lo float64) {
+	e := &erfcInvDirEst[i]
+	s := q - e.c
+	k := &e.q
+	s2 := float64(s * s)
+	s4 := float64(s2 * s2)
+	a0 := math.FMA(k[2], s, k[1])
+	a1 := math.FMA(k[4], s, k[3])
+	a2 := math.FMA(k[6], s, k[5])
+	a3 := math.FMA(k[8], s, k[7])
+	a4 := math.FMA(k[10], s, k[9])
+	b0 := math.FMA(a1, s2, a0)
+	b1 := math.FMA(a3, s2, a2)
+	p := math.FMA(a4, float64(s4*s4), math.FMA(b1, s4, b0)) // Q(s) = k[1] + ... + k[10] s⁹
+	r1 := float64(s * k[0])                                 // float64(): not fused into hi
+	r1l := math.FMA(s, k[0], -r1) + float64(s*e.c1lo)
+	hi = e.c0 + r1 // Fast2Sum: |s c1| < |c0| on every piece
+	lo = (r1 - (hi - e.c0)) + (r1l + math.FMA(s2, p, e.c0lo))
+	return hi, lo
+}
+
 // erfcInvIdx[f] = {segment start in u = w - 1/16, pieces per unit, first
 // piece of the segment} for f = floor(u) (w < 27.3 for every q > 0).
 var erfcInvIdx = [31][3]float64{
@@ -105,9 +142,9 @@ var erfcInvIdx = [31][3]float64{
 // NaN.
 //
 // Algorithm: for |y| <= 1/2, y R(y²) with R fitted to mpmath; beyond,
-// erfcinv(1 - |y|) (1 - |y| exact) as X(sqrt(-log(1 - |y|))) with X fitted
-// to mpmath on pieces, the logarithm and the square root carried beyond
-// float64; about half an ulp.
+// erfcinv(1 - |y|) (1 - |y| exact) fitted directly in q = 1 - |y| on 8
+// pieces per octave (erfcInvDirHL), carried as hi + lo and rounded once, with
+// no logarithm, square root or division; about half an ulp.
 func ErfInv(y float64) float64 {
 	p := math.Abs(y)
 	switch {
@@ -121,8 +158,29 @@ func ErfInv(y float64) float64 {
 		h, l := erfInvSmallHL(p)
 		return math.Copysign(h+l, y)
 	}
-	h, l := erfcInvN(1 - p) // 1-p exact (and normal) for 1/2 <= p < 1
+	q := 1 - p // exact, 2^-53 <= q < 1/2 for 1/2 < p < 1: always in the table
+	h, l := erfcInvDirHL(q, math.Float64bits(q)>>49-erfcInvDirBase)
 	return math.Copysign(h+l, y)
+}
+
+// erfcInvPrev is ErfcInv as of v0.8.0 (erfcinv(q) = X(sqrt(-log q)) below
+// 1/2). ibetaInvTemme1 starts from it, so that BetaIncInv stays bit-identical.
+func erfcInvPrev(q float64) float64 {
+	switch {
+	case math.IsNaN(q) || q < 0 || q > 2:
+		return math.NaN()
+	case q == 0:
+		return math.Inf(1)
+	case q == 2:
+		return math.Inf(-1)
+	case q > 1:
+		return -erfcInvPrev(2 - q) // exact
+	case q >= 0.5:
+		h, l := erfInvSmallHL(1 - q) // 1 - q exact
+		return h + l
+	}
+	h, l := erfcInvHL(q)
+	return h + l
 }
 
 // ErfcInv returns the inverse complementary error function:
@@ -147,7 +205,11 @@ func ErfcInv(q float64) float64 {
 		h, l := erfInvSmallHL(1 - q) // 1 - q exact
 		return h + l
 	}
-	h, l := erfcInvHL(q)
+	if i := math.Float64bits(q)>>49 - erfcInvDirBase; i < erfcInvDirN {
+		h, l := erfcInvDirHL(q, i)
+		return h + l
+	}
+	h, l := erfcInvHL(q) // q < 2^-53 (down to the smallest subnormal)
 	return h + l
 }
 

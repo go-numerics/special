@@ -131,7 +131,7 @@ func ibetaInv(a, b, p, q float64) float64 {
 // correction terms in 1/a, then x = (1 + sign(η) sqrt(1 - e^(-η²/2)))/2.
 func ibetaInvTemme1(a, b, p float64) float64 {
 	const r2 = math.Sqrt2
-	eta0 := ErfcInv(float64(2*p)) / -math.Sqrt(a/2)
+	eta0 := erfcInvPrev(float64(2*p)) / -math.Sqrt(a/2)
 	B := b - a
 	B2 := float64(B * B)
 	B3 := float64(B2 * B)
