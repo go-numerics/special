@@ -233,6 +233,13 @@ One finding along the way: on amd64, Go's `math.Log` (assembly) returns
 about -709.09 for every subnormal argument (it should go down to -744.44);
 this package never calls it on a value that can be subnormal.
 
+## Roadmap
+
+[docs/roadmap.md](docs/roadmap.md) lists what Julia's SpecialFunctions and
+LogExpFunctions, R's nmath and GSL's specfunc do better or have in addition,
+ranked by gain for cost, with an implementation source and an mpmath oracle
+for each item.
+
 ## License
 
 BSD 3-Clause. Ported algorithms keep their attribution in place: Cephes
