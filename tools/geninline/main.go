@@ -62,7 +62,7 @@ var targets = []struct {
 var helpers = map[string]bool{
 	"expHL": true, "logHL": true, "logHLn": true, "logHLk": true, "pow2": true,
 	"erfcHL": true, "erfcHLmain": true, "erfcHLtail": true, "erfcInvN": true, "erfcInvLog": true, "erfcxHL": true, "erfSmallHL": true, "ndtrZHL": true, "erfDeriv": true,
-	"erfcInvHL": true, "erfInvSmallHL": true, "log1pHL": true,
+	"erfcInvHL": true, "erfInvSmallHL": true,
 	"gammaLarge": true, "gammaMid": true, "gamma1pHL": true, "gammaHL": true,
 	"logGammaLargeHL": true, "logGammaLargeHL2": true,
 	"digammaSmall": true, "digammaLarge": true,

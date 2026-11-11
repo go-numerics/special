@@ -110,6 +110,17 @@ func init() {
 }
 
 func init() {
+	jobs = append(jobs, job{"logitPieces", "logitPieces: G(q) = logit(q)/(q - 1/2) on [2^-29, 1/2], 8 pieces per octave; logit(q) = (q - 1/2) G(q).",
+		func(t *big.Float) (string, uint) {
+			if t.Cmp(big.NewFloat(0.5)) == 0 {
+				return "mpf(4)", prec
+			}
+			return "mp.log(t / (1 - t)) / (t - mpf(1) / 2)", prec + 60
+		},
+		ndtriEdges()})
+}
+
+func init() {
 	jobs = append(jobs, job{"erfcInvDirPieces", "erfcInvDirPieces: erfcinv(q) on [2^-53, 1/2], 8 pieces per octave of q (piece = top 15 bits of q's float64 pattern).",
 		func(t *big.Float) (string, uint) {
 			return "mp.findroot(lambda x: mp.log(mp.erfc(x)) - mp.log(t), (mp.sqrt(-mp.log(t)) if t < 0.01 else mp.erfinv(1 - t)), tol=mpf(2) ** -(mp.prec + 20))", prec + 60

@@ -177,54 +177,77 @@ func log1pExpTail(x float64) float64 {
 }
 
 // Logit returns the log-odds log(p/(1-p)), the inverse of Expit, for
-// 0 <= p <= 1: -Inf at 0, +Inf at 1, NaN outside or for NaN. 1-p is formed
-// exactly (TwoSum), the quotient p/(1-p) is carried as hi + lo through its
-// FMA residual, and log(hi) comes from the log kernel, whose error is
-// relative to hi - 1 near 1: the result is accurate around p = 1/2 where it
-// crosses zero.
+// 0 <= p <= 1: -Inf at 0, +Inf at 1, NaN outside or for NaN.
+//
+// Algorithm: for q = min(p, 1-p) (1-p is exact for p >= 1/2) in [2^-29, 1/2),
+// Logit(q) = (q - 1/2) G(q) with G fitted directly on 8 pieces per octave of
+// q (logitPieces; the piece is the top 15 bits of q's float64 pattern, as for
+// Ndtri), G and q - 1/2 each carried as hi + lo and multiplied before the
+// single rounding: no logarithm or division, and the result is accurate
+// where it crosses zero. Logit(p) = -Logit(1-p) for p > 1/2. Below 2^-29
+// (and at the special values), logitTail: 1-p is formed exactly (TwoSum),
+// the quotient p/(1-p) is carried as hi + lo through its FMA residual and
+// log of it comes from the log kernel.
 func Logit(p float64) float64 {
-	if !(p > 0 && p < 1) {
-		switch {
-		case p == 0:
-			return math.Inf(-1)
-		case p == 1:
-			return math.Inf(1)
-		}
+	q := min(p, 1-p) // NaN stays NaN; p outside [0, 1] or 0, 1 fail the range test below
+	i := math.Float64bits(q)>>49 - ndtriBase
+	if i >= ndtriN {
+		return logitTail(p)
+	}
+	e := &logitEst[i&255]
+	s := q - e.c // exact: q and c are in the same binade, c has 4 significant bits
+	k := &e.q
+	s2 := float64(s * s)
+	s4 := float64(s2 * s2)
+	a0 := math.FMA(k[5], s, k[4])
+	a1 := math.FMA(k[7], s, k[6])
+	a2 := math.FMA(k[9], s, k[8])
+	a3 := math.FMA(k[11], s, k[10])
+	a4 := math.FMA(k[13], s, k[12])
+	a5 := math.FMA(k[15], s, k[14])
+	b0 := math.FMA(a1, s2, a0)
+	b1 := math.FMA(a3, s2, a2)
+	b2 := math.FMA(a5, s2, a4)
+	r := math.FMA(b2, s4*s4, math.FMA(b1, s4, b0))
+	r = math.FMA(math.FMA(math.FMA(r, s, k[3]), s, k[2]), s, k[1]) // Q(s)
+	r1 := float64(s * k[0])                                        // float64(): not fused into gh
+	r1l := math.FMA(s, k[0], -r1) + float64(s*e.c1lo)
+	gh := e.c0 + r1 // Fast2Sum: |s c1| < |c0| on every piece
+	gl := (r1 - (gh - e.c0)) + (r1l + math.FMA(s2, r, e.c0lo))
+	mh := q - 0.5 // q - 1/2 = mh + ml, Fast2Sum
+	ml := q - (mh + 0.5)
+	v := float64(mh * gh)
+	lo := math.FMA(mh, gh, -v) + math.FMA(mh, gl, float64(ml*gh))
+	// p > 1/2: negate (the sign of 1/2 - p; +0 at p = 1/2 where the result is +0)
+	return math.Float64frombits(math.Float64bits(v+lo) ^ (math.Float64bits(0.5-p) & (1 << 63)))
+}
+
+// logitEst holds logitPieces, the last octave padded with the last piece.
+var logitEst = func() (t [256]estPiece) {
+	p := estPieces(logitPieces[:])
+	for i := range t {
+		t[i] = p[min(i, len(p)-1)]
+	}
+	return t
+}()
+
+// logitTail is Logit for p < 2^-29, p > 1 - 2^-29 and the special values.
+func logitTail(p float64) float64 {
+	switch {
+	case p == 0:
+		return math.Inf(-1)
+	case p == 1:
+		return math.Inf(1)
+	case !(p > 0 && p < 1):
 		return math.NaN()
 	}
 	qh := 1 - p
 	bb := qh - 1
 	ql := (1 - (qh - bb)) + (-p - bb) // 1 - p = qh + ql exactly
-	if p < 0.25 || p > 0.75 {
-		// |logit| > log 3: first-order corrections suffice.
-		y := p / qh
-		r := (math.FMA(-y, qh, p) - float64(y*ql)) / qh // p/(qh+ql) - y
-		lh, ll := logHL(y)
-		return lh + (ll + r/y)
-	}
-	// log1p(t), t = (2p - 1)/(1 - p); 2p - 1 is exact here. Carrying t
-	// itself keeps the relative accuracy as the result crosses zero.
-	num := float64(2*p) - 1
-	th := num / qh
-	tl := (math.FMA(-th, qh, num) - float64(th*ql)) / qh
-	return log1pHL(th, tl)
-}
-
-// log1pHL returns log1p(th + tl) rounded to float64 for th > -1 with
-// |tl| <= ulp(th): the series for |th| < 2^-20 (terms to th⁴/4, the next
-// below 2^-80 relative); otherwise w = 1 + t formed exactly and
-// log(w.hi) + w.lo/w.hi, the dropped second-order term below 2^-86 of the
-// result.
-func log1pHL(th, tl float64) float64 {
-	if math.Abs(th) < 0x1p-20 {
-		s := float64(th * th * math.FMA(th, math.FMA(th, -0.25, 1.0/3), -0.5))
-		return th + (math.FMA(tl, -th, tl) + s)
-	}
-	wh := 1 + th
-	bb := wh - 1
-	wl := (1 - (wh - bb)) + (th - bb) + tl
-	lh, ll := logHLn(wh)
-	return lh + (ll + wl/wh)
+	y := p / qh
+	r := (math.FMA(-y, qh, p) - float64(y*ql)) / qh // p/(qh+ql) - y
+	lh, ll := logHL(y)
+	return lh + (ll + r/y)
 }
 
 // Xlogy returns x*log(y), defined as 0 when x = 0 and y is not NaN (so that
