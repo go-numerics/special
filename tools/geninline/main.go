@@ -68,9 +68,9 @@ var helpers = map[string]bool{
 	"digammaSmall": true, "digammaLarge": true,
 	"zetaMidFast": true, "zetaTailFast": true, "trigamma": true, "trigammaAsym": true,
 	"hurwitzFast": true, "powNegHL": true,
-	"logBetaHL": true, "logBetaHL10": true, "logBetaDirect": true, "logGammaDiffHL": true,
+	"logBetaHL": true, "logBetaHL10": true, "logBetaHL10Tab": true, "logBetaDirect": true, "logBetaDirectTab": true, "logGammaDiffHL": true,
 	"logGammaDiffSeries": true, "logGammaDiffRest": true, "betaSmall": true, "gammaHLsmall": true,
-	"erfcInvDirHL": true, "erfcTabHL": true, "ndtrNegHL": true, "ndtrPosHL": true, "estPiece.evalTab": true,
+	"erfcInvDirHL": true, "lgammaOctHL": true, "erfcTabHL": true, "ndtrNegHL": true, "ndtrPosHL": true, "estPiece.evalTab": true,
 	"estPiece.eval": true, "estPiece.evalLow": true, "estPiece.evalShort": true,
 }
 

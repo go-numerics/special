@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// lgammaOct emits lgammaOctPieces: log Γ(x) for x in [8, 1024) on 64 pieces
+// lgammaOct emits lgammaOctPieces: log Γ(x) for x in [8, 2048) on 64 pieces
 // per octave, in s = x - c (c the piece's centre, a multiple of ulp(x) so
 // that s is exact): L(c) as a double-double, a1 (the slope ψ(c), carried to
 // double-double because a1 s reaches 54) as a double-double, and the degree-9
@@ -14,7 +14,7 @@ import (
 // 0.03).
 func lgammaOct() {
 	const (
-		emin, emax = 3, 9
+		emin, emax = 3, 10
 		nsub       = 64
 		deg        = 7
 	)

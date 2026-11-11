@@ -39,3 +39,26 @@ func lgammaOct(x float64) float64 {
 	sh, se := dd.TwoSum(p.lh, ph)
 	return sh + (se + ((p.ll + pl) + q))
 }
+
+// lgammaOctHL returns log Γ(x + xl) for 10 <= x < 2048 and |xl| <= ulp(x) as
+// hi + lo: lgammaOct before its last addition, the low part of the argument
+// entering to first order through ψ(x) = a1 + 2 a2 s (the slope and the
+// quadratic coefficient of the piece; the next term, 3 a3 s², is below 2^-14
+// absolute, on a term xl ψ below 2^-53 x). The error is about 2^-57 absolute
+// (the rounding of the float64 remainder).
+func lgammaOctHL(x, xl float64) (hi, lo float64) {
+	b := math.Float64bits(x)
+	p := &lgammaOctPieces[(int(b>>52)-1023-3)<<6|int(b>>46&63)]
+	s := x - p.c // exact: both are multiples of ulp(x) and |s| < x/128
+	t := p.r[0]
+	t = math.FMA(t, s, p.r[1])
+	t = math.FMA(t, s, p.r[2])
+	t = math.FMA(t, s, p.r[3])
+	t = math.FMA(t, s, p.r[4])
+	t = math.FMA(t, s, p.r[5])
+	q := float64(float64(s*s) * t)
+	ph, pe := dd.TwoProd(s, p.a1)
+	pl := math.FMA(s, p.a1l, pe)
+	sh, se := dd.TwoSum(p.lh, ph)
+	return sh, se + ((p.ll + pl) + q) + float64(xl*math.FMA(2*s, p.r[5], p.a1))
+}

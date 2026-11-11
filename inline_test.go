@@ -70,6 +70,14 @@ func TestInlinedLoopsBitIdentical(t *testing.T) {
 		for _, row := range loadFixture(t, name) {
 			a, b = append(a, row.args[0]), append(b, row.args[1])
 		}
+		if name == "beta" || name == "logbeta" {
+			// 10 <= a <= b <= 64a on both sides of a + b = 2048, where
+			// LogBeta changes from the fitted log-gamma table to Stirling
+			for k := 0; k < 400; k++ {
+				x := 10 + float64(7.3*float64(k))
+				a, b = append(a, x), append(b, float64(x*float64(1+k%50)))
+			}
+		}
 		sp := []float64{math.Inf(1), math.Inf(-1), math.NaN(), 0, 1, 2, 0.5, -0.5, 5e-324, 1e300}
 		for _, u := range sp {
 			for _, v := range sp {

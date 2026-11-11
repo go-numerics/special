@@ -1,6 +1,6 @@
 // Command ulpflips judges the points where two implementations of a function
 // differ against mpmath: for each line "x a b" (three float64 in Go's
-// round-trip format) of the file it evaluates --expr (a Python expression in
+// round-trip format; "x y a b" for two arguments) of the file it evaluates --expr (a Python expression in
 // x) at 200 bits and reports, in ulps of the true value, the worst error of
 // a and of b, and how many points each one has closer.
 //
@@ -38,25 +38,28 @@ func ulpErr(got float64, want *big.Float) float64 {
 	return math.Abs(r)
 }
 
-type point struct{ x, a, b float64 }
+type point struct{ x, y, a, b float64 } // y: the second argument, 0 for one-argument lines
 
 func parse(r io.Reader) ([]point, error) {
 	var ps []point
 	sc := bufio.NewScanner(r)
 	for sc.Scan() {
 		f := strings.Fields(sc.Text())
-		if len(f) != 3 {
-			return nil, fmt.Errorf("line %q: want 3 fields", sc.Text())
+		if len(f) != 3 && len(f) != 4 {
+			return nil, fmt.Errorf("line %q: want 3 or 4 fields", sc.Text())
 		}
-		var v [3]float64
-		for i := range v {
+		var v [4]float64
+		for i := range f {
 			x, err := strconv.ParseFloat(f[i], 64)
 			if err != nil {
 				return nil, err
 			}
 			v[i] = x
 		}
-		ps = append(ps, point{v[0], v[1], v[2]})
+		if len(f) == 3 {
+			v[1], v[2], v[3] = 0, v[1], v[2]
+		}
+		ps = append(ps, point{v[0], v[1], v[2], v[3]})
 	}
 	return ps, sc.Err()
 }
@@ -108,7 +111,7 @@ func RootCmd() *cobra.Command {
 			defer o.Close()
 			reqs := make([]mporacle.Req, len(ps))
 			for i, p := range ps {
-				reqs[i] = mporacle.Req{Expr: expr, Prec: 200, Vars: map[string]*big.Float{"x": new(big.Float).SetFloat64(p.x)}}
+				reqs[i] = mporacle.Req{Expr: expr, Prec: 200, Vars: map[string]*big.Float{"x": new(big.Float).SetFloat64(p.x), "y": new(big.Float).SetFloat64(p.y)}}
 			}
 			truth, _, err := o.Batch(reqs)
 			if err != nil {
@@ -119,7 +122,7 @@ func RootCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&expr, "expr", "", "Python expression in x (mp, mpf, mpmath in scope)")
+	cmd.Flags().StringVar(&expr, "expr", "", "Python expression in x and y (mp, mpf, mpmath in scope)")
 	_ = cmd.MarkFlagRequired("expr")
 	return cmd
 }
