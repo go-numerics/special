@@ -85,9 +85,12 @@ var jobs = []job{
 
 // ndtriEdges: eight equal pieces per octave of q on [2^-29, 1/2], the index
 // being the top 15 bits of the float64 (sign, exponent, 3 mantissa bits).
-func ndtriEdges() []float64 {
+func ndtriEdges() []float64 { return qEdges(29) }
+
+// qEdges: eight equal pieces per octave of q on [2^-kmax, 1/2].
+func qEdges(kmax int) []float64 {
 	var e []float64
-	for k := 29; k >= 2; k-- {
+	for k := kmax; k >= 2; k-- {
 		for j := 0; j < 8; j++ {
 			e = append(e, math.Ldexp(1+float64(j)/8, -k))
 		}
@@ -104,6 +107,14 @@ func init() {
 			return "(lambda x: -mp.sqrt(2) * x / (t - mpf(1) / 2))(mp.findroot(lambda x: mp.log(mp.erfc(x)) - mp.log(2 * t), mp.erfinv(1 - 2 * t), tol=mpf(2) ** -(mp.prec + 20)))", prec + 60
 		},
 		ndtriEdges()})
+}
+
+func init() {
+	jobs = append(jobs, job{"erfcInvDirPieces", "erfcInvDirPieces: erfcinv(q) on [2^-53, 1/2], 8 pieces per octave of q (piece = top 15 bits of q's float64 pattern).",
+		func(t *big.Float) (string, uint) {
+			return "mp.findroot(lambda x: mp.log(mp.erfc(x)) - mp.log(t), (mp.sqrt(-mp.log(t)) if t < 0.01 else mp.erfinv(1 - t)), tol=mpf(2) ** -(mp.prec + 20))", prec + 60
+		},
+		qEdges(53)})
 }
 
 // gaussEdges: the pieces of the erfc-like tables, uniform in z² = (x/scale)²
