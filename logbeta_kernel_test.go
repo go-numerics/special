@@ -9,6 +9,8 @@ import (
 	"os"
 	"strconv"
 	"testing"
+
+	"github.com/go-numerics/special/internal/libm"
 )
 
 // TestLogBetaTableAgainstPrev compares LogBeta, whose direct combination of
@@ -18,7 +20,7 @@ import (
 // a rate of flips (stated in the PR and release notes; LOGBETA_SWEEP=<points>,
 // FLIPS_FILE=<path> writes "a b new old" lines for tools/ulpflips). The
 // default sweep's hash must be the same on every architecture.
-const logBetaSweepHash = "f2ace9b94ac17b636f928b12f26a25b296191caaaf647b332fbab3337772c588"
+const logBetaSweepHash = "cae314777ca4e6635f530f9590da1fe11974ce465a35c2dacfe707acdd1d6136"
 
 func TestLogBetaTableAgainstPrev(t *testing.T) {
 	n := 20000
@@ -67,10 +69,10 @@ func TestLogBetaTableAgainstPrev(t *testing.T) {
 		return math.Ldexp(float64(s>>11), -53)
 	}
 	for i := 0; i < n; i++ {
-		a := float64(10 * math.Exp2(float64(7*rnd())))    // log-uniform on [10, 1280)
-		check(a, float64(a*float64(1+float64(63*rnd())))) // b <= 64a
-		check(a, a)                                       // the refbench shape
-		check(a, a+float64(10*rnd()))                     // a + b near the table's upper end for the larger a
+		a := float64(10 * libm.Exp(float64(7*math.Ln2*rnd()))) // log-uniform on [10, 1280)
+		check(a, float64(a*float64(1+float64(63*rnd()))))      // b <= 64a
+		check(a, a)                                            // the refbench shape
+		check(a, a+float64(10*rnd()))                          // a + b near the table's upper end for the larger a
 		check(float64(1000*rnd())+10, float64(1000*rnd())+10)
 	}
 	t.Logf("%d points: %d flips (%.3g), worst %.2f ulp", total, flips, float64(flips)/float64(total), worst)
