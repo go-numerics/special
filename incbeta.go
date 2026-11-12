@@ -112,6 +112,21 @@ type ibetaXY struct {
 	// so it survives a swap of the parameters with x and y).
 	lb    dd.DD
 	hasLB bool
+	// noLogs: lx and ly were not formed (scale <= ibetaScaleFast, the float64
+	// prefix of incbeta_fast.go takes x and y from xd, yd); withLogs forms them.
+	noLogs bool
+}
+
+// withLogs returns v with the double-double logarithms formed, for products
+// by at most scale.
+func (v ibetaXY) withLogs(scale float64) ibetaXY {
+	if v.xExact {
+		v.lx, v.ly = igamLogScaled(v.x, scale), igamLog1pDDScaled(dd.F(-v.x), scale)
+	} else {
+		v.lx, v.ly = igamLog1pDDScaled(dd.F(-v.y), scale), igamLogScaled(v.y, scale)
+	}
+	v.noLogs = false
+	return v
 }
 
 // ibetaNewXY returns the pair for an exact x in (0, 1). The logarithms
@@ -120,6 +135,12 @@ type ibetaXY struct {
 // 2^-64 (igamLogScaled, igamLog1pDDScaled).
 func ibetaNewXY(x, scale float64) ibetaXY {
 	y := 1 - x
+	if scale <= ibetaScaleFast {
+		if x <= 0.5 {
+			return ibetaXY{x: x, y: y, xd: dd.F(x), yd: sumDD(1, -x), xExact: true, noLogs: true}
+		}
+		return ibetaXY{x: x, y: y, xd: dd.F(x), yd: dd.F(y), noLogs: true}
+	}
 	if x <= 0.5 {
 		return ibetaXY{x: x, y: y, xd: dd.F(x), yd: sumDD(1, -x), lx: igamLogScaled(x, scale), ly: igamLog1pDDScaled(dd.F(-x), scale), xExact: true}
 	}
@@ -128,7 +149,7 @@ func ibetaNewXY(x, scale float64) ibetaXY {
 }
 
 func (v ibetaXY) swap() ibetaXY {
-	return ibetaXY{x: v.y, y: v.x, xd: v.yd, yd: v.xd, lx: v.ly, ly: v.lx, xExact: !v.xExact, lb: v.lb, hasLB: v.hasLB}
+	return ibetaXY{x: v.y, y: v.x, xd: v.yd, yd: v.xd, lx: v.ly, ly: v.lx, xExact: !v.xExact, lb: v.lb, hasLB: v.hasLB, noLogs: v.noLogs}
 }
 
 // ibetaLogBeta returns log B(a, b) for a, b > 0 finite, as a double-double.
@@ -213,6 +234,12 @@ func ibetaLogABeta(a, b float64) dd.DD {
 // ibetaPowMant returns m, k with x^a y^b / B(a, b) = m·2^k (TOMS 708's
 // BRCOMP), from its double-double logarithm.
 func ibetaPowMant(a, b float64, v ibetaXY) (dd.DD, int) {
+	if m, k, ok := ibetaPowMantFast(a, b, v); ok {
+		return m, k
+	}
+	if v.noLogs {
+		v = v.withLogs(a + b)
+	}
 	l := dd.Add(dd.MulF(v.lx, a), dd.MulF(v.ly, b))
 	lb := v.lb
 	if !v.hasLB {
@@ -316,7 +343,9 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 			b0 = 1
 		}
 		// every prefix below is for the pair (a0, b0)
-		v0.lb, v0.hasLB = ibetaLogBeta(a0, b0), true
+		if !ibetaFastOK(a0, b0) {
+			v0.lb, v0.hasLB = ibetaLogBeta(a0, b0), true
+		}
 		wd := ibetaBupDD(b0, a0, v0.swap(), n, eps)
 		if x0 <= 0.7 {
 			return res(swapped, dd.Add(wd, ibetaBpserDD(a0, b0, v0, eps)), true)
@@ -554,6 +583,9 @@ const ibetaBfracMax = 256
 // powers of z and ν combine exactly into (-log x)^b). On failure (a zero
 // prefix) w is returned unchanged, as in the original.
 func ibetaBgrat(a, b float64, v ibetaXY, w, eps float64) float64 {
+	if v.noLogs {
+		v = v.withLogs(a + b)
+	}
 	bm1 := sumDD(b, -1)
 	nu := dd.Add(dd.F(a), dd.MulF(bm1, 0.5))
 	lnx := v.lx
@@ -747,6 +779,9 @@ func ibetaApser(a, b, x, eps float64) float64 {
 func ibetaFpser(a, b float64, v ibetaXY, eps float64) float64 {
 	x := v.x
 	m, k := dd.F(1), 0
+	if v.noLogs {
+		v = v.withLogs(a + b)
+	}
 	if !(a <= 1e-3*eps) {
 		m, k = dd.ExpMant(dd.MulF(v.lx, a))
 	}

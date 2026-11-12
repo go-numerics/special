@@ -101,7 +101,7 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | betaincc | a,b in [1e4,1e15], x near mean | 300 | **3.46** | 3.46 | 1.9e+14 | 1.9e+14 |
 | betaincc | a small, b large | 1000 | **1.90** | 1.85 | 725 | 598 |
 | betaincc | x tiny (I to subnormal) | 1000 | **0.43** | 0.12 | 0.43 | 0.12 |
-| betaincc | x near 1 (I^c to subnormal) | 1000 | **0.50** | 0.50 | 1.4e+14 | 1.3e+13 |
+| betaincc | x near 1 (I^c to subnormal) | 1000 | **0.51** | 0.50 | 1.4e+14 | 1.3e+13 |
 | betainccinv | special | 507 | **0.50** | 0.50 | wrong | wrong |
 | betainccinv | a,b<1e-3 | 594 | **wrong** | wrong | wrong | wrong |
 | betainccinv | a<1e-3<=b or b<1e-3<=a | 629 | **8.1e+15** | 8.1e+15 | wrong | wrong |
