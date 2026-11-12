@@ -77,7 +77,7 @@ func TestBetaIncFastPrefixVsDD(t *testing.T) {
 		{"(0.01,3)", 0.01, 3, 0.01, 3, false, 0.8},
 	}
 	r := gapsRand(21)
-	n := sweepN(2500) // CI: the suite is near its timeout under -race on Windows
+	n := sweepN(1000) // in CI under -race on Windows the suite is near its timeout: big sweeps via SPECIAL_SWEEP
 	for _, bx := range boxes {
 		flips, total, worst := 0, 0, 0.0
 		for i := 0; i < n; i++ {
