@@ -81,11 +81,11 @@ Full method, sources of every algorithm, negative control and limitations:
 
 ## Accuracy contract
 
-Bound: for every function and every region, the maximum error in ulps of the result is at most the region's budget in `budgets_test.go` (1.5 times the error measured when the budgets were generated, at least 1 ulp; typically 0.5 to 1 ulp, 9 ulp for BetaInc at a and b in [100, 1e4), 31 ulp for Digamma next to its negative zeros), and NaN, ±Inf and ±0 are returned where the function has them.
+Bound: for every function and every region, the maximum error in ulps of the result is at most the region's budget (explicit budgets, e.g. `incbeta_test.go`: the measured maximum times 1.3, rounded up; cases without one, `budgets_test.go`: 1.5 times the measured maximum, at least 1 ulp; typically 0.5 to 1 ulp, 15 ulp for BetaInc and BetaIncC at a and b in [100, 1e4), 48 ulp for Digamma next to its negative roots), and NaN, ±Inf and ±0 are returned where the function has them. **Unbounded today** (budget +Inf, the root is not determined by double-double evaluation of the function): BetaIncInv and BetaIncCInv for a, b < 1e-3 and for exactly one of a, b below 1e-3 (four regions); bounding them is open work (Ref #11, and "Beta inverses with a or b far below 1e-3" in `docs/accuracy.md`).
 Oracle: mpmath 1.4.1 at 192 and 320 bits (points where the two disagree by more than 2^-80 are dropped and counted), stored as a double-double `hi + lo` and compared exactly, so a correctly rounded result scores 0.5 ulp; SciPy is measured on the same points but is never the reference.
 Exact: the bit-exact build stays and is tested: every product is rounded explicitly (`tools/fmalint`), `TestArchHash` pins the output bits of every public function on 8 architectures, and the vector forms (`nd`, `…To`) equal the scalar ones element by element. A faster kernel (FMA, a reordered sum, another algorithm) lands when it is faster and within Bound; the golden hashes are then regenerated as an explicit step, never as a reason to keep a slower kernel.
 
-The bound is asserted by `TestAccuracyBound` in `accuracy_test.go` over the fixtures of every function, on every CI lane. Bit identity is how a kernel is ported and checked, not what the package promises: the promise is the accuracy table.
+The bound is asserted by `TestAccuracyBound` in `accuracy_test.go` over the fixtures of every function of the root package, on every CI lane; the complex functions (`cmplx`) keep their own gate, `TestAccuracy` in `cmplx/harness_test.go`, with its own budgets. Bit identity is how a kernel is ported and checked, not what the package promises: the promise is the accuracy table.
 
 ## Speed
 
