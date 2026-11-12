@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-numerics/special/dd"
+	"github.com/go-numerics/special/internal/libm"
 )
 
 // sweepN returns the size of an evidence sweep: def in CI, SPECIAL_SWEEP
@@ -95,16 +96,11 @@ func TestXlog1pyOrderOfCases(t *testing.T) {
 			case math.IsNaN(x) || math.IsNaN(y) || y < -1:
 				want = nan
 			case y == -1 || math.IsInf(y, 1) || math.IsInf(x, 0):
-				want = float64(x * math.Log1p(y))
+				want = float64(x * libm.Log1p(y)) // the package's own function, as Xlog1py
 			default:
 				want = dd.MulF(log1pDD(dd.F(y)), x).Float()
 			}
 			if math.Float64bits(got) != math.Float64bits(want) && !(math.IsNaN(got) && math.IsNaN(want)) {
-				// libm.Log1p vs math.Log1p may differ in the last bit on the
-				// infinite branch; compare through the package's own function.
-				if y == -1 || math.IsInf(y, 1) || math.IsInf(x, 0) {
-					continue
-				}
 				t.Errorf("Xlog1py(%v, %v) = %v, want %v", x, y, got, want)
 			}
 		}

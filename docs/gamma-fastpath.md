@@ -214,4 +214,8 @@ values). The sweep (2·10^7 points, `SPECIAL_SWEEP`) showed that the earlier
 2^-59 bound of n >= 10 was exceeded just above 10 (2^-58.79 on [10, 10.6]);
 it is now 2^-57.5 on [10, 12), 2^-58.5 on [12, 30), 2^-59 above. Fallback
 about 1.2 %. `zivRound` was trimmed to inline; Xlog1py tries its fast path
-first. Outputs are unchanged.
+first. Outputs equal the double-double reference's. Against v0.10.0 they
+differ on [10, 10.67]: its 2^-59 bound accepted about 6.6·10^-6 of the points
+there (26 of 3.9·10^6) with a value one ulp from the reference's, e.g.
+Factorial(10.43482661274922) was 0x41636a7d1b271eba and is now ...eb9 (#67);
+all other results are unchanged.

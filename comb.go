@@ -58,6 +58,15 @@ func Factorial(n float64) float64 {
 // distance is not proportional to the exponent. The bound is therefore
 // piecewise (factorialBound): 2^-57.5 on [10, 12), 2^-58.5 on [12, 30), 2^-59
 // from 30, each at least 1.6 times the largest distance measured on its piece.
+//
+// The derivation the old sum left out is the reference's float64
+// stirlingSeries (gamma.go): its error in the exponent, in units of 2^-60,
+// is the final division (up to 1), the numerator sum (up to 0.8) and the bias
+// of the rounded c1 = 1/12 (0.53): at most 2.55 at n = 10 (0.45 of 2^-57.5)
+// and 1.7 at n = 12 (0.59 of 2^-58.5, the thinnest margin; measured 0.569,
+// the test gate is 0.62). The released 2^-59 accepted 26 of about 3.9·10^6
+// points in [10, 10.67] whose value differs from the reference's by one ulp
+// (#67); with this bound they fall back to the reference.
 // For 1 < n < 10 (logGammaMidHL, the product Γ(z) Π (n-j) carried as hi + lo,
 // error below 2^-100) the exponent is at most log 9! = 12.8: two log kernels
 // (2^-68 each), the exponential (2^-68) and the reference's logarithm
