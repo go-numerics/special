@@ -9,7 +9,7 @@ import (
 )
 
 // Unit checks of the float64 fast paths (kernels.go, fastpoly.go) that the
-// fixtures alone do not reach; the accuracy itself is held by TestAccuracy.
+// fixtures alone do not reach; the accuracy itself is held by TestAccuracyBound.
 
 func TestEvalShortDegrees(t *testing.T) {
 	for name, p := range map[string][]polyPiece{

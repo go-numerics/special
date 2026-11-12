@@ -79,6 +79,14 @@ Full method, sources of every algorithm, negative control and limitations:
 [docs/accuracy.md](docs/accuracy.md); every region:
 [docs/accuracy-table.md](docs/accuracy-table.md).
 
+## Accuracy contract
+
+Bound: for every function and every region, the maximum error in ulps of the result is at most the region's budget in `budgets_test.go` (1.5 times the error measured when the budgets were generated, at least 1 ulp; typically 0.5 to 1 ulp, 9 ulp for BetaInc at a and b in [100, 1e4), 31 ulp for Digamma next to its negative zeros), and NaN, ±Inf and ±0 are returned where the function has them.
+Oracle: mpmath 1.4.1 at 192 and 320 bits (points where the two disagree by more than 2^-80 are dropped and counted), stored as a double-double `hi + lo` and compared exactly, so a correctly rounded result scores 0.5 ulp; SciPy is measured on the same points but is never the reference.
+Exact: the bit-exact build stays and is tested: every product is rounded explicitly (`tools/fmalint`), `TestArchHash` pins the output bits of every public function on 8 architectures, and the vector forms (`nd`, `…To`) equal the scalar ones element by element. A faster kernel (FMA, a reordered sum, another algorithm) lands when it is faster and within Bound; the golden hashes are then regenerated as an explicit step, never as a reason to keep a slower kernel.
+
+The bound is asserted by `TestAccuracyBound` in `accuracy_test.go` over the fixtures of every function, on every CI lane. Bit identity is how a kernel is ported and checked, not what the package promises: the promise is the accuracy table.
+
 ## Speed
 
 Accuracy has a price. Measured against SciPy 1.18.1 on one core (refbench,
