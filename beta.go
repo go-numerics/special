@@ -232,13 +232,14 @@ func betaSmall(a, b float64) float64 {
 }
 
 // logBetaHL returns log B(a, b) as hi + lo for 0 < a <= b, 10 <= b and
-// a + b finite. For a >= 10 and b <= 64a the three log-gammas are combined
-// directly (each about 2^-68 x absolute; the cancellation is at most a
-// factor b/a); otherwise log Γ(a) + [log Γ(b) - log Γ(a+b)] with the
-// bracket from logGammaDiffHL, which does not cancel.
+// a + b finite (LogBeta's evaluation). For a >= 10 and b <= 64a the three
+// log-gammas are combined directly (the cancellation is at most a factor
+// b/a; the fitted table of log Γ below a + b = 2048, logBetaDirectTab);
+// otherwise log Γ(a) + [log Γ(b) - log Γ(a+b)] with the bracket from
+// logGammaDiffHL, which does not cancel.
 func logBetaHL(a, b float64) (hi, lo float64) {
 	if a >= 10 {
-		return logBetaHL10(a, b)
+		return logBetaHL10Tab(a, b)
 	}
 	g := logGammaPos(a)
 	dh, dl := logGammaDiffHL(a, b, a+b)
@@ -248,15 +249,31 @@ func logBetaHL(a, b float64) (hi, lo float64) {
 	return v, ve + (g.Lo + dl)
 }
 
-// logBetaHL10 is logBetaHL for 10 <= a <= b: the direct combination up
-// to b = 64a, beyond log Γ(a) + logGammaDiff with x = a/b < 1/64 (its
-// series branch).
+// logBetaHL10 is logBetaHL for 10 <= a <= b (Beta's evaluation, the
+// Stirling series throughout): the direct combination up to b = 64a, beyond
+// log Γ(a) + logGammaDiff with x = a/b < 1/64 (its series branch).
 func logBetaHL10(a, b float64) (hi, lo float64) {
 	s := a + b
 	bb := s - a
 	sl := (a - (s - bb)) + (b - bb)
 	if b <= 64*a {
 		return logBetaDirect(a, b, s, sl)
+	}
+	gh, gl := logGammaLargeHL(a)
+	dh, dl := logGammaDiffSeries(a, b, s)
+	v := gh + dh // TwoSum
+	bb = v - gh
+	ve := (gh - (v - bb)) + (dh - bb)
+	return v, ve + (gl + dl)
+}
+
+// logBetaHL10Tab is logBetaHL10 with logBetaDirectTab for b <= 64a.
+func logBetaHL10Tab(a, b float64) (hi, lo float64) {
+	s := a + b
+	bb := s - a
+	sl := (a - (s - bb)) + (b - bb)
+	if b <= 64*a {
+		return logBetaDirectTab(a, b, s, sl)
 	}
 	gh, gl := logGammaLargeHL(a)
 	dh, dl := logGammaDiffSeries(a, b, s)
@@ -275,6 +292,25 @@ func logBetaDirect(a, b, s, sl float64) (hi, lo float64) {
 	ah, al := logGammaLargeHL2(a, 0)
 	bh, bl := logGammaLargeHL2(b, 0)
 	ch, cl := logGammaLargeHL2(s, sl)
+	u := bh + ah // Fast2Sum: log Γ is increasing here and b >= a
+	ue := ah - (u - bh)
+	v := u - ch // Fast2Sum: log B < 0 here, so log Γ(a+b) > u
+	ve := u - (v + ch)
+	return v, (ve + ue) + (al + bl - cl)
+}
+
+// logBetaDirectTab is logBetaDirect with the three log-gammas from the fitted
+// table (lgammaOctHL, about 2^-57 absolute) when a + b < 2048: faster, and
+// within the half ulp of a result of at least 7 in absolute value, but not
+// good enough for Beta, whose exponential would carry that absolute error
+// into a relative one (Beta keeps logBetaDirect).
+func logBetaDirectTab(a, b, s, sl float64) (hi, lo float64) {
+	if s >= 2048 {
+		return logBetaDirect(a, b, s, sl)
+	}
+	ah, al := lgammaOctHL(a, 0)
+	bh, bl := lgammaOctHL(b, 0)
+	ch, cl := lgammaOctHL(s, sl)
 	u := bh + ah // Fast2Sum: log Γ is increasing here and b >= a
 	ue := ah - (u - bh)
 	v := u - ch // Fast2Sum: log B < 0 here, so log Γ(a+b) > u

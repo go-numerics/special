@@ -30,6 +30,10 @@ func TestParseAndJudge(t *testing.T) {
 	if wa != 1 || wb != 1 || ac != 1 || bc != 1 || tie != 0 {
 		t.Errorf("%v %v %d %d %d", wa, wb, ac, bc, tie)
 	}
+	two, err := parse(strings.NewReader("3 4 5 6\n"))
+	if err != nil || two[0] != (point{3, 4, 5, 6}) {
+		t.Errorf("four fields: %v %v", two, err)
+	}
 	if _, err := parse(strings.NewReader("1 2\n")); err == nil {
 		t.Error("two fields accepted")
 	}
