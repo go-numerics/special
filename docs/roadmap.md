@@ -25,11 +25,17 @@ must come from papers, from Cephes (BSD through SciPy), from Boost.Math
 (BSL-1.0), from AMOS or SLATEC on netlib (public domain), or from MIT Julia
 packages. They must never come from R's nmath or from GSL. StatsFuns'
 `nchisq`, `nt`, `nbeta` and `srdist` wrap Rmath, so they are GPL and count as
-papers only.
+papers only. Code published by ACM TOMS (the "Algorithm NNN" listings) is
+under the ACM software licence, not a permissive one. For those algorithms the
+source is the paper, or a permissive redistribution that is named and was
+opened.
 
-**Oracle.** As everywhere in this package, a function is measured in ulps
-against mpmath on regions that cover its whole domain. The reference library
-named in each row is measured on the same points.
+**Oracle.** Each function has a stated error bound in ulps. It is asserted
+against mpmath at extended precision on regions that cover its whole domain,
+as everywhere in this package. The reference library named in each row is
+measured on the same points, for information. Matching it is not the goal.
+The contract is a stated bound plus speed. Bit identity with another float64
+code is at most a porting step.
 
 ## Ranked by gain / cost
 
@@ -43,16 +49,16 @@ primitives.
 
 | # | Item | Reference (licence), evidence | State here | Gain for the fleet | Source | Oracle | Size |
 |---|---|---|---|---|---|---|---|
-| 1 | Log-space set: `Log1mExp`, `Log2mExp`, `LogExpm1`, `LogAddExp`, `LogSubExp`, `Log1pmx`, `Logmxp1`, `XlogX`, `LogCosh`, `LogAbsSinh`, `Cloglog` | LogExpFunctions.jl (MIT) `src/basicfuns.jl:12,138,224,350,365,377,421,469,529,551,615`; R `nmath/pgamma.c:121,225,239`, `plogis.c:36` (read only) | Private: `log1pmxDD` (`beta.go:20`, and again in `incgamma.go`). go-statistics holds private copies (`log1mexpD`, `log1mexpDD`, `log1pmx`) | R `R_Log1_Exp` and `logspace_add`/`logspace_sub`; StatsFuns and LogExpFunctions parity; one copy for the stack | LogExpFunctions.jl (MIT); Mächler (2012), "Accurately computing log(1 − exp(−\|a\|))", Rmpfr vignette (paper) | mpmath `log1p(-exp(x))`, `log(exp(a)+exp(b))`, `log1p(x)-x`; compare LogExpFunctions | S |
+| 1 | Log-space set: `Log1mExp`, `Log2mExp`, `LogExpm1`, `LogAddExp`, `LogSubExp`, `Log1pmx`, `Logmxp1`, `XlogX`, `LogCosh`, `LogAbsSinh`, `Cloglog` | LogExpFunctions.jl (MIT) `src/basicfuns.jl:12,138,224,350,365,373,421,465,529,551,615`; R `nmath/pgamma.c:121,225,239`, `plogis.c:36` (read only) | Private: `log1pmxDD` (`beta.go:20`, and again in `incgamma.go`). go-statistics holds private copies (`log1mexpD`, `log1mexpDD`, `log1pmx`) | R `R_Log1_Exp` and `logspace_add`/`logspace_sub`; StatsFuns and LogExpFunctions parity; one copy for the stack | LogExpFunctions.jl (MIT); Mächler (2012), "Accurately computing log(1 − exp(−\|a\|))", Rmpfr vignette (paper) | mpmath `log1p(-exp(x))`, `log(exp(a)+exp(b))`, `log1p(x)-x`; compare LogExpFunctions | S |
 | 2 | `Stirlerr` and `Bd0`, plus the `DpoisRaw`/`DbinomRaw` saddle-point kernels | R `nmath/stirlerr.c:53`, `bd0.c:48` (ebd0 at :241), `dpois.c:43`, `dbinom.c:73` (read only); StatsFuns (MIT) `src/misc.jl:71` | Private in go-statistics (`loader.go`: `stirlingErrDD`, `devianceTerm`, `poissonTerm`, `binomTerm`) | Core of every discrete log-density in R (`dpois`, `dbinom`, `dnbinom`, `dt`, `dgamma`); Julia `poislogpdf` and `binomlogpdf` | Loader (2000), "Fast and accurate computation of binomial probabilities" (paper); Mächler (2021) ebd0 note (paper) | mpmath `loggamma(x+1)-(x+.5)log x+x-log√(2π)` and `x log(x/M)+M-x` at 100+ bits; compare `scipy.stats.poisson.logpmf` and `binom.logpmf` | S |
-| 3 | `LogGamma1p` (log Γ(1+a) accurate near 0) | R `nmath/pgamma.c:146` (read only); SpecialFunctions.jl `src/gamma_inc.jl:106` (`loggamma1p`) | Private `gamma1pm1` (`gamma.go:56`) | R `lgamma1p`, used in incomplete gamma | TOMS 708 `gamln1` (DiDonato & Morris, ACM TOMS 18, 1992); Boost.Math `lgamma` small-z | mpmath `loggamma(1+a)`; compare `scipy.special.gammaln(1+a)` | S |
+| 3 | `LogGamma1p` (log Γ(1+a) accurate near 0) | R `nmath/pgamma.c:146` (read only); SpecialFunctions.jl `src/gamma_inc.jl:106` (`loggamma1p`) | Private `gamma1pm1` (`gamma.go:56`) | R `lgamma1p`, used in incomplete gamma | The paper: DiDonato & Morris, "Algorithm 708", ACM TOMS 18 (1992), which describes `gamln1`. The published TOMS code is under the ACM software licence and is not a source. Preferred implementation: this package's own double-double `gamma1pm1`, giving `log1p(gamma1pm1(a))`. A permissive port of `gamln1` (SciPy's C translation of CDFLIB, BSD-3) is not yet opened; open it before porting | mpmath `loggamma(1+a)`; compare `scipy.special.gammaln(1+a)` | S |
 | 4 | `SinPi`, `CosPi`, `TanPi` | R `nmath/cospi.c:26,49,93` (read only) | Private `sinPi`/`cosPi` (`poly.go:56,59`) | R `sinpi`/`cospi`/`tanpi`; Julia Base `sinpi` | this package's own kernels | mpmath `sinpi`/`cospi`; compare numpy `sin(pi*x)` | S |
 
 ### Better algorithms and APIs
 
 | # | Item | Evidence | Gain | Source / oracle | Size |
 |---|---|---|---|---|---|
-| A1 | `log_p` and `lower_tail` inputs for the inverses (`GammaPInv`, `BetaIncInv` from log p or from the upper tail) | R `nmath/qbeta.c:57` (read only); SpecialFunctions.jl `src/gamma_inc.jl:738` (`gamma_inc_inv_psmall` takes log r); StatsFuns `*invlogcdf` | R `q*(…, log.p = TRUE)` and Julia `*invlogcdf` without losing extreme tails to `exp` underflow | Mächler (2019) qbeta notes (paper); DiDonato & Morris, ACM TOMS 12 (1986). Oracle: mpmath `findroot` on `log(betainc)`; compare `scipy.special.betaincinv(exp(lp))` | M |
+| A1 | A log-probability input for the inverses: `GammaPInv`/`GammaQInv` and `BetaIncInv`/`BetaIncCInv` from log p. The upper-tail inverses already exist (`GammaQInv`, `incgamma_inv.go:69`; `BetaIncCInv`, `incbeta_inv.go:70`). The solvers already work in the log domain internally (`igamLogTail`, `ibetaUpperFromLog`), so what is missing is the public entry point that takes log p | R `nmath/qbeta.c:57` (read only); SpecialFunctions.jl `src/gamma_inc.jl:738` (`gamma_inc_inv_psmall` takes log r); StatsFuns `*invlogcdf` | R `q*(…, log.p = TRUE)` and Julia `*invlogcdf` for probabilities below the float64 range (log p < −745), where `exp` underflows | Mächler (2019) qbeta notes (paper); DiDonato & Morris, ACM TOMS 12 (1986) (paper). Oracle: a stated bound in ulps on x, against mpmath `findroot` on `log(betainc)` / `log(gammainc)`; for log p ≥ −700 it also equals the existing inverse at `exp(lp)` | S–M |
 
 ### New functions
 
@@ -66,7 +72,7 @@ primitives.
 | 10 | Noncentral kernels: noncentral beta and F (AS 226), noncentral t (AS 243), and noncentral χ² promoted from go-statistics (`ncx2.go`) | SpecialFunctions.jl (MIT) `src/betanc.jl:17,70,156,183`; R `nmath/pnt.c:53`, `pnbeta.c:112`, `pnchisq.c:46` (read only) | R `pnt`, `pnbeta`, `pnchisq`, `pnf`; Julia `ncbeta`/`ncF`; coverage.md rows for `chndtr`, `nctdtr`, `ncfdtr` | Lenth, AS 226 (1987) and AS 243 (1989), Appl. Stat. (papers); Ding, AS 275 (1992); Boost `non_central_*` (BSL) | mpmath `nsum` of Poisson-weighted `betainc`; compare `scipy.stats.ncf/nct/ncx2` | M |
 | 11 | Studentized range (`ptukey`/`qtukey`), exact Wilcoxon and signed-rank distributions | R `nmath/ptukey.c:209` (read only); StatsFuns (MIT) `src/distrs/wilcox.jl:43`, `signrank.jl:25` (pure Julia) | R `ptukey`, `qtukey`, `pwilcox`, `psignrank`; may belong in go-statistics | Copenhaver & Holland, J. Stat. Comput. Simul. 30 (1988); StatsFuns (MIT) recursions | mpmath double `quad`; compare `scipy.stats.studentized_range` | M |
 | 12 | Hypergeometric 1F1, 2F1, U, pFq | HypergeometricFunctions.jl (MIT) `src/gauss.jl:80`, `confluent.jl:26`, `drummond.jl:10-331`, `generalized.jl:61`; GSL `hyperg_2F1.c:643`, `hyperg_1F1.c:1844`, `hyperg_U.c:1767` (read only) | coverage.md rows for `hyp1f1`, `hyp2f1`, `hyperu`; Julia parity; closed forms for noncentral distributions | HypergeometricFunctions.jl (MIT; Drummond and Weniger transformations); Pearson, Olver & Porter, Numer. Algorithms 74 (2017) | mpmath `hyp1f1`, `hyp2f1`, `hyperu`, `hyper`; compare `scipy.special` | L |
-| 13 | Airy functions, spherical Bessel functions, Hankel functions, and Bessel functions of complex argument | SpecialFunctions.jl (MIT) `src/bessel.jl:33,234-303,766` (AMOS via openspecfun) | coverage.md rows for `airy`, `spherical_jn`…, `hankel1`, complex `jv`; Julia `besselj`/`airyai` parity | AMOS, netlib (Amos, ACM TOMS 12 (1986), Alg. 644; public domain) | mpmath `airyai`, `airybi`, `besselj` (complex); compare `scipy.special` | L |
+| 13 | Airy functions, spherical Bessel functions, Hankel functions, and Bessel functions of complex argument | SpecialFunctions.jl (MIT) `src/bessel.jl:33,234-303,766` (AMOS via openspecfun) | coverage.md rows for `airy`, `spherical_jn`…, `hankel1`, complex `jv`; Julia `besselj`/`airyai` parity | Amos, ACM TOMS 12 (1986), Alg. 644 (paper). Code: the AMOS routines as distributed in SLATEC on netlib (public domain), not the ACM-licensed TOMS copy | mpmath `airyai`, `airybi`, `besselj` (complex); compare `scipy.special` | L |
 | 14 | Value plus error-estimate API, as in GSL's `gsl_sf_result` | GSL specfunc throughout (read only) | Lets a C binding ask for a bound; optional | design only | n/a | M |
 
 ## Where this package is already ahead
