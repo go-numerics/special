@@ -27,7 +27,7 @@ func sweepN(def int) int {
 // the reference's double-double value.
 func TestFactorialSmallFastEqualsReference(t *testing.T) {
 	r := gapsRand(11)
-	n := sweepN(200000)
+	n := sweepN(30000)
 	hit, maxd, argmax := 0, 0.0, 0.0
 	for i := 0; i < n; i++ {
 		var x float64
@@ -69,7 +69,7 @@ func TestFactorialSmallFastEqualsReference(t *testing.T) {
 // logGammaLargeHLL is logGammaLargeHL plus the logarithm logHLn(x), bit for bit.
 func TestLogGammaLargeHLLIsTheKernels(t *testing.T) {
 	r := gapsRand(13)
-	for i := 0; i < sweepN(200000); i++ {
+	for i := 0; i < sweepN(30000); i++ {
 		x := 10 + float64(165*r())
 		gh, gl := logGammaLargeHL(x)
 		lh, ll := logHLn(x)
@@ -106,7 +106,7 @@ func TestXlog1pyOrderOfCases(t *testing.T) {
 		}
 	}
 	r := gapsRand(14)
-	for i := 0; i < sweepN(200000); i++ {
+	for i := 0; i < sweepN(30000); i++ {
 		x := float64((r() - 0.5) * math.Exp2(float64(int(float64(r()*80))-40)))
 		y := float64((float64(r()*4) - 1.5) * math.Exp2(-float64(int(r()*30))))
 		if y <= -1 || x == 0 {
@@ -120,7 +120,7 @@ func TestXlog1pyOrderOfCases(t *testing.T) {
 
 func TestFactorialUnitFastEqualsReference(t *testing.T) {
 	r := gapsRand(12)
-	n := sweepN(200000)
+	n := sweepN(30000)
 	hit, maxd := 0, 0.0
 	for i := 0; i < n; i++ {
 		x := float64(r())

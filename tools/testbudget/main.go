@@ -55,7 +55,7 @@ func Read(r io.Reader, pkg string, n int) (Result, error) {
 	found := false
 	var tests []TestTime
 	out := map[string]string{}
-	sc :=bufio.NewScanner(r)
+	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 1<<20), 1<<26)
 	for sc.Scan() {
 		var e event
