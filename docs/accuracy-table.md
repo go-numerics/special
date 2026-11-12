@@ -52,7 +52,7 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **log_factorial** | 3307 | 5 | 1.00 | wrong | 5/5 |
 | **log_ndtr** | 6010 | 7 | 1.00 | 3.6e+12 | 7/7 |
 | **log_softmax4** | 5005 | 6 | 0.69 | 9.0e+15 | 6/6 |
-| **logbeta** | 5004 | 6 | 19 | wrong | 6/6 |
+| **logbeta** | 7004 | 8 | 19 | wrong | 8/8 |
 | **loggamma** | 9907 | 10 | 1.00 | wrong | 10/10 |
 | **logit** | 3913 | 5 | 0.50 | 1.74 | 5/5 |
 | **logsumexp4** | 5005 | 6 | 0.50 | 3.20 | 6/6 |
@@ -391,6 +391,8 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | logbeta | a,b in (100,1e300] | 1000 | **0.50** | 0.50 | wrong | wrong |
 | logbeta | a small, b large | 1000 | **0.50** | 0.50 | 1.1e+06 | 954807 |
 | logbeta | near log B = 0 | 1000 | **19** | 18 | 45161 | 28658 |
+| logbeta | a+b in [1024,2040] | 1000 | **0.50** | 0.50 | 31 | 29 |
+| logbeta | a in [10,100], b <= 64a | 1000 | **0.50** | 0.50 | 231 | 220 |
 | loggamma | special | 15 | **0.39** | 0.39 | wrong | wrong |
 | loggamma | tiny | 2000 | **0.50** | 0.48 | 0.87 | 0.82 |
 | loggamma | near 1 and 2 | 947 | **0.65** | 0.65 | 1.3e+16 | 1.3e+16 |

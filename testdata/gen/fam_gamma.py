@@ -156,6 +156,9 @@ def logbeta_cases():
     c += [("a,b in (100,1e300]", (a, b)) for a, b in zip(pos(N, 100, 1e300), pos(N, 100, 1e300))]
     c += [("a small, b large", (a, b)) for a, b in zip(pos(N, 1e-10, 1), pos(N, 1e3, 1e300))]
     c += [("near log B = 0", (a, b)) for a, b in zip(uniform(r, 0.9, 1.1, N), uniform(r, 0.9, 1.1, N))]
+    # the fitted log-gamma table of LogBeta (a + b < 2048), appended last so the earlier rows keep their draws
+    c += [("a+b in [1024,2040]", (a, b)) for a, b in zip(uniform(r, 512, 1020, N), uniform(r, 512, 1020, N))]
+    c += [("a in [10,100], b <= 64a", (a, a * k)) for a, k in zip(uniform(r, 10, 100, N), uniform(r, 1, 64, N))]
     return c
 
 
