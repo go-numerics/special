@@ -40,7 +40,7 @@ jobs:
       - run: go build ./...
       - name: No float product open to multiply-add fusion (tools/fmalint)
         run: |
-          go -C tools test ./fmalint
+          go -C tools test ./fmalint ./testbudget
           go -C tools run ./fmalint -C .. . ./dd ./cmplx ./nd ./internal/libm
       - name: Test + 100% coverage gate
         shell: bash
@@ -50,7 +50,17 @@ jobs:
           # branches (log1p for k == 0 with |f| < 2^-20) are unreachable in
           # Go's own code, so it is tested on its own and kept out of the gate.
           COVERPKG=$(go list ./... | grep -v /internal/libm | paste -sd, -)
-          go test -race -coverpkg="$COVERPKG" -coverprofile=cover.out ./...
+          # -timeout 30m: the default 10m killed the windows lane (a suite at
+          # 9 min under -race, three times flagged as near its limit); the
+          # budget below makes the creep visible long before 30m. 13m is 1.5x
+          # the windows time of 2026-11-12 (8.7 min); -json goes to a file,
+          # tools/testbudget prints the failed tests' output and the slowest.
+          status=0
+          go test -race -timeout 30m -json -coverpkg="$COVERPKG" -coverprofile=cover.out ./... > "$RUNNER_TEMP/test.json" || status=$?
+          budget=0
+          go -C tools run ./testbudget --package github.com/go-numerics/special --budget 13m "$RUNNER_TEMP/test.json" || budget=$?
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          if [ "$budget" -ne 0 ]; then exit "$budget"; fi
           go tool cover -func=cover.out | tail -n 40
           # go tool cover's total is rounded to one decimal (99.95 reads 100.0);
           # covblocks counts the blocks the profile never entered (exit 1 if
