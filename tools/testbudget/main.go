@@ -28,6 +28,9 @@ type event struct {
 	Test    string  `json:"Test"`
 	Elapsed float64 `json:"Elapsed"`
 	Output  string  `json:"Output"`
+	// ImportPath is set instead of Package on the build-output and build-fail
+	// events of Go 1.24+ (compiler errors).
+	ImportPath string `json:"ImportPath"`
 }
 
 // TestTime is one test's elapsed time.
@@ -44,7 +47,13 @@ type Result struct {
 	// Failed holds the output of every failed test and of the package itself
 	// when it failed (a panic, a timeout), so that a -json run is as readable
 	// as a plain one where it matters.
+	// Failed covers every package of the stream, not only the measured one.
 	Failed string
+	// Build holds the compiler output (build-output events, whose Package is
+	// empty), and BuildFailed is true after any build-fail event: a package
+	// that did not compile ran no test, so "0s" is not "under budget".
+	Build       string
+	BuildFailed bool
 }
 
 // Read returns the elapsed time of pkg and its n slowest top-level tests from
@@ -54,30 +63,43 @@ func Read(r io.Reader, pkg string, n int) (Result, error) {
 	var res Result
 	found := false
 	var tests []TestTime
-	out := map[string]string{}
+	type key struct{ pkg, test string }
+	out := map[key]string{}
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 1<<20), 1<<26)
 	for sc.Scan() {
 		var e event
 		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
-			continue // build output and other non-JSON lines
+			continue // non-JSON lines
 		}
-		if e.Package != pkg {
+		switch e.Action {
+		case "build-output":
+			res.Build += e.Output
+			continue
+		case "build-fail":
+			res.BuildFailed = true
 			continue
 		}
+		k := key{e.Package, e.Test}
 		if e.Action == "output" {
-			out[e.Test] += e.Output
+			out[k] += e.Output
 			continue
 		}
 		if e.Action != "pass" && e.Action != "fail" {
 			continue
 		}
 		if e.Action == "fail" {
-			res.Failed += out[e.Test]
+			res.Failed += out[k]
+		}
+		delete(out, k)
+		if e.Package != pkg {
+			continue
 		}
 		d := time.Duration(e.Elapsed * float64(time.Second))
 		if e.Test == "" {
-			res.Elapsed, found = d, true
+			// A stream with several final events (concatenated runs) costs
+			// their sum.
+			res.Elapsed, found = res.Elapsed+d, true
 		} else if !containsSlash(e.Test) {
 			tests = append(tests, TestTime{e.Test, d})
 		}
@@ -85,7 +107,7 @@ func Read(r io.Reader, pkg string, n int) (Result, error) {
 	if err := sc.Err(); err != nil {
 		return res, err
 	}
-	if !found {
+	if !found && !res.BuildFailed {
 		return res, fmt.Errorf("no final pass/fail event for package %s in the stream", pkg)
 	}
 	sort.Slice(tests, func(i, j int) bool { return tests[i].Elapsed > tests[j].Elapsed })
@@ -129,7 +151,11 @@ func RootCmd() *cobra.Command {
 				return err
 			}
 			out := cmd.OutOrStdout()
+			fmt.Fprint(out, res.Build)
 			fmt.Fprint(out, res.Failed)
+			if res.BuildFailed {
+				return fmt.Errorf("build failure: no test ran, the time is not a measure")
+			}
 			fmt.Fprintf(out, "%s: %v of a %v budget\n", pkg, res.Elapsed.Round(time.Second), budget)
 			for _, t := range res.Slowest {
 				fmt.Fprintf(out, "  %8v  %s\n", t.Elapsed.Round(10*time.Millisecond), t.Name)
