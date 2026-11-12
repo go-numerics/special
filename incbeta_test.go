@@ -18,6 +18,14 @@ func init() {
 		"a small, b large":               8,
 		"x tiny (I to subnormal)":        5,
 		"x near 1 (I^c to subnormal)":    1,
+		// regions of the float64 prefix (incbeta_fast.go): measured 0.98, 2.12, 0.71, 0.91, 1.79, 0.90, 3.53
+		"a,b in [0.01,0.5)":            1.5,
+		"a,b in [0.5,3)":               3,
+		"a,b in [3,10)":                1,
+		"a,b in [10,85]":               1.5,
+		"a,b in [0.01,3), x near 1":    2.5,
+		"a,b in [0.5,3), x near 1":     1.5,
+		"a,b in [2^-20,85] log, x any": 5,
 	})
 	register("betaincc", func(a []float64) float64 { return BetaIncC(a[0], a[1], a[2]) }, map[string]float64{
 		"special":                        1,
@@ -31,6 +39,14 @@ func init() {
 		"a small, b large":               10,
 		"x tiny (I to subnormal)":        1,
 		"x near 1 (I^c to subnormal)":    4,
+		// regions of the float64 prefix: measured 0.91, 2.30, 0.74, 0.73, 0.84, 1.74, 2.46
+		"a,b in [0.01,0.5)":            1.5,
+		"a,b in [0.5,3)":               3,
+		"a,b in [3,10)":                1,
+		"a,b in [10,85]":               1,
+		"a,b in [0.01,3), x near 1":    1.5,
+		"a,b in [0.5,3), x near 1":     2.5,
+		"a,b in [2^-20,85] log, x any": 4,
 	})
 	register("betaincinv", func(a []float64) float64 { return BetaIncInv(a[0], a[1], a[2]) }, map[string]float64{
 		"special":                1,

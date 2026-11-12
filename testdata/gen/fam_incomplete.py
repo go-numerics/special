@@ -615,6 +615,19 @@ def beta_cases(name):
             c.append(("a small, b large", (b, a, 1 - x)))
     c += [("x tiny (I to subnormal)", (a, b, x)) for a, b, x in zip(la(N, 1, 100), la(N, 1e-3, 100), la(N, 1e-300, 1e-6))]
     c += [("x near 1 (I^c to subnormal)", (a, b, 1 - x)) for a, b, x in zip(la(N, 1e-3, 100), la(N, 1, 100), la(N, 1.2e-16, 1e-6))]
+    # Regions of the float64 power prefix (incbeta_fast.go), appended last so
+    # the samples above are unchanged: a, b by decade, x over the whole range.
+    c += [("a,b in [0.01,0.5)", (a, b, x)) for a, b, x in zip(la(N, 0.01, 0.5), la(N, 0.01, 0.5), xs(N))]
+    c += [("a,b in [0.5,3)", (a, b, x)) for a, b, x in zip(la(N, 0.5, 3), la(N, 0.5, 3), xs(N))]
+    c += [("a,b in [3,10)", (a, b, x)) for a, b, x in zip(la(N, 3, 10), la(N, 3, 10), xs(N))]
+    c += [("a,b in [10,85]", (a, b, x)) for a, b, x in zip(la(N, 10, 85), la(N, 10, 85), xs(N))]
+
+    def near1(n):
+        return [1 - math.exp(r.uniform(math.log(1e-16), math.log(0.5))) for _ in range(n)]
+
+    c += [("a,b in [0.01,3), x near 1", (a, b, x)) for a, b, x in zip(la(N, 0.01, 3), la(N, 0.01, 3), near1(N))]
+    c += [("a,b in [0.5,3), x near 1", (a, b, x)) for a, b, x in zip(la(N, 0.5, 3), la(N, 0.5, 3), near1(N))]
+    c += [("a,b in [2^-20,85] log, x any", (a, b, x)) for a, b, x in zip(la(N, 2.0 ** -20, 85), la(N, 2.0 ** -20, 85), xs(N))]
     return c
 
 

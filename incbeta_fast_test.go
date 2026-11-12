@@ -54,22 +54,27 @@ func ulpDiff(a, b float64) float64 {
 	return math.Abs(a-b) / u
 }
 
-// The float64 prefix against the double-double prefix: BetaInc and BetaIncC
-// must stay within 1 ulp of it (it moves the prefix by under 2^-58, so the
-// results differ only where the double-double value lies within that of a
-// rounding boundary), over the refbench box and wider boxes. The flip rate
-// (results that differ at all) is logged.
+// The float64 prefix against the double-double prefix: it moves the prefix by
+// up to 2^-56, so BetaInc and BetaIncC differ only where the dd value lies
+// within that of a rounding boundary: the flip rate (results that differ at
+// all) of each box must stay under a ceiling about three times the measured
+// rate (0.067 %, 0.056 %, 0.014 %, 0.24 %), which a mutated ψ(a + b) term
+// (ψ × 0.75 below 10: 10 % of the values) exceeds by far. Worst relative
+// difference 2^-50: the complement 1 - w and the Bup + Bgrat sums amplify the
+// prefix difference (up to 4 ulp in (0.01, 3)); accuracy against mpmath is the
+// fixtures' (regions "a,b in [0.5,3)" ... "[10,85]").
 func TestBetaIncFastPrefixVsDD(t *testing.T) {
 	boxes := []struct {
 		name         string
 		alo, ahi     float64
 		blo, bhi     float64
 		logUniformAB bool
+		ceilPercent  float64
 	}{
-		{"refbench (0.5,50)", 0.5, 50, 0.5, 50, false},
-		{"(1,85)", 1, 85, 1, 85, false},
-		{"(2^-20,85) log", 0x1p-20, 85, 0x1p-20, 85, true},
-		{"(0.01,3)", 0.01, 3, 0.01, 3, false},
+		{"refbench (0.5,50)", 0.5, 50, 0.5, 50, false, 0.25},
+		{"(1,85)", 1, 85, 1, 85, false, 0.25},
+		{"(2^-20,85) log", 0x1p-20, 85, 0x1p-20, 85, true, 0.1},
+		{"(0.01,3)", 0.01, 3, 0.01, 3, false, 0.8},
 	}
 	r := gapsRand(21)
 	n := sweepN(2500) // CI: the suite is near its timeout under -race on Windows
@@ -115,6 +120,10 @@ func TestBetaIncFastPrefixVsDD(t *testing.T) {
 			}
 		}
 		ibetaNoFast = false
-		t.Logf("%s: %d values, flips %.4f%%, worst %.3f ulp from the dd prefix", bx.name, total, 100*float64(flips)/float64(total), worst)
+		rate := 100 * float64(flips) / float64(total)
+		t.Logf("%s: %d values, flips %.4f%%, worst %.3f ulp from the dd prefix", bx.name, total, rate, worst)
+		if rate > bx.ceilPercent {
+			t.Errorf("%s: flip rate %.4f%% above its ceiling %.2f%%", bx.name, rate, bx.ceilPercent)
+		}
 	}
 }

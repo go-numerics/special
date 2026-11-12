@@ -7,8 +7,8 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | function | points | regions | ours max | SciPy max | regions where ours <= SciPy |
 |---|--:|--:|--:|--:|--:|
 | **beta** | 5006 | 6 | 1.00 | 1.9e+07 | 6/6 |
-| **betainc** | 9811 | 11 | 2.91 | wrong | 11/11 |
-| **betaincc** | 9812 | 11 | 3.80 | wrong | 11/11 |
+| **betainc** | 16811 | 18 | 3.53 | wrong | 18/18 |
+| **betaincc** | 16812 | 18 | 3.80 | wrong | 18/18 |
 | **betainccinv** | 7180 | 10 | wrong | wrong | 10/10 |
 | **betaincinv** | 7138 | 10 | 6.8e+15 | wrong | 10/10 |
 | **binom** | 3000 | 3 | 0.50 | 1.9e+06 | 3/3 |
@@ -91,6 +91,13 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | betainc | a small, b large | 999 | **1.74** | 1.74 | 935 | 935 |
 | betainc | x tiny (I to subnormal) | 1000 | **0.50** | 0.50 | 5.7e+10 | 2.1e+10 |
 | betainc | x near 1 (I^c to subnormal) | 1000 | **0.50** | 0.48 | 0.69 | 0.59 |
+| betainc | a,b in [0.01,0.5) | 1000 | **0.98** | 0.86 | 16 | 9.88 |
+| betainc | a,b in [0.5,3) | 1000 | **2.12** | 1.45 | 21 | 13 |
+| betainc | a,b in [3,10) | 1000 | **0.71** | 0.71 | 20 | 18 |
+| betainc | a,b in [10,85] | 1000 | **0.54** | 0.54 | 566 | 550 |
+| betainc | a,b in [0.01,3), x near 1 | 1000 | **1.79** | 1.58 | 21 | 18 |
+| betainc | a,b in [0.5,3), x near 1 | 1000 | **0.90** | 0.71 | 4.20 | 4.07 |
+| betainc | a,b in [2^-20,85] log, x any | 1000 | **3.53** | 1.52 | 64 | 56 |
 | betaincc | special | 512 | **0.67** | 0.67 | wrong | wrong |
 | betaincc | a,b<1e-3 | 1000 | **1.28** | 0.98 | 9.0e+15 | 9.0e+15 |
 | betaincc | a<1e-3<=b | 1000 | **3.80** | 3.27 | 5.0e+13 | 7.4e+12 |
@@ -101,7 +108,14 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | betaincc | a,b in [1e4,1e15], x near mean | 300 | **3.46** | 3.46 | 1.9e+14 | 1.9e+14 |
 | betaincc | a small, b large | 1000 | **1.90** | 1.85 | 725 | 598 |
 | betaincc | x tiny (I to subnormal) | 1000 | **0.43** | 0.12 | 0.43 | 0.12 |
-| betaincc | x near 1 (I^c to subnormal) | 1000 | **0.51** | 0.50 | 1.4e+14 | 1.3e+13 |
+| betaincc | x near 1 (I^c to subnormal) | 1000 | **0.50** | 0.50 | 1.4e+14 | 1.3e+13 |
+| betaincc | a,b in [0.01,0.5) | 1000 | **0.91** | 0.90 | 9.18 | 8.42 |
+| betaincc | a,b in [0.5,3) | 1000 | **2.30** | 1.87 | 21 | 11 |
+| betaincc | a,b in [3,10) | 1000 | **0.74** | 0.71 | 18 | 17 |
+| betaincc | a,b in [10,85] | 1000 | **0.73** | 0.73 | 8.0e+11 | 2.2e+07 |
+| betaincc | a,b in [0.01,3), x near 1 | 1000 | **0.84** | 0.82 | 10 | 8.63 |
+| betaincc | a,b in [0.5,3), x near 1 | 1000 | **1.74** | 1.50 | 8.84 | 8.16 |
+| betaincc | a,b in [2^-20,85] log, x any | 1000 | **2.46** | 2.20 | 66 | 52 |
 | betainccinv | special | 507 | **0.50** | 0.50 | wrong | wrong |
 | betainccinv | a,b<1e-3 | 594 | **wrong** | wrong | wrong | wrong |
 | betainccinv | a<1e-3<=b or b<1e-3<=a | 629 | **8.1e+15** | 8.1e+15 | wrong | wrong |

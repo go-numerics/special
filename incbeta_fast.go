@@ -11,19 +11,25 @@ import (
 // TOMS 708's power prefix x^a y^b / B(a, b) was formed as a double-double
 // logarithm (three dd gamma evaluations for log B, two dd logarithms, one dd
 // exponential): about a third of BetaInc's time for a, b in (0.5, 50). Here,
-// for 2^-20 <= a, b <= 85 (so a + b <= 170), the exponent
+// for 0.5 <= a, b <= 85 (so a + b <= 170), the exponent
 //
 //	E = a log x + b log y - log Γ(a) - log Γ(b) + log Γ(a + b)
 //
-// is summed as hi + lo from the float64 kernels (log: 2^-68 absolute; log Γ:
-// 2^-61 absolute up to 171.6; exp: 2^-68 relative), the rounding of a + b
-// entering to first order through ψ(a + b). The error of E, times the
-// multipliers a, b <= 85 on the logarithms, is below 2^-58 absolute, so the
-// prefix, hence the result, is within 2^-58 relative of the double-double
-// prefix (0.03 ulp); the series and fractions are unchanged. Results are no
-// longer the bits of the double-double prefix: the contract is the error
-// against the oracle (docs/accuracy.md), measured by the fixtures and by
-// incbeta_fast_test.go.
+// is summed as hi + lo from the float64 kernels (log: 2^-68 absolute, times
+// the multipliers a, b <= 85; log Γ: 2^-69 absolute below 10, about 2^-59
+// from 10 up, where the float64 Stirling series limits both this and the
+// double-double path; exp: 2^-68 relative), the rounding of a + b entering to
+// first order through ψ(a + b). Measured against the double-double prefix the
+// difference is up to 2^-56.1 (a = 1.517, b = 6.099, x = 0.837); there the
+// double-double log B (ibetaLogBetaSmall) is the less accurate one: an
+// independent double-double evaluation of the same sum agrees with this path
+// to 2^-69.7. The series and fractions are unchanged. Results are no longer
+// the bits of the double-double prefix: the contract is the error against the
+// oracle (docs/accuracy.md, fixture regions "a,b in [0.5,3)" ... "[10,85]"),
+// and incbeta_fast_test.go bounds the flip rate against the old path.
+//
+// Below 0.5 the path was measured worse than the double-double one against
+// mpmath (the review of #68) and is not used; neither is it for a, b > 85.
 
 // ibetaNoFast turns the float64 prefix off (the tests' double-double
 // reference); never set outside tests.
@@ -31,7 +37,7 @@ var ibetaNoFast bool
 
 // ibetaFastOK reports whether the float64 prefix covers (a, b).
 func ibetaFastOK(a, b float64) bool {
-	return !ibetaNoFast && a >= 0x1p-20 && b >= 0x1p-20 && a <= 85 && b <= 85
+	return !ibetaNoFast && a >= 0.5 && b >= 0.5 && a <= 85 && b <= 85
 }
 
 // ibetaScaleFast is the largest a + b whose ibetaXY skips the double-double
@@ -55,19 +61,9 @@ func (e *hlAcc) addProd(a, h, l float64) {
 	e.add(p, math.FMA(a, h, -p)+float64(a*l))
 }
 
-// ibetaLogGammaHL returns log Γ(x) as hi + lo for 2^-20 <= x <= 170.
+// ibetaLogGammaHL returns log Γ(x) as hi + lo for 1/2 <= x <= 170.
 func ibetaLogGammaHL(x float64) (hi, lo float64) {
-	switch {
-	case x < 0.5:
-		// log(Γ(1+x)/x)
-		gh, gl := gamma1pFast(x)
-		lh, ll := logHLn(gh)
-		xh, xl := logHLn(x)
-		s := lh - xh // TwoSum
-		bb := s - lh
-		e := (lh - (s - bb)) + (-xh - bb)
-		return s, e + ((ll + gl/gh) - xl)
-	case x < 10:
+	if x < 10 {
 		return logGammaMidHL(x)
 	}
 	return logGammaLargeHL(x)
