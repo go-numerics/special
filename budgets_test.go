@@ -3,7 +3,7 @@
 package special
 
 // measuredBudgets holds, per fixture and region, the maximum error in ULPs
-// allowed by TestAccuracy: 1.5 times the error measured when the budgets
+// allowed by TestAccuracyBound: 1.5 times the error measured when the budgets
 // were last regenerated, and at least 1 ulp.
 var measuredBudgets = map[string]map[string]float64{
 	"beta": {

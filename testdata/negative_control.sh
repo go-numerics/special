@@ -13,5 +13,5 @@ assert s.count(old) == 1, (old, s.count(old))
 open(p, 'w').write(s.replace(old, new))
 PY
 echo "== perturbed $f: $old -> $new"
-GOWORK=off go test -count=1 -run 'TestAccuracy$' . 2>&1 | grep -E "budget|^ok|^FAIL" | head -12
+GOWORK=off go test -count=1 -run 'TestAccuracyBound$' . 2>&1 | grep -E "budget|^ok|^FAIL" | head -12
 mv "$f.orig" "$f"

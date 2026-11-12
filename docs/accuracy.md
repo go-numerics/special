@@ -37,7 +37,7 @@ where the scale matters). About 1000 points per region; 160 000 points
 over all fixtures. A result that should be NaN or ±Inf and is not (or the
 reverse) is reported as `wrong`.
 
-**Budgets.** `TestAccuracy` fails if any region's maximum error exceeds its
+**Budgets.** `TestAccuracyBound` fails if any region's maximum error exceeds its
 budget (`budgets_test.go`: 1.5 times the error measured when the budgets
 were generated, at least 1 ulp). The suite runs on amd64, arm64, 386, arm,
 riscv64, loong64, ppc64le and s390x in CI.
@@ -150,7 +150,7 @@ License 1.0).
 ## Negative control
 
 A test suite that cannot fail proves nothing. `testdata/negative_control.sh`
-perturbs one coefficient, runs `TestAccuracy`, and restores the file.
+perturbs one coefficient, runs `TestAccuracyBound`, and restores the file.
 
 Results (run on this branch, arm64):
 
