@@ -37,14 +37,8 @@
    "reason": "Equivalent mutant: at k = -1021 the normal branch eh*pow2(k) is exact and math.Ldexp(eh, k) is exact too (the result is normal), so both return the same bits."},
   {"file": "gamma_fast.go", "mode": "delete", "verdict": "SURVIVED", "text": "k >= -1021",
    "reason": "Equivalent mutant: the subnormal branch math.Ldexp(eh, k) is the reference's own rounding and, for a normal result, exact, so it returns the same bits as eh*pow2(k) for every k >= -1021."},
-  {"file": "kv_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "k < kvAsymMaxK  [< to <=]",
-   "reason": "Unreachable: the cap is a safety net. For every order below 2 and x >= kvAsymMinX the terms fall below 2^-66 within 30 steps or start growing first (TestKvAsymTermCount recounts it independently and holds it below half the cap), so no input runs iteration 79 or 80."},
-  {"file": "kv_fast.go", "mode": "delete", "verdict": "SURVIVED", "text": "!done",
-   "reason": "Unreachable, as the cap above: after the loop of kvAsymPair, done is false only if the cap was reached, which TestKvAsymTermCount shows no input does (a growth of the terms returns inside the loop). The Debye sum's own !done is held (TestKvDebyeBand: v = 20 declines; TestKvDebyeLastTerm)."},
   {"file": "kv_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "math.Abs(t) < 0x1p-64  [< to <=]",
    "reason": "Unreachable edge: a computed term equal to the stopping tolerance 2^-64 exactly is a coincidence, and at equality the neglected remainder is that tolerance itself, which the stated bound already contains."},
   {"file": "kv_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "at > prev  [> to >=]",
-   "reason": "Equality of two consecutive computed terms of the series, in absolute value and nonzero, is a coincidence no input reaches; the growth test stops a diverging series, and at equality the series neither converges faster nor slower than one step later. Zero terms (half-integer orders) end the loop at once through done."},
-  {"file": "kv_fast.go", "mode": "delete", "verdict": "SURVIVED", "text": "!ok",
-   "reason": "The first !ok of kvAsymChain (order u) is implied by the second (order u + 1): the terms of the larger order are the larger, so u + 1 converges only where u does (TestKvAsymMonotone, a grid of 4000 points), and the second decline answers for both. The second !ok is held (TestKvAsymDeclines)."}
+   "reason": "Equality of two consecutive computed terms of the series, in absolute value and nonzero, is a coincidence no input reaches; the growth test stops a diverging series, and at equality the series neither converges faster nor slower than one step later. Zero terms (half-integer orders) end the loop at once through done."}
 ]

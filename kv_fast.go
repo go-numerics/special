@@ -79,7 +79,6 @@ const (
 	// kvAsymMinX is where the large-argument expansion of an order below 2
 	// reaches 2^-66 (terms of a_k/x^k fall below it before they grow).
 	kvAsymMinX = 24
-	kvAsymMaxK = 80
 
 	kvFastBound = 0.6
 )
@@ -202,7 +201,10 @@ func kvAsymPair(w, x float64) (h, l float64, ok bool) {
 	inv := 1 / float64(8*x)
 	prev := math.Abs(t)
 	done := math.Abs(t) < 0x1p-66
-	for k := 2; !done && k < kvAsymMaxK; k++ {
+	// No cap on k: the ratio ((2k-1)^2 - mu)/(8kx) of consecutive terms grows
+	// without bound, so the terms either fall below 2^-66 or start growing,
+	// which returns (at x >= kvAsymMinX within 30 steps: TestKvAsymTermCount).
+	for k := 2; !done; k++ {
 		o := float64(2*k - 1)
 		t = float64(t * float64(float64(mu.Hi-float64(o*o))*inv/float64(k)))
 		at := math.Abs(t)
@@ -215,9 +217,6 @@ func kvAsymPair(w, x float64) (h, l float64, ok bool) {
 		sl += e
 		done = at < 0x1p-66
 	}
-	if !done {
-		return 0, 0, false
-	}
 	uh, ue := dd.TwoSum(1, sh)
 	c := dd.Sqrt(dd.DivF(besselPiOver2DD, x))
 	r := dd.Mul(c, dd.DD{Hi: uh, Lo: ue + sl})
@@ -228,12 +227,9 @@ func kvAsymPair(w, x float64) (h, l float64, ok bool) {
 func kvAsymChain(v, x float64, scaled bool) (float64, bool) {
 	n := math.Floor(v)
 	u := v - n // exact
-	h0, l0, ok := kvAsymPair(u, x)
-	if !ok {
-		return 0, false
-	}
-	h1, l1, ok := kvAsymPair(u+1, x)
-	if !ok {
+	h0, l0, ok0 := kvAsymPair(u, x)
+	h1, l1, ok1 := kvAsymPair(u+1, x)
+	if !(ok0 && ok1) {
 		return 0, false
 	}
 	qh := 2 / x
@@ -247,10 +243,8 @@ func kvAsymChain(v, x float64, scaled bool) (float64, bool) {
 		lo := (l0 + pe + se) + math.FMA(ch, l1, float64(cl*h1))
 		h0, l0, h1, l1 = h1, l1, s, lo
 	}
+	// (v > 1, so n >= 1 and the chain ends at h1)
 	h, l := h1, l1
-	if n == 0 {
-		h, l = h0, l0
-	}
 	if scaled {
 		return h + l, true
 	}

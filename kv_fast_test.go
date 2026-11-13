@@ -322,8 +322,8 @@ func TestKvDebyeLastTerm(t *testing.T) {
 }
 
 // TestKvAsymMonotone: the order u + 1 converges only where u does (the terms
-// of the larger order are the larger), so the decline of the chain's first
-// pair is implied by its second (mutation-allowlist.json).
+// of the larger order are the larger): the chain declines when either pair
+// does, and the second is the binding one.
 func TestKvAsymMonotone(t *testing.T) {
 	for u := 0.0; u < 1; u += 0.0101 {
 		for x := 3.0; x < 60; x += 0.37 {
@@ -365,26 +365,26 @@ func TestKvAsymDeclines(t *testing.T) {
 }
 
 // TestKvAsymTermCount: the large-argument terms of every order below 2 fall
-// below 2^-66 within half of kvAsymMaxK for x >= kvAsymMinX, so the cap is a
-// safety net no input reaches (independent recount).
+// below 2^-66 within 40 steps for x >= kvAsymMinX (independent recount; the
+// loop of kvAsymPair has no cap, its termination is the growing ratio).
 func TestKvAsymTermCount(t *testing.T) {
 	worst := 0
 	for w := 0.0; w < 2; w += 0.0137 {
 		for _, x := range []float64{kvAsymMinX, 24.5, 25, 30, 50, 100, 1e4} {
-			mu := 4 * w * w
-			term := (mu - 1) / (8 * x)
+			mu := float64(float64(4*w) * w)
+			term := (mu - 1) / float64(8*x)
 			k := 1
 			for ; math.Abs(term) >= 0x1p-66 && k < 200; k++ {
 				o := float64(2*(k+1) - 1)
-				term *= (mu - o*o) / (8 * float64(k+1) * x)
+				term = float64(term * ((mu - float64(o*o)) / float64(float64(8*float64(k+1))*x)))
 			}
 			if k > worst {
 				worst = k
 			}
 		}
 	}
-	if worst > kvAsymMaxK/2 {
-		t.Errorf("a series needs %d terms, more than half of the cap %d", worst, kvAsymMaxK)
+	if worst > 40 {
+		t.Errorf("a series needs %d terms, more than 40", worst)
 	}
-	t.Logf("most terms needed: %d (cap %d)", worst, kvAsymMaxK)
+	t.Logf("most terms needed: %d", worst)
 }

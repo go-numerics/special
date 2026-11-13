@@ -25,8 +25,8 @@ func BenchmarkKvRows(b *testing.B) {
 		return !math.IsNaN(r.hi) && !math.IsInf(r.hi, 0)
 	}
 	for _, f := range []fnT{
-		{"Kv", kvFixtureRows(b, false), func(a []float64) float64 { return Kv(a[0], a[1]) }, finite},
-		{"Kve", kvFixtureRows(b, true), func(a []float64) float64 { return Kve(a[0], a[1]) }, finite},
+		{"Kv", append(loadFixture(b, "kv"), loadFixture(b, "kv_edge")...), func(a []float64) float64 { return Kv(a[0], a[1]) }, finite},
+		{"Kve", append(loadFixture(b, "kve"), loadFixture(b, "kve_edge")...), func(a []float64) float64 { return Kve(a[0], a[1]) }, finite},
 		{"Kn", append(loadFixture(b, "kn"), loadFixture(b, "kn_edge")...), func(a []float64) float64 { return Kn(int(a[0]), a[1]) }, finite},
 	} {
 		byReg := map[string][][]float64{"all": nil}
