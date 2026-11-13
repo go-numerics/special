@@ -438,6 +438,55 @@ def kn_edge_cases():
     return c
 
 
+def jyn_edge_cases(kind):
+    """Corners of the recurrences of jn_yn_fast.go (0 < x < 100): x near the
+    transition n ~ x from both sides, next to the zeros of J_n / Y_n (where
+    the certificate is tightest), x at the top of the range, large n at small
+    x, tiny x, and for Y the overflow edge."""
+    from common import rng
+    r = rng(kind.lower() + "n_edge")
+    c = []
+    ns = (2, 3, 5, 10, 20, 40, 60, 99)
+    for n in ns:
+        for d in (-3, -1, -0.3, -0.01, 0.0, 0.01, 0.3, 1, 3, 10):
+            x = n + d * n ** (1 / 3) * (1 if n > 3 else 0.3)
+            if 0.5 < x < 100:
+                c.append(("x near n", (float(n), x)))
+    for n in (2, 3, 7, 15, 30, 50, 80):
+        zs = [z for z in zeros_of(kind, n, 60) if z < 100]
+        for x in near(r, zs, 80, lo=1e-14, hi=1e-4):
+            c.append(("near zeros", (float(n), x)))
+        for x in near(r, zs, 40, lo=1e-3, hi=3e-2):
+            c.append(("near zeros", (float(n), x)))
+    for n in (2, 3, 10, 50):
+        for x in (99.0, 99.99, 99.9999999, 100.0 - 2.0 ** -40, 100.0, 100.0 + 2.0 ** -40):
+            c.append(("x near 100", (float(n), x)))
+    for n in (100, 200, 400, 1000):
+        for x in (0.5, 5.0, 10.0, 20.0, 40.0, 90.0):
+            c.append(("large n", (float(n), x)))
+    for n in (2, 3, 5, 12):
+        for x in (1e-300, 1e-100, 1e-20, 1e-6, 1e-3, 0.05, 0.1, 0.3):
+            c.append(("small x", (float(n), x)))
+    if kind == "Y":
+        mx = mp.log(mpf(1.7976931348623157e308))
+        for n in (30, 60, 100, 150, 200):
+            with mp.workprec(200):
+                lo, hi = mpf(0.01), mpf(60)
+                for _ in range(60):
+                    mid = (lo + hi) / 2
+                    if mp.log(abs(yv_mp(float(n), float(mid)))) > mx:
+                        lo = mid
+                    else:
+                        hi = mid
+                x0 = float(lo)
+            for k in range(-6, 7):
+                c.append(("overflow edge", (float(n), x0 * (1 + k * 2.0 ** -20) if k else x0)))
+    for _ in range(60):
+        n = float(r.randint(2, 99))
+        c.append(("random", (n, math.exp(r.uniform(math.log(0.3), math.log(99.9))))))
+    return c
+
+
 def jn_zero_mp(n, k):
     return mp.besseljzero(int(n), int(k))
 
@@ -478,6 +527,9 @@ def fixtures():
         "jn": lambda: (2, two_arg_cases("jn", "J", True), jv_any, sc.jv, "J_n(x), n = args[0]"),
         "yn": lambda: (2, two_arg_cases("yn", "Y", True), yv_any,
                        lambda n, x: sc.yn(int(n), x), "Y_n(x), n = args[0]"),
+        "jn_edge": lambda: (2, jyn_edge_cases("J"), jv_any, sc.jv, "J_n(x), n = args[0]; corners of jn_yn_fast.go"),
+        "yn_edge": lambda: (2, jyn_edge_cases("Y"), yv_any,
+                            lambda n, x: sc.yn(int(n), x), "Y_n(x), n = args[0]; corners of jn_yn_fast.go"),
         "iv": lambda: (2, two_arg_cases("iv", "I"), iv_any, sc.iv, "I_v(x)"),
         "kv": lambda: (2, two_arg_cases("kv", "K"), kv_any, sc.kv, "K_v(x)"),
         "kn": lambda: (2, two_arg_cases("kn", "K", True), kv_any,
@@ -503,7 +555,7 @@ class _Lazy(dict):
 
 
 FIXTURES = _Lazy(["j0", "j1", "y0", "y1", "i0", "i1", "k0", "k1", "i0e", "i1e", "k0e", "k1e",
-                  "jv", "yv", "jn", "yn", "iv", "kv", "kn", "kn_edge", "ive", "kve", "jn_zeros"])
+                  "jv", "yv", "jn", "yn", "jn_edge", "yn_edge", "iv", "kv", "kn", "kn_edge", "ive", "kve", "jn_zeros"])
 
 
 # ------------------------------------------------------------- tables (Go)

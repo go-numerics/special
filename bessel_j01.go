@@ -129,7 +129,10 @@ func besselJ1Series(x float64) float64 {
 // besselY0Series is Y0(x) for 0 < x <= 0.6 by DLMF 10.8.2:
 // Y0 = (2/pi) [(log(x/2) + gamma) J0(x) + sum_{k>=1} (-1)^(k+1) H_k (x^2/4)^k / (k!)^2],
 // with the logarithm and the constants in double-double.
-func besselY0Series(x float64) float64 {
+func besselY0Series(x float64) float64 { return besselY0SeriesDD(x).Float() }
+
+// besselY0SeriesDD is besselY0Series before its last rounding.
+func besselY0SeriesDD(x float64) dd.DD {
 	q := float64(x * x / 4)
 	t, s, H := 1.0, 0.0, 0.0
 	for k := 1; k < 30; k++ {
@@ -143,13 +146,16 @@ func besselY0Series(x float64) float64 {
 	}
 	L := dd.Add(dd.Sub(dd.Log(x), dd.DD{Hi: dd.Ln2Hi, Lo: dd.Ln2Lo}), besselEulerDD)
 	r := dd.AddF(dd.MulF(L, besselJ0Series(x)), s)
-	return dd.Mul(r, besselTwoOverPiDD).Float()
+	return dd.Mul(r, besselTwoOverPiDD)
 }
 
 // besselY1Series is Y1(x) for 0 < x <= 1.5 by DLMF 10.8.1 with n = 1:
 // Y1 = -2/(pi x) + (2/pi) log(x/2) J1(x)
 //   - (x/(2 pi)) sum (psi(k+1) + psi(k+2)) (-x^2/4)^k / (k! (k+1)!).
-func besselY1Series(x float64) float64 {
+func besselY1Series(x float64) float64 { return besselY1SeriesDD(x).Float() }
+
+// besselY1SeriesDD is besselY1Series before its last rounding.
+func besselY1SeriesDD(x float64) dd.DD {
 	m := float64(-x * x / 4)
 	g := besselEulerDD.Hi
 	t, H := 1.0, 0.0
@@ -167,15 +173,15 @@ func besselY1Series(x float64) float64 {
 	// (2/pi) [ -1/x + log(x/2) J1(x) - (x/4) s ]
 	inv := dd.Neg(recipDD(x))
 	if math.IsInf(inv.Hi, 0) {
-		return math.Inf(-1)
+		return dd.DD{Hi: math.Inf(-1)}
 	}
 	r := dd.Add(inv, dd.MulF(lx, besselJ1Series(x)))
 	r = dd.AddF(r, float64(-x/4*s))
 	if x < 0x1p-1000 {
 		// keep 2/(pi x) from overflowing in the double-double product
-		return float64(r.Hi * besselTwoOverPiDD.Hi)
+		return dd.DD{Hi: float64(r.Hi * besselTwoOverPiDD.Hi)}
 	}
-	return dd.Mul(r, besselTwoOverPiDD).Float()
+	return dd.Mul(r, besselTwoOverPiDD)
 }
 
 // J0 returns the Bessel function of the first kind of order zero,
