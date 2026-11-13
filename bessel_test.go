@@ -154,6 +154,25 @@ func init() {
 		"v ~ x":       1,
 		"negative n":  5,
 	})
+	// the corners of jn_yn_fast.go: the stated bounds of its recurrences
+	// (Jn 4.5 ulp, Yn 6.5), also where they decline and Steed's method answers
+	register("jn_edge", func(a []float64) float64 { return Jn(int(a[0]), a[1]) }, map[string]float64{
+		"x near n":   4.5,
+		"near zeros": 4.5,
+		"x near 100": 4.5,
+		"large n":    4.5,
+		"small x":    4.5,
+		"random":     4.5,
+	})
+	register("yn_edge", func(a []float64) float64 { return Yn(int(a[0]), a[1]) }, map[string]float64{
+		"x near n":      6.5,
+		"near zeros":    6.5,
+		"x near 100":    6.5,
+		"large n":       6.5,
+		"small x":       6.5,
+		"overflow edge": 6.5,
+		"random":        6.5,
+	})
 	register("iv", besselTwo(Iv), map[string]float64{
 		"special":             3,
 		"small x":             1.5,

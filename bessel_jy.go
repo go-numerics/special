@@ -680,10 +680,13 @@ func Yv(v, x float64) float64 {
 //
 // Algorithm: J0 and J1 for n = 0, 1; otherwise as Jv: the power series for
 // small x, the double-double modulus-phase Hankel expansion for large x,
-// and Steed's method in double-double between (at the order n itself for
-// x >= n, after backward recurrence from n for x < n). The forward
-// recurrence from J0 and J1 used by Cephes and Boost is not used: it loses
-// the relative accuracy next to the zeros of J_n.
+// and, for 0 < x < 100, a recurrence in hi + lo form (jn_yn_fast.go: upward
+// from J0, J1 for n <= x, Miller's downward recurrence from the CF1 ratio
+// for n > x) that answers only where its error bound is below 4 ulp (error
+// at most 4.5 ulp, measured 1.04), and Steed's method in double-double
+// otherwise (at the order n itself for x >= n, after backward recurrence from
+// n for x < n). The plain forward recurrence of Cephes and Boost is not
+// used: it loses the relative accuracy next to the zeros of J_n.
 func Jn(n int, x float64) float64 {
 	sign := 1.0
 	if n < 0 {
@@ -714,6 +717,9 @@ func Jn(n int, x float64) float64 {
 	if besselSeriesOK(v, x, besselJSeriesRatio) {
 		return float64(sign * besselJSeries(v, x))
 	}
+	if r, ok := jnFast(n, x); ok {
+		return float64(sign * r)
+	}
 	j, _ := besselJYPos(v, x, true, false)
 	return float64(sign * j)
 }
@@ -723,9 +729,12 @@ func Jn(n int, x float64) float64 {
 // negative n), Yn(n, x < 0) = NaN, Yn(n, +Inf) = 0, Yn(n, NaN) = NaN; large
 // negative values overflow to -Inf.
 //
-// Algorithm: Y0 and Y1 for n = 0, 1; otherwise as Yv (Temme's series and
-// forward recurrence for small x, Steed's method in double-double, the
-// modulus-phase Hankel expansion for large x).
+// Algorithm: Y0 and Y1 for n = 0, 1; otherwise, for 0 < x < 100, the upward
+// recurrence from Y0 and Y1 as hi + lo pairs (jn_yn_fast.go), which answers
+// only where its error bound is below 6 ulp (error at most 6.5 ulp, measured
+// 1.40); else as Yv (Temme's series and forward recurrence for small x,
+// Steed's method in double-double, the modulus-phase Hankel expansion for
+// large x).
 func Yn(n int, x float64) float64 {
 	sign := 1.0
 	if n < 0 {
@@ -745,6 +754,9 @@ func Yn(n int, x float64) float64 {
 		return float64(sign * Y1(x))
 	case math.IsInf(x, 1):
 		return 0
+	}
+	if r, ok := ynRecur(n, x); ok {
+		return float64(sign * r)
 	}
 	_, y := besselJYPos(float64(n), x, false, true)
 	return float64(sign * y)
