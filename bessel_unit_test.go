@@ -100,7 +100,12 @@ func TestBesselIntegerOrders(t *testing.T) {
 			}
 			// Kn is the recurrence of kn_fast.go where it applies: within the
 			// sum of both bounds, not the same bits as Kv.
-			if a, b := Kn(n, x), Kv(float64(n), x); math.Abs(a-b) > 3.5*ulp(b) {
+			a, b := Kn(n, x), Kv(float64(n), x)
+			tol := 0.0 // below x = 1 Kn is Kv
+			if _, ok := knRecur(n, x); ok {
+				tol = 3.5
+			}
+			if math.Abs(a-b) > tol*ulp(b) {
 				t.Errorf("Kn(%d,%g) = %g, Kv = %g", n, x, a, b)
 			}
 		}

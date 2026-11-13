@@ -37,7 +37,7 @@ import (
 //	  float64. What is lost is cl l_k (2^-106 relative) and the roundings of
 //	  the lo sum: lo is itself at most about k 2^-53 of the value, so each of
 //	  the five additions loses at most 2^-53 of that, i.e. r <= 6 k 2^-106
-//	  (k <= knFastMaxN = 1024: 2^-91).
+//	  (k <= 1100, where the chain overflows: 2^-91).
 //	n steps: R_n <= 2^-58 + n 2^-91 <= 2^-57.
 //	end: the scale e^-x = (m.Hi + m.Lo) 2^k has 2^-76 relative error (dd.ExpMant),
 //	  the product p + pe is exact, and the one rounding of
@@ -54,13 +54,11 @@ import (
 // Range: x in [1, 512) (the octave tables of K0e and K1e; below 1, K0 and
 // K1 are float64 rational forms, accurate to 1-2 ulp, so the start error
 // would reach the result; from 512 they are asymptotic series) and
-// 2 <= |n| <= knFastMaxN; the result must come out finite and normal,
-// otherwise knRecur reports false and Kv runs (overflow of Ke_n for large n
-// and x near 1).
-const (
-	knFastMaxN = 1024
-	knFastMaxX = 512 // exclusive
-)
+// |n| >= 2, with no upper bound on n: Ke_k grows at least like (2k/x)^(k-x/2)
+// beyond k = x, so for x < 512 the chain passes MaxFloat64 within about 1100
+// steps and stops there (knRecurScaled returns +Inf, knRecur reports false and
+// Kv runs, which decides whether K_n itself overflows).
+const knFastMaxX = 512 // exclusive
 
 // knStart returns K0e(x) and K1e(x) as hi + lo pairs for x in [1, 512):
 // the constant term of the piece plus its tail, the rounding of the sum kept.
@@ -72,7 +70,7 @@ func knStart(i int, x float64) (h0, l0, h1, l1 float64) {
 	return
 }
 
-// knRecurScaled returns Ke_n(x) as a pair for 2 <= n <= knFastMaxN and x in
+// knRecurScaled returns Ke_n(x) as a pair for n >= 2 and x in
 // [1, 512), through knStart and the dd-light recurrence.
 func knRecurScaled(n int, x float64) (h, l float64) {
 	i := octIndex(x, besselK0eOctMin, besselK0eOctMax)
@@ -88,6 +86,9 @@ func knRecurScaled(n int, x float64) (h, l float64) {
 		s, se := dd.TwoSum(h0, p)
 		lo := (l0 + pe + se) + math.FMA(ch, l1, float64(cl*h1))
 		h0, l0, h1, l1 = h1, l1, s, lo
+		if !(s <= math.MaxFloat64) { // Inf, or NaN from Inf - Inf in the lo chain
+			return math.Inf(1), 0
+		}
 	}
 	return h1, l1
 }
@@ -98,16 +99,20 @@ func knRecur(n int, x float64) (r float64, ok bool) {
 	if n < 0 {
 		n = -n
 	}
-	if n < 2 || n > knFastMaxN || !(x >= 1 && x < knFastMaxX) {
+	if n < 2 || !(x >= 1 && x < knFastMaxX) {
 		return 0, false
 	}
 	h, l := knRecurScaled(n, x)
-	if math.IsInf(h, 0) { // Ke_n overflows: Kv decides whether K_n does
+	if math.IsInf(h, 1) { // Ke_n overflows: Kv decides whether K_n does
 		return 0, false
 	}
-	// e^-x Ke_n is neither above Ke_n nor below e^-512 Ke_0 > 1e-224: the
-	// Ldexp is exact up to the one rounding.
+	// e^-x Ke_n is not below e^-512 Ke_0 > 1e-224. m is in about [0.99,
+	// 2.02], so m.Hi h can pass MaxFloat64 although the result m 2^k h does
+	// not (k <= 0 there): h and l are scaled by 1/4 (exact) and k raised by 2
+	// before the product, which then stays below 2.02/4 MaxFloat64. A result
+	// above MaxFloat64 still overflows, in the one final rounding.
 	m, k := dd.ExpMant(dd.DD{Hi: -x})
+	h, l = float64(h*0.25), float64(l*0.25)
 	p, pe := dd.TwoProd(m.Hi, h)
-	return math.Ldexp(p+(pe+float64(m.Hi*l)+float64(m.Lo*h)), k), true
+	return math.Ldexp(p+(pe+float64(m.Hi*l)+float64(m.Lo*h)), k+2), true
 }
