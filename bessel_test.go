@@ -176,6 +176,23 @@ func init() {
 		"negative v":          5,
 		"integer v":           4,
 	})
+	register("kn", func(a []float64) float64 { return Kn(int(a[0]), a[1]) }, map[string]float64{
+		"special":             1,
+		"small x":             2.5,
+		"moderate":            3,
+		"large x":             3,
+		"over/underflow edge": 2,
+		"large order":         2.5,
+		"v ~ x":               2.5,
+		"negative n":          4,
+	})
+	register("kn_edge", func(a []float64) float64 { return Kn(int(a[0]), a[1]) }, map[string]float64{
+		"x near 1":         3,
+		"x near 512":       1.5,
+		"large n, large x": 1,
+		"overflow edge":    1.5,
+		"n up to 1024":     1.5,
+	})
 	register("ive", besselTwo(Ive), map[string]float64{
 		"special":             6,
 		"small x":             1.5,

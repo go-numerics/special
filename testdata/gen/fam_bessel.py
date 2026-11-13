@@ -400,6 +400,44 @@ def two_arg_cases(name, kind, integer=False):
     return c
 
 
+def kn_edge_cases():
+    """Corners of the recurrence of kn_fast.go: n up to 1024, x just
+    above 1, x just below 512, and x at the overflow edge of K_n."""
+    from common import rng
+    r = rng("kn_edge")
+    c = []
+    for n in (2, 3, 10, 100, 700, 879, 1000, 1024):
+        for x in (1.0, 1.0 + 2.0 ** -40, 1.0001, 1.02, 1.09):
+            c.append(("x near 1", (float(n), x)))
+        for x in (400.0, 500.0, 511.0, 511.99, 512.0 - 2.0 ** -44):
+            c.append(("x near 512", (float(n), x)))
+    for n in (500, 600, 700, 800, 1000, 1024):
+        for x in (300.0, 450.0, 505.0):
+            c.append(("large n, large x", (float(n), x)))
+    # the overflow edge of the scaled chain: x where K_n(x) e^x crosses the
+    # largest float64 (the recurrence runs on it), found by bisection on its
+    # log, then points on both sides of it
+    mx = mp.log(mpf(1.7976931348623157e308))
+    for n in (170, 300, 500, 700, 1000):
+        with mp.workprec(200):
+            lo, hi = mpf(1), mpf(1000)
+            for _ in range(60):
+                mid = (lo + hi) / 2
+                if mp.log(kv_mp(float(n), float(mid), True)) > mx:
+                    lo = mid
+                else:
+                    hi = mid
+            x0 = float(lo)
+        if x0 <= 1 or x0 >= 512:
+            continue
+        for k in range(-6, 7):
+            c.append(("overflow edge", (float(n), x0 * (1 + k * 2.0 ** -20) if k else x0)))
+    for _ in range(40):
+        n = float(r.randint(2, 1024))
+        c.append(("n up to 1024", (n, math.exp(r.uniform(math.log(1.0), math.log(511.9))))))
+    return c
+
+
 def jn_zero_mp(n, k):
     return mp.besseljzero(int(n), int(k))
 
@@ -442,6 +480,10 @@ def fixtures():
                        lambda n, x: sc.yn(int(n), x), "Y_n(x), n = args[0]"),
         "iv": lambda: (2, two_arg_cases("iv", "I"), iv_any, sc.iv, "I_v(x)"),
         "kv": lambda: (2, two_arg_cases("kv", "K"), kv_any, sc.kv, "K_v(x)"),
+        "kn": lambda: (2, two_arg_cases("kn", "K", True), kv_any,
+                       lambda n, x: sc.kn(int(n), x), "K_n(x), n = args[0]"),
+        "kn_edge": lambda: (2, kn_edge_cases(), kv_any,
+                            lambda n, x: sc.kn(int(n), x), "K_n(x), n = args[0]; corners of kn_fast.go"),
         "ive": lambda: (2, two_arg_cases("ive", "Ie"), ive_any, sc.ive, "I_v(x) e^-|x|"),
         "kve": lambda: (2, two_arg_cases("kve", "Ke"), kve_any, sc.kve, "K_v(x) e^x"),
         "jn_zeros": lambda: (2, jn_zeros_cases(), jn_zero_mp,
@@ -461,7 +503,7 @@ class _Lazy(dict):
 
 
 FIXTURES = _Lazy(["j0", "j1", "y0", "y1", "i0", "i1", "k0", "k1", "i0e", "i1e", "k0e", "k1e",
-                  "jv", "yv", "jn", "yn", "iv", "kv", "ive", "kve", "jn_zeros"])
+                  "jv", "yv", "jn", "yn", "iv", "kv", "kn", "kn_edge", "ive", "kve", "jn_zeros"])
 
 
 # ------------------------------------------------------------- tables (Go)

@@ -802,4 +802,13 @@ func Kve(v, x float64) float64 {
 
 // Kn returns the modified Bessel function of the second kind of integer
 // order n, Kv(float64(n), x).
-func Kn(n int, x float64) float64 { return Kv(float64(n), x) }
+//
+// Algorithm: for |n| >= 2 and 1 <= x < 512, the upward recurrence on
+// K0e and K1e carried as hi + lo pairs, scaled by e^-x at the end (kn_fast.go:
+// error bound 0.55 ulp); Kv elsewhere.
+func Kn(n int, x float64) float64 {
+	if r, ok := knRecur(n, x); ok {
+		return r
+	}
+	return Kv(float64(n), x)
+}

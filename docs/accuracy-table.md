@@ -45,6 +45,8 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **k0e** | 4013 | 5 | 1.94 | wrong | 5/5 |
 | k1 | 5013 | 6 | 1.96 | wrong | 5/6 |
 | **k1e** | 4013 | 5 | 2.09 | wrong | 5/5 |
+| **kn** | 6577 | 8 | 2.95 | wrong | 8/8 |
+| **kn_edge** | 190 | 5 | 1.17 | wrong | 5/5 |
 | **kv** | 7687 | 9 | 3.82 | wrong | 9/9 |
 | **kve** | 8687 | 10 | 3.65 | wrong | 10/10 |
 | **log1pexp** | 3010 | 4 | 0.50 | 0.96 | 4/4 |
@@ -357,6 +359,19 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | k1e | moderate | 1000 | **2.09** | 1.36 | 2.95 | 2.86 |
 | k1e | large x | 1000 | **0.50** | 0.50 | 2.28 | 2.27 |
 | k1e | huge x | 1000 | **0.50** | 0.50 | 1.92 | 1.91 |
+| kn | special | 77 | **0.50** | 0.50 | wrong | wrong |
+| kn | small x | 1000 | **1.68** | 1.45 | wrong | 10 |
+| kn | moderate | 1000 | **1.85** | 1.20 | 29 | 26 |
+| kn | large x | 1000 | **2.16** | 1.43 | 6.6e+15 | 4.8e+15 |
+| kn | over/underflow edge | 1000 | **1.19** | 1.00 | 9.0e+15 | 8.9e+15 |
+| kn | large order | 1000 | **1.63** | 1.63 | wrong | wrong |
+| kn | v ~ x | 500 | **1.38** | 1.38 | 2736 | 2736 |
+| kn | negative n | 1000 | **2.95** | 2.50 | 73 | 70 |
+| kn_edge | x near 1 | 40 | **0.44** | 0.44 | 442 | 442 |
+| kn_edge | x near 512 | 40 | **1.03** | 1.03 | 3354 | 3354 |
+| kn_edge | large n, large x | 18 | **0.44** | 0.44 | 2220 | 2220 |
+| kn_edge | overflow edge | 52 | **1.17** | 1.17 | wrong | wrong |
+| kn_edge | n up to 1024 | 40 | **0.87** | 0.87 | 1984 | 1984 |
 | kv | special | 187 | **0.97** | 0.97 | wrong | wrong |
 | kv | small x | 1000 | **1.78** | 1.58 | wrong | wrong |
 | kv | moderate | 1000 | **2.08** | 1.97 | 43 | 41 |
