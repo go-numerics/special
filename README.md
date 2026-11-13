@@ -96,15 +96,16 @@ time):
 
 - faster than SciPy: Gamma 0.84 (8.5 vs 10.1 ns/element; `nd.Gamma` 0.85),
   LogGamma 0.76, LogBeta 0.58, ErfInv 0.49, ErfcInv 0.62, Ndtri 0.57, LogNdtr
-  0.59, Ndtr 0.84, Erf 0.89, Digamma 0.80, Beta 0.84, Logit 0.90, the order 0
-  and 1 Bessel functions (J0 0.74, I0e 0.30, I1 0.97, K1 0.93, K1e 0.37), the
-  elliptic integrals (0.37–0.43), Zeta 0.64, Polygamma 0.05, Comb 0.85,
-  Factorial2 0.03, and the integer orders `Jn` 0.18 (130 vs 736 ns/element)
-  and `Kn` 0.28 (102 vs 363 ns);
-- still slower, 1.0–1.5x: Erfc 1.03, LogExpit 1.08, Xlogy 1.08, GammaQ 1.13,
-  GammaP 1.18, Expit 1.20, GammaSign 1.22, Perm 1.22, Factorial of
-  non-integers 1.22, Yv 1.22, Jv 1.28, LogSumExp 1.47, GammaQInv 1.48,
-  GammaPInv 1.54;
+  0.59, Ndtr 0.84, Erf 0.89, Digamma 0.80, Beta 0.84, the order 0 and 1 Bessel
+  functions (J0 0.74, I0e 0.30, K1 0.93, K1e 0.37), the elliptic integrals
+  (0.37–0.43), Zeta 0.64, Polygamma 0.05, Comb 0.85, Factorial2 0.03, and the
+  integer orders `Jn` 0.18 (130 vs 736 ns/element) and `Kn` 0.28 (102 vs 363
+  ns);
+- ties: Logit 0.90, I1 0.97, Erfc 1.03, `nd.Erfc` 1.03 (`nd.I1` measured 1.52,
+  unexplained; rerun needed);
+- still slower, 1.08–1.54x: LogExpit 1.08, Xlogy 1.08, GammaQ 1.13, GammaP
+  1.18, Expit 1.20, GammaSign 1.22, Perm 1.22, Factorial of non-integers 1.22,
+  Yv 1.22, Jv 1.28, LogSumExp 1.47, GammaQInv 1.48, GammaPInv 1.54;
 - several times slower, where a double-double continued fraction or series
   produces the rounded result: Iv 7.9, In 5.2, Softmax 4.8, LogSoftmax 4.1,
   BetaIncInv 3.5, Binom 3.0, Yn 2.37 (91 vs 38 ns, from 33 in v0.8.0), Kve

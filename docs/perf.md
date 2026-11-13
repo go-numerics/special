@@ -64,26 +64,26 @@ goroutine here. Changes against the run of v0.8.0 (2026-11-10):
 to 2.37, `LogBeta` 1.20 to 0.58, `ErfInv` 1.12 to 0.49, `ErfcInv` 1.24 to
 0.62, `Logit` 1.37 to 0.90, `Factorial` of non-integers 1.87 to 1.22.
 
-- **Faster than SciPy** (ratio below 1): `Gamma` 0.84 (8.48 against 10.08 ns
-  per element), `nd.Gamma` 0.85, `LogGamma` 0.76, `GammaTo` 0.78, `LogGammaTo`
-  0.67, `Ndtri` 0.57, `LogNdtr` 0.59, `Ndtr` 0.84, `Erf` 0.89 (`ErfTo` 0.83,
-  `ErfcTo` 0.91), `Digamma` 0.80, `Beta` 0.84, `LogBeta` 0.58, `ErfInv` 0.49,
-  `ErfcInv` 0.62, `Logit` 0.90, `Erfcx` 0.99, `Log1pExp` 0.92, `Zeta` 0.64,
+- **Faster than SciPy** (ratio below 1, verdict faster): `Gamma` 0.84 (8.48
+  against 10.08 ns per element), `nd.Gamma` 0.85, `LogGamma` 0.76, `GammaTo`
+  0.78, `LogGammaTo` 0.67, `Ndtri` 0.57, `LogNdtr` 0.59, `Ndtr` 0.84, `Erf` 0.89
+  (`ErfTo` 0.83, `ErfcTo` 0.91), `Digamma` 0.80, `Beta` 0.84, `LogBeta` 0.58,
+  `ErfInv` 0.49, `ErfcInv` 0.62, `Erfcx` 0.99, `Log1pExp` 0.92, `Zeta` 0.64,
   `HurwitzZeta` 0.66, `Polygamma` 0.05, `J0`/`J1`/`Y0`/`Y1` 0.71–0.75, `I0`
-  0.91, `I0e` 0.30, `I1` 0.97, `I1e` 0.35, `K0` 0.99, `K0e` 0.47, `K1` 0.93,
-  `K1e` 0.37, the complete elliptic integrals 0.37–0.43, `Comb` 0.85,
-  `Factorial` of integers 0.08, `Factorial2` 0.03, `JnZeros` 0.89, `Jn` 0.18
-  (130 against 736 ns per element) and `Kn` 0.28 (102 against 363 ns).
-  Ties or marginally slower on the array path: `nd.K0` 1.03, `nd.Comb` 1.02,
-  `nd.Logit` 0.99; `nd.I1` measured 1.52 in this run with a wide interquartile
-  range (1.78e5 to 1.94e5 ns against 1.15e5 for the scalar loop of the same
-  kernel, 1.02 in the v0.11.0 run): treat it as noise until a rerun says
-  otherwise.
-- **Still slower, 1.0 to 1.5 times**: `Erfc` 1.03, `LogExpit` 1.08, `Xlogy`
-  1.08, `GammaQ` 1.13, `GammaP` 1.18, `Expit` 1.20, `GammaSign` 1.22, `Perm`
-  1.22, `Factorial` of non-integers 1.22, `Yv` 1.22, `Jv` 1.28, `LogSumExp`
-  1.47, `GammaQInv` 1.48, `GammaPInv` 1.54 (the `nd/` rows of `GammaSign`
-  1.67, `Expit` 1.36, `Perm` 1.55).
+  0.91, `I0e` 0.30, `I1e` 0.35, `K0` 0.99, `K0e` 0.47, `K1` 0.93, `K1e` 0.37,
+  the complete elliptic integrals 0.37–0.43, `Comb` 0.85, `Factorial` of
+  integers 0.08, `Factorial2` 0.03, `JnZeros` 0.89, `Jn` 0.18 (130 against 736
+  ns per element) and `Kn` 0.28 (102 against 363 ns).
+- **Ties** (verdict tie, or within 3 percent): `Logit` 0.90, `I1` 0.97,
+  `Erfc` 1.03, `nd.Erfc` 1.03, `nd.K0` 1.03, `nd.Comb` 1.02, `nd.Logit` 0.99.
+  `nd.I1` measured 1.52 in this run with a wide interquartile range (1.78e5 to
+  1.94e5 ns against 1.15e5 for the scalar loop of the same kernel; 1.02 in the
+  v0.8.0 run): unexplained; rerun needed.
+- **Still slower, 1.08 to 1.54 times**: `LogExpit` 1.08, `Xlogy` 1.08, `GammaQ`
+  1.13, `GammaP` 1.18, `Expit` 1.20, `GammaSign` 1.22, `Perm` 1.22, `Factorial`
+  of non-integers 1.22, `Yv` 1.22, `Jv` 1.28, `LogSumExp` 1.47, `GammaQInv`
+  1.48, `GammaPInv` 1.54 (the `nd/` rows of `GammaSign` 1.67, `Expit` 1.36,
+  `Perm` 1.55).
 - **Open gaps** (each a double-double evaluation whose result is correctly
   rounded; see #33 for the profile of each): `Iv` 7.94, `In` 5.24, `Softmax`
   4.84, `LogSoftmax` 4.13, `BetaIncInv`/`BetaIncCInv` 3.45, `Binom` 3.03,
