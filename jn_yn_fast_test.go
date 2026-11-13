@@ -470,7 +470,7 @@ func withinSeconds(t *testing.T, what string, f func()) {
 // TestYnFastHugeN: the chain ends where Y_n leaves float64 (the MaxFloat64/4
 // guard of ynRecurErr), however large n: the fast path declines at once.
 func TestYnFastHugeN(t *testing.T) {
-	for _, n := range []int{1 << 20, 1 << 40, math.MaxInt} {
+	for _, n := range []int{1 << 20, 1 << 30, math.MaxInt} {
 		withinSeconds(t, "ynRecur", func() {
 			if r, ok := ynRecur(n, 3); ok {
 				t.Errorf("ynRecur(%d, 3) = %g, want a decline", n, r)
