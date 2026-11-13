@@ -805,7 +805,8 @@ func Kve(v, x float64) float64 {
 //
 // Algorithm: for |n| >= 2 and 1 <= x < 512, the upward recurrence on
 // K0e and K1e carried as hi + lo pairs, scaled by e^-x at the end (kn_fast.go:
-// error bound 0.55 ulp); Kv elsewhere.
+// error bound 0.55 ulp); Kv elsewhere, and wherever the scaled chain overflows
+// before reaching n (no fixed cap on n: about n = 929 at x near 512).
 func Kn(n int, x float64) float64 {
 	if r, ok := knRecur(n, x); ok {
 		return r

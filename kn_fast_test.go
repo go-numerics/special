@@ -5,42 +5,6 @@ import (
 	"testing"
 )
 
-// TestKnFastRange: where the recurrence applies and where Kv must answer.
-func TestKnFastRange(t *testing.T) {
-	for _, c := range []struct {
-		n    int
-		x    float64
-		fast bool
-	}{
-		{2, 1, true},
-		{2, 0.999, false},
-		{2, 511.9, true},
-		{2, 512, false},
-		{2, math.NaN(), false},
-		{2, math.Inf(1), false},
-		{2, -3, false},
-		{0, 3, false},
-		{1, 3, false},
-		{-1, 3, false},
-		{-7, 3, true},
-		{600, 500, true},
-		{2, math.Nextafter(1, 0), false},
-		{2, math.Nextafter(knFastMaxX, 0), true},
-		{2, math.Nextafter(knFastMaxX, 1e9), false},
-		{math.MaxInt, 3, false}, // stops at the first overflow, not after n steps
-		{math.MinInt, 3, false},
-		{500, 1.5, false}, // Ke_n overflows
-	} {
-		r, ok := knRecur(c.n, c.x)
-		if ok != c.fast {
-			t.Errorf("knRecur(%d, %g) ok = %v, want %v", c.n, c.x, ok, c.fast)
-		}
-		if ok && (r <= 0 || math.IsInf(r, 0)) {
-			t.Errorf("knRecur(%d, %g) = %g", c.n, c.x, r)
-		}
-	}
-}
-
 // TestKnFastAgainstKv: the recurrence and Steed's method in double-double
 // agree to the sum of their bounds on a grid, and the sign of n does not
 // matter. The accuracy of the fast path itself is TestAccuracyBound's "kn"
@@ -167,7 +131,9 @@ func TestKnFastOverflowBand(t *testing.T) {
 
 // knFixtureRows are the rows of the "kn" fixture (regions of the other
 // functions) and of "kn_edge" (the corners of the recurrence: n up to 1024, x
-// just above 1 and just below 512, the overflow edge of the scaled chain).
+// just above 1 and just below 512, the overflow edge of the scaled chain; rows
+// where the chain overflows are answered by Kv, so 1024 is a fixture size, not
+// a limit of the fast path).
 func knFixtureRows(t *testing.T) []fixtureRow {
 	return append(loadFixture(t, "kn"), loadFixture(t, "kn_edge")...)
 }

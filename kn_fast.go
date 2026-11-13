@@ -54,10 +54,13 @@ import (
 // Range: x in [1, 512) (the octave tables of K0e and K1e; below 1, K0 and
 // K1 are float64 rational forms, accurate to 1-2 ulp, so the start error
 // would reach the result; from 512 they are asymptotic series) and
-// |n| >= 2, with no upper bound on n: Ke_k grows at least like (2k/x)^(k-x/2)
-// beyond k = x, so for x < 512 the chain passes MaxFloat64 within about 1100
-// steps and stops there (knRecurScaled returns +Inf, knRecur reports false and
-// Kv runs, which decides whether K_n itself overflows).
+// |n| >= 2, with no fixed cap on n: the limit is the overflow of the scaled
+// value, not a number. Ke_k grows at least like (2k/x)^(k-x/2) beyond k = x,
+// so for x < 512 the chain passes MaxFloat64 within about 1100 steps (about
+// n = 929 at x near 512) and stops there (knRecurScaled returns +Inf, knRecur
+// reports false and Kv runs, which decides whether K_n itself overflows). The
+// "kn_edge" fixture rows with n = 1024 are therefore answered by Kv where the
+// chain overflows.
 const knFastMaxX = 512 // exclusive
 
 // knStart returns K0e(x) and K1e(x) as hi + lo pairs for x in [1, 512):
@@ -86,11 +89,23 @@ func knRecurScaled(n int, x float64) (h, l float64) {
 		s, se := dd.TwoSum(h0, p)
 		lo := (l0 + pe + se) + math.FMA(ch, l1, float64(cl*h1))
 		h0, l0, h1, l1 = h1, l1, s, lo
-		if !(s <= math.MaxFloat64) { // Inf, or NaN from Inf - Inf in the lo chain
+		if knChainOverflowed(s) {
 			return math.Inf(1), 0
 		}
 	}
 	return h1, l1
+}
+
+// knChainOverflowed reports whether the hi chain left the finite floats: s is
+// Inf, or NaN from Inf - Inf in the lo chain. Exactly MaxFloat64 is finite
+// (the chain continues). It is a function of its own because no (n, x) makes
+// the chain land on MaxFloat64 exactly, so only a direct test can hold the
+// edge (TestKnChainOverflowed).
+func knChainOverflowed(s float64) bool {
+	if s <= math.MaxFloat64 {
+		return false
+	}
+	return true
 }
 
 // knRecur computes Kn(n, x) by the recurrence above; ok is false where the
