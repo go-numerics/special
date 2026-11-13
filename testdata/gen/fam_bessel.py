@@ -442,6 +442,8 @@ def fixtures():
                        lambda n, x: sc.yn(int(n), x), "Y_n(x), n = args[0]"),
         "iv": lambda: (2, two_arg_cases("iv", "I"), iv_any, sc.iv, "I_v(x)"),
         "kv": lambda: (2, two_arg_cases("kv", "K"), kv_any, sc.kv, "K_v(x)"),
+        "kn": lambda: (2, two_arg_cases("kn", "K", True), kv_any,
+                       lambda n, x: sc.kn(int(n), x), "K_n(x), n = args[0]"),
         "ive": lambda: (2, two_arg_cases("ive", "Ie"), ive_any, sc.ive, "I_v(x) e^-|x|"),
         "kve": lambda: (2, two_arg_cases("kve", "Ke"), kve_any, sc.kve, "K_v(x) e^x"),
         "jn_zeros": lambda: (2, jn_zeros_cases(), jn_zero_mp,
@@ -461,7 +463,7 @@ class _Lazy(dict):
 
 
 FIXTURES = _Lazy(["j0", "j1", "y0", "y1", "i0", "i1", "k0", "k1", "i0e", "i1e", "k0e", "k1e",
-                  "jv", "yv", "jn", "yn", "iv", "kv", "ive", "kve", "jn_zeros"])
+                  "jv", "yv", "jn", "yn", "iv", "kv", "kn", "ive", "kve", "jn_zeros"])
 
 
 # ------------------------------------------------------------- tables (Go)

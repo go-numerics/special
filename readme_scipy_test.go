@@ -77,9 +77,8 @@ var expression = map[string]struct{ fn, spelling string }{
 // with what the README may say instead. A name here is NOT evidence about
 // scipy; it is a statement that this package has not measured one.
 var unpaired = map[string]string{
-	"Kn":           "kn", // scipy has it; nothing here pairs them
-	"In":           "—",  // scipy has no `in`: it is a Python keyword
-	"LogGammaSign": "—",  // scipy splits it across gammaln and gammasgn
+	"In":           "—", // scipy has no `in`: it is a Python keyword
+	"LogGammaSign": "—", // scipy splits it across gammaln and gammasgn
 }
 
 // harnessPairs reads every Go -> scipy pairing the harness records, by two

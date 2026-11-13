@@ -98,7 +98,9 @@ func TestBesselIntegerOrders(t *testing.T) {
 			if a, b := In(n, x), Iv(float64(n), x); a != b {
 				t.Errorf("In(%d,%g) = %g, Iv = %g", n, x, a, b)
 			}
-			if a, b := Kn(n, x), Kv(float64(n), x); a != b {
+			// Kn is the recurrence of kn_fast.go where it applies: within the
+			// sum of both bounds, not the same bits as Kv.
+			if a, b := Kn(n, x), Kv(float64(n), x); math.Abs(a-b) > 3.5*ulp(b) {
 				t.Errorf("Kn(%d,%g) = %g, Kv = %g", n, x, a, b)
 			}
 		}
