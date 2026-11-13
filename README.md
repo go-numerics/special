@@ -89,23 +89,26 @@ The bound is asserted by `TestAccuracyBound` in `accuracy_test.go` over the fixt
 
 ## Speed
 
-Accuracy has a price. Measured against SciPy 1.18.1 on one core (refbench,
-tag v0.8.0, 2026-11-10, 10 000-point calls, host load 6.4–7.9, valid run (151
-rows, 2 rounds retried above the gate); ratios are Go time over SciPy time):
+Accuracy has a price. Measured against SciPy 1.18.1 on one core (refbench
+v0.3.0, tag v0.13.0, 2026-11-13, 10 000-point calls, host load 6.5–8.0, valid
+run (151 rows, 11 rounds retried above the gate); ratios are Go time over SciPy
+time):
 
-- faster than SciPy: Gamma 0.83 (8.14 vs 9.82 ns/element; `nd.Gamma` 0.83),
-  LogGamma 0.77, Ndtri 0.57, LogNdtr 0.59, Ndtr 0.84, Erf 0.88, Digamma 0.78,
-  Beta 0.83, the order 0 and 1 Bessel functions (J0 0.76, I0e 0.29, I1 0.96,
-  K1 0.94, K1e 0.39), the elliptic integrals (0.39–0.43), Zeta 0.64,
-  Polygamma 0.05, Comb 0.85, Factorial2 0.02;
-- still slower, the elementwise families, 1.0–1.5x: Erfc 1.01, LogExpit 1.07,
-  Xlogy 1.08, ErfInv 1.12, GammaP and GammaQ 1.15, GammaSign 1.21, LogBeta
-  1.20, Perm 1.22, Yv 1.22, Expit 1.23, ErfcInv 1.24, Jv 1.28, Logit 1.37,
-  LogSumExp 1.48, GammaPInv and GammaQInv 1.5, Jn 1.52;
+- faster than SciPy: Gamma 0.84 (8.5 vs 10.1 ns/element; `nd.Gamma` 0.85),
+  LogGamma 0.76, LogBeta 0.58, ErfInv 0.49, ErfcInv 0.62, Ndtri 0.57, LogNdtr
+  0.59, Ndtr 0.84, Erf 0.89, Digamma 0.80, Beta 0.84, Logit 0.90, the order 0
+  and 1 Bessel functions (J0 0.74, I0e 0.30, I1 0.97, K1 0.93, K1e 0.37), the
+  elliptic integrals (0.37–0.43), Zeta 0.64, Polygamma 0.05, Comb 0.85,
+  Factorial2 0.03, and the integer orders `Jn` 0.18 (130 vs 736 ns/element)
+  and `Kn` 0.28 (102 vs 363 ns);
+- still slower, 1.0–1.5x: Erfc 1.03, LogExpit 1.08, Xlogy 1.08, GammaQ 1.13,
+  GammaP 1.18, Expit 1.20, GammaSign 1.22, Perm 1.22, Factorial of
+  non-integers 1.22, Yv 1.22, Jv 1.28, LogSumExp 1.47, GammaQInv 1.48,
+  GammaPInv 1.54;
 - several times slower, where a double-double continued fraction or series
-  produces the rounded result: Yn 33.4, Iv 8.0, In 5.3, Softmax 5.0,
-  LogSoftmax 4.1, BetaIncInv 3.5, Binom 3.1, Kv 2.3, Xlog1py 2.2, BetaInc 2.1,
-  Kn 1.88, Factorial of non-integers 1.87, Ive 1.71 (open defects, #33).
+  produces the rounded result: Iv 7.9, In 5.2, Softmax 4.8, LogSoftmax 4.1,
+  BetaIncInv 3.5, Binom 3.0, Yn 2.37 (91 vs 38 ns, from 33 in v0.8.0), Kve
+  2.4, Kv 2.3, BetaInc 2.1, Xlog1py 1.9, Ive 1.69 (open defects, #33).
 
 Since v0.5.6, `I1`, `I1e`, `K1` and `K1e` use the same fitted octave
 interpolants as `I0e` and `K0e` (and are more accurate: worst case against
