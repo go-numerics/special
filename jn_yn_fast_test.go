@@ -245,9 +245,11 @@ func TestJYFastRange(t *testing.T) {
 			if n < 0 && n > -1000 && c.name == "Yn" { // Yn's sign is the caller's
 				continue
 			}
-			if _, ok := c.f(n, 3); ok && (n == 0 || n == 1 || n == -1 || n == math.MinInt || n == math.MaxInt) {
-				t.Errorf("%s(%d, 3) answered", c.name, n)
-			}
+			withinSeconds(t, c.name, func() {
+				if _, ok := c.f(n, 3); ok && (n == 0 || n == 1 || n == -1 || n == math.MinInt || n == math.MaxInt) {
+					t.Errorf("%s(%d, 3) answered", c.name, n)
+				}
+			})
 		}
 	}
 	// n <= x goes upward, n > x downward, and a path never answers for the
@@ -477,9 +479,11 @@ func TestYnFastHugeN(t *testing.T) {
 			}
 		})
 	}
-	if got := Yn(math.MaxInt, 3); !math.IsInf(got, -1) {
-		t.Errorf("Yn(MaxInt, 3) = %g, want -Inf", got)
-	}
+	withinSeconds(t, "Yn", func() {
+		if got := Yn(math.MaxInt, 3); !math.IsInf(got, -1) {
+			t.Errorf("Yn(MaxInt, 3) = %g, want -Inf", got)
+		}
+	})
 }
 
 // TestJnMillerChainGuard: the downward chain is abandoned once it passes
@@ -502,7 +506,9 @@ func TestJnMillerChainGuard(t *testing.T) {
 			}
 		})
 	}
-	if _, _, ok := jnMiller(math.MaxInt, 3); ok {
-		t.Error("jnMiller(MaxInt, 3) answered")
-	}
+	withinSeconds(t, "jnMiller", func() {
+		if _, _, ok := jnMiller(math.MaxInt, 3); ok {
+			t.Error("jnMiller(MaxInt, 3) answered")
+		}
+	})
 }

@@ -231,6 +231,23 @@ reduction, for callers that must know whether two nearby arguments take the
 same table entry (go-statistics/stats uses it; it is the single copy of this
 package).
 
+## Testing
+
+`go test ./...` runs the accuracy fixtures (mpmath rows, per-region ULP
+budgets). CI adds the 100% statement-coverage gate, and a **mutation gate** over
+every `*_fast.go`: [mutsweep](https://github.com/go-fleettools/mutate) v0.8.0
+moves each comparison one step (`-mutate boundary`: `<` to `<=`, `>` to `>=`)
+and deletes each refusal in turn, and `tools/mutgate` fails on any survivor,
+hang, or mutation caught only by a runtime panic (a guard held by luck, not by
+an assertion) that `mutation-allowlist.json` does not list with its reason, and
+on a listed entry that nothing matches any more. Locally:
+
+```sh
+go install github.com/go-fleettools/mutate@v0.8.0
+go install github.com/go-fleettools/mutate/mutsweep@v0.8.0
+go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m
+```
+
 ## Portability
 
 Pure Go; CI runs the full accuracy suite on amd64, arm64, 386, arm (32-bit),
