@@ -763,7 +763,10 @@ func besselKvArgs(v, x float64) (r float64, done bool) {
 // NaN, Kv(±Inf, x) = +Inf; NaN in, NaN out. Overflow gives +Inf and
 // underflow 0.
 //
-// Algorithm: K0/K1 for v = 0, 1; otherwise Temme's series (x <= 2) or
+// Algorithm: K0/K1 for v = 0, 1; integer v >= 2 with 1 <= x < 512 through the
+// hi + lo recurrence of Kn (kn_fast.go); v >= 32 by Debye's uniform expansion
+// and 2 < v < 32 with x >= 24 by the large-argument expansion plus recurrence
+// (kv_fast.go, error <= 0.6 ulp); otherwise Temme's series (x <= 2) or
 // Steed's CF2 (in double-double) for the fractional order and forward
 // recurrence in double-double (Boost.Math bessel_ik.hpp), or the large-x
 // expansion DLMF 10.40.2 where it converges.
@@ -777,6 +780,20 @@ func Kv(v, x float64) float64 {
 		return K0(x)
 	case v == 1:
 		return K1(x)
+	}
+	if v == math.Trunc(v) && v < 1<<30 {
+		if r, ok := knRecur(int(v), x); ok {
+			return r
+		}
+	}
+	return kvNoKn(v, x)
+}
+
+// kvNoKn is Kv for v > 0, v != 1, finite x > 0 where the integer recurrence
+// of kn_fast.go has already been tried: kv_fast.go, then besselIK.
+func kvNoKn(v, x float64) float64 {
+	if r, ok := kvFast(v, x, false); ok {
+		return r
 	}
 	_, k := besselIK(v, x, false, true, false)
 	return k
@@ -796,6 +813,14 @@ func Kve(v, x float64) float64 {
 	case v == 1:
 		return K1e(x)
 	}
+	if v == math.Trunc(v) && v < 1<<30 && v >= 2 && x >= 1 && x < knFastMaxX {
+		if h, l := knRecurScaled(int(v), x); !math.IsInf(h, 1) {
+			return h + l
+		}
+	}
+	if r, ok := kvFast(v, x, true); ok {
+		return r
+	}
 	_, k := besselIK(v, x, false, true, true)
 	return k
 }
@@ -811,5 +836,20 @@ func Kn(n int, x float64) float64 {
 	if r, ok := knRecur(n, x); ok {
 		return r
 	}
-	return Kv(float64(n), x)
+	return knFallback(n, x)
+}
+
+// knFallback is Kv(float64(n), x) after knRecur declined.
+func knFallback(n int, x float64) float64 {
+	if r, done := besselKvArgs(float64(n), x); done {
+		return r
+	}
+	v := math.Abs(float64(n))
+	switch v {
+	case 0:
+		return K0(x)
+	case 1:
+		return K1(x)
+	}
+	return kvNoKn(v, x)
 }
