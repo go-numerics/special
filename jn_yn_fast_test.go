@@ -3,6 +3,7 @@ package special
 import (
 	"math"
 	"testing"
+	"time"
 )
 
 // TestJYStartError: the start pairs of the recurrences are within their own
@@ -223,9 +224,18 @@ func TestJYFastRange(t *testing.T) {
 		}
 		for _, x := range []float64{math.Nextafter(jyFastMinX, 0), 0, -1, math.Inf(1), math.NaN(), jyFastMaxX, math.Nextafter(jyFastMaxX, 1e9), 1e9} {
 			for _, n := range []int{2, 3, 10, 40} {
-				if _, ok := c.f(n, x); ok {
-					t.Errorf("%s(%d, %g) answered outside its range", c.name, n, x)
-				}
+				func() {
+					// a guard moved out is reported as an assertion, not as the
+					// panic of the table lookup it no longer protects
+					defer func() {
+						if r := recover(); r != nil {
+							t.Errorf("%s(%d, %g) panicked (range guard): %v", c.name, n, x, r)
+						}
+					}()
+					if _, ok := c.f(n, x); ok {
+						t.Errorf("%s(%d, %g) answered outside its range", c.name, n, x)
+					}
+				}()
 			}
 		}
 		if !acceptedSomewhere(c.f, math.Nextafter(jyFastMaxX, 0)) {
@@ -440,5 +450,59 @@ func TestYnFastNextToZeroOfPrevious(t *testing.T) {
 		if math.Abs(got-want) > float64(8*ulp(want)) {
 			t.Errorf("Yn(3, %.17g) = %g, Steed %g", x, got, want)
 		}
+	}
+}
+
+// withinSeconds runs f and fails (by assertion) if it has not returned after
+// 20 s: a guard that ends a loop is tested by the loop ending, not by the
+// suite's own timeout.
+func withinSeconds(t *testing.T, what string, f func()) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() { f(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(20 * time.Second):
+		t.Fatalf("%s: still running after 20 s", what)
+	}
+}
+
+// TestYnFastHugeN: the chain ends where Y_n leaves float64 (the MaxFloat64/4
+// guard of ynRecurErr), however large n: the fast path declines at once.
+func TestYnFastHugeN(t *testing.T) {
+	for _, n := range []int{1 << 20, 1 << 40, math.MaxInt} {
+		withinSeconds(t, "ynRecur", func() {
+			if r, ok := ynRecur(n, 3); ok {
+				t.Errorf("ynRecur(%d, 3) = %g, want a decline", n, r)
+			}
+		})
+	}
+	if got := Yn(math.MaxInt, 3); !math.IsInf(got, -1) {
+		t.Errorf("Yn(MaxInt, 3) = %g, want -Inf", got)
+	}
+}
+
+// TestJnMillerChainGuard: the downward chain is abandoned once it passes
+// 2^1000 (the 0x1p1000 guard of jnMiller). Where that guard is weakened
+// jnMiller(72, 0.0023759256118315846) returned NaN with ok = true.
+func TestJnMillerChainGuard(t *testing.T) {
+	for _, c := range []struct {
+		n int
+		x float64
+	}{{72, 0.0023759256118315846}, {200, 0.5}, {1 << 30, 3}, {math.MaxInt, 3}} {
+		withinSeconds(t, "jnMiller", func() {
+			r, _, ok := jnMiller(c.n, c.x)
+			if ok && (r != r || math.IsInf(r, 0)) {
+				t.Errorf("jnMiller(%d, %g) = %g with ok", c.n, c.x, r)
+			}
+			if ok {
+				if want := steedJn(c.n, c.x); math.Abs(r-want) > float64(8*ulp(want)) {
+					t.Errorf("jnMiller(%d, %g) = %g, Steed %g", c.n, c.x, r, want)
+				}
+			}
+		})
+	}
+	if _, _, ok := jnMiller(math.MaxInt, 3); ok {
+		t.Error("jnMiller(MaxInt, 3) answered")
 	}
 }
