@@ -1,5 +1,6 @@
 // Command mutgate is the CI gate over mutsweep (go-fleettools/mutate v0.8.0):
-// it sweeps every *_fast.go of the package twice, with `-mutate boundary`
+// it sweeps the *_fast.go files of the package (all, or only those that differ
+// from a git ref: --changed-since) twice, with `-mutate boundary`
 // (< to <=, > to >=, ...) and with the default deletion of each refusal, and
 // fails on any finding that the committed allowlist does not list with its
 // reason.
@@ -16,10 +17,22 @@
 // holds no "N mutations:" summary did not finish: that is an error, not a
 // pass. A directory with no *_fast.go file is an error, since a gate over
 // nothing reads as green. An allowlist entry that no finding matches is stale
-// and fails too, so the list can only shrink when a guard gets held.
+// and fails too, so the list can only shrink when a guard gets held. When only
+// some files are swept (--files, --changed-since), only the entries of those
+// files can be stale: the others were not looked at.
 //
-// Entries are keyed by file, mode, verdict and the mutation text (the line
-// number is left out on purpose: it moves with every edit above it).
+// What mutsweep reaches is the refusals (an if whose body returns, panics or
+// breaks) and the comparisons of their conditions and of for loops. It does not
+// reach a guard in an if-init condition, a non-refusal if, or a comparison in a
+// return statement (go-fleettools/mutate#21): a clean gate says nothing about
+// those, they need a hand-run mutation (special#77 did it for `ylow > 0` and
+// the final `return rel <= jyAcceptJ`).
+//
+// Entries are keyed by file, function, mode, verdict and the mutation text (the
+// line number is left out on purpose: it moves with every edit above it; the
+// function is what stops a generic text such as `a < b` from hiding a new
+// survivor elsewhere in the file). mutsweep does not print the function, so the
+// gate finds it from the source: the declaration that contains the line.
 package main
 
 import (
@@ -29,6 +42,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"os"
 	"os/exec"
@@ -46,6 +62,7 @@ var osExit = os.Exit
 // Finding is one mutation the suite did not hold by an assertion.
 type Finding struct {
 	File    string `json:"file"`
+	Func    string `json:"func"`    // enclosing function, "T.Method" for a method
 	Mode    string `json:"mode"`    // "boundary" or "delete"
 	Verdict string `json:"verdict"` // SURVIVED, HUNG, caught by PANIC, NOT RUN
 	Text    string `json:"text"`    // the mutation as mutsweep prints it, without the line
@@ -54,11 +71,79 @@ type Finding struct {
 }
 
 func (f Finding) key() string {
-	return f.File + "\x00" + f.Mode + "\x00" + f.Verdict + "\x00" + f.Text
+	return f.File + "\x00" + f.Func + "\x00" + f.Mode + "\x00" + f.Verdict + "\x00" + f.Text
 }
 
 func (f Finding) String() string {
-	return fmt.Sprintf("%s %s:%d %s [%s]", f.Verdict, f.File, f.Line, f.Text, f.Mode)
+	return fmt.Sprintf("%s %s:%d (%s) %s [%s]", f.Verdict, f.File, f.Line, f.Func, f.Text, f.Mode)
+}
+
+// FuncAt returns the name of the function declaration of file (in dir) that
+// contains line: "Name", or "Recv.Name" for a method. A line outside every
+// declaration is an error, never an empty name that would match any entry.
+func FuncAt(dir, file string, line int) (string, error) {
+	fset := token.NewFileSet()
+	af, err := parser.ParseFile(fset, filepath.Join(dir, file), nil, 0)
+	if err != nil {
+		return "", err
+	}
+	for _, d := range af.Decls {
+		fd, ok := d.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		if fset.Position(fd.Pos()).Line <= line && line <= fset.Position(fd.End()).Line {
+			name := fd.Name.Name
+			if fd.Recv != nil && len(fd.Recv.List) == 1 {
+				t := fd.Recv.List[0].Type
+				if s, ok := t.(*ast.StarExpr); ok {
+					t = s.X
+				}
+				if ix, ok := t.(*ast.IndexExpr); ok {
+					t = ix.X
+				}
+				if id, ok := t.(*ast.Ident); ok {
+					name = id.Name + "." + name
+				}
+			}
+			return name, nil
+		}
+	}
+	return "", fmt.Errorf("%s:%d is inside no function declaration", file, line)
+}
+
+// resolveFuncs sets the Func of each finding from the source in dir.
+func resolveFuncs(dir string, fs []Finding) error {
+	for i := range fs {
+		fn, err := FuncAt(dir, fs[i].File, fs[i].Line)
+		if err != nil {
+			return err
+		}
+		fs[i].Func = fn
+	}
+	return nil
+}
+
+// ChangedFast returns the *_fast.go files directly in dir that differ between
+// ref and HEAD (deleted files left out), sorted. The runner runs `git diff
+// --name-only --diff-filter=d --relative ref...HEAD` in dir.
+func ChangedFast(ctx context.Context, run Runner, dir, ref string) ([]string, error) {
+	out, exit, err := run(ctx, dir, []string{"diff", "--name-only", "--diff-filter=d", "--relative", ref + "...HEAD"})
+	if err != nil {
+		return nil, err
+	}
+	if exit != 0 {
+		return nil, fmt.Errorf("git diff %s...HEAD exited %d: %s", ref, exit, strings.TrimSpace(string(out)))
+	}
+	var files []string
+	for _, l := range strings.Split(string(out), "\n") {
+		l = strings.TrimSpace(l)
+		if l != "" && !strings.Contains(l, "/") && strings.HasSuffix(l, "_fast.go") {
+			files = append(files, l)
+		}
+	}
+	sort.Strings(files)
+	return files, nil
 }
 
 var (
@@ -121,8 +206,8 @@ func LoadAllowlist(r io.Reader) ([]Finding, error) {
 		return nil, fmt.Errorf("allowlist: %w", err)
 	}
 	for i, e := range l {
-		if e.File == "" || e.Mode == "" || e.Verdict == "" || e.Text == "" {
-			return nil, fmt.Errorf("allowlist entry %d: file, mode, verdict and text are required", i)
+		if e.File == "" || e.Func == "" || e.Mode == "" || e.Verdict == "" || e.Text == "" {
+			return nil, fmt.Errorf("allowlist entry %d: file, func, mode, verdict and text are required", i)
 		}
 		if strings.TrimSpace(e.Reason) == "" {
 			return nil, fmt.Errorf("allowlist entry %d (%s %s): a reason is required", i, e.File, e.Text)
@@ -220,6 +305,19 @@ func Gate(ctx context.Context, run Runner, o Options) (ok bool, err error) {
 	if aerr != nil {
 		return false, aerr
 	}
+	// Only the entries of the files swept can be judged: another file was not
+	// looked at, so its entries are neither used nor stale.
+	swept := map[string]bool{}
+	for _, f := range files {
+		swept[f] = true
+	}
+	var inScope []Finding
+	for _, a := range allow {
+		if swept[a.File] {
+			inScope = append(inScope, a)
+		}
+	}
+	allow = inScope
 	var found []Finding
 	for _, mode := range modes {
 		args := []string{"-dir", ".", "-mutate", mode, "-files", strings.Join(files, ","), "-timeout", o.Timeout.String(), "--"}
@@ -250,6 +348,9 @@ func Gate(ctx context.Context, run Runner, o Options) (ok bool, err error) {
 			return false, errors.New("finding without a file")
 		}
 	}
+	if err := resolveFuncs(o.Dir, found); err != nil {
+		return false, err
+	}
 	unlisted, stale := Judge(found, allow)
 	for _, f := range found {
 		fmt.Fprintf(o.Log, "finding: %s\n", f)
@@ -258,7 +359,7 @@ func Gate(ctx context.Context, run Runner, o Options) (ok bool, err error) {
 		fmt.Fprintf(o.Log, "UNLISTED: %s\n", f)
 	}
 	for _, s := range stale {
-		fmt.Fprintf(o.Log, "STALE allowlist entry (nothing matches it any more, remove it): %s %s [%s] %s\n", s.File, s.Text, s.Mode, s.Verdict)
+		fmt.Fprintf(o.Log, "STALE allowlist entry (nothing matches it any more, remove it): %s (%s) %s [%s] %s\n", s.File, s.Func, s.Text, s.Mode, s.Verdict)
 	}
 	return len(unlisted) == 0 && len(stale) == 0, nil
 }
@@ -268,6 +369,7 @@ func RootCmd() *cobra.Command {
 	o := Options{}
 	var bin string
 	var files, modes []string
+	var changedSince, gitBin string
 	cmd := &cobra.Command{
 		Use:           "mutgate",
 		Short:         "fail on any mutsweep finding the allowlist does not list",
@@ -276,6 +378,22 @@ func RootCmd() *cobra.Command {
 		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			o.Files, o.Modes, o.Log = files, modes, cmd.OutOrStdout()
+			if changedSince != "" {
+				if len(files) > 0 {
+					return errors.New("--changed-since and --files are exclusive")
+				}
+				ch, err := ChangedFast(cmd.Context(), execRunner(gitBin), o.Dir, changedSince)
+				if err != nil {
+					return err
+				}
+				if len(ch) == 0 {
+					// Explicit, not an error: a pull request that touches no
+					// *_fast.go has nothing to sweep (a push to main sweeps all).
+					fmt.Fprintf(cmd.OutOrStdout(), "mutgate: no *_fast.go differs from %s: nothing to sweep\n", changedSince)
+					return nil
+				}
+				o.Files = ch
+			}
 			ok, err := Gate(cmd.Context(), execRunner(bin), o)
 			if err != nil {
 				return err
@@ -292,6 +410,8 @@ func RootCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&o.Timeout, "timeout", 5*time.Minute, "mutsweep -timeout per mutant; mutsweep refuses under 3x the baseline suite")
 	cmd.Flags().StringVar(&bin, "mutsweep", "mutsweep", "the mutsweep binary (v0.8.0 or later)")
 	cmd.Flags().StringSliceVar(&files, "files", nil, "files to sweep (default: every *_fast.go of --dir)")
+	cmd.Flags().StringVar(&changedSince, "changed-since", "", "sweep only the *_fast.go files that differ between this git ref and HEAD (git diff ref...HEAD); for pull requests")
+	cmd.Flags().StringVar(&gitBin, "git", "git", "the git binary of --changed-since")
 	cmd.Flags().StringSliceVar(&modes, "modes", nil, "mutation modes (default: boundary,delete)")
 	cmd.Flags().StringSliceVar(&o.Command, "command", nil, "test command (default: go test -json -count=1 .)")
 	return cmd

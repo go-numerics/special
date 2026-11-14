@@ -239,17 +239,32 @@ package).
 
 `go test ./...` runs the accuracy fixtures (mpmath rows, per-region ULP
 budgets). CI adds the 100% statement-coverage gate, and a **mutation gate** over
-every `*_fast.go`: [mutsweep](https://github.com/go-fleettools/mutate) v0.8.0
-moves each comparison one step (`-mutate boundary`: `<` to `<=`, `>` to `>=`)
-and deletes each refusal in turn, and `tools/mutgate` fails on any survivor,
-hang, or mutation caught only by a runtime panic (a guard held by luck, not by
-an assertion) that `mutation-allowlist.json` does not list with its reason, and
-on a listed entry that nothing matches any more. Locally:
+the `*_fast.go` files: [mutsweep](https://github.com/go-fleettools/mutate) v0.8.0
+moves each comparison of a refusal one step (`-mutate boundary`: `<` to `<=`,
+`>` to `>=`) and deletes each refusal in turn, and `tools/mutgate` fails on any
+survivor, hang, or mutation caught only by a runtime panic (a guard held by
+luck, not by an assertion) that `mutation-allowlist.json` does not list with its
+reason, and on a listed entry that nothing matches any more. Pull requests sweep
+only the `*_fast.go` files they change; pushes to main sweep every file.
+Allowlist entries are keyed by file, function and mutation text.
+
+The gate does not cover every guard. mutsweep reaches refusals (an `if` whose
+body returns, panics or breaks) and the comparisons of their conditions and of
+`for` loops; it does not reach a guard in an `if` init statement, an `if` that
+is not a refusal, or a comparison inside a `return`
+([go-fleettools/mutate#21](https://github.com/go-fleettools/mutate/issues/21)).
+A clean gate says nothing about those; they are held by tests written for them
+and checked by running the mutation by hand (for example `ylow > 0` in
+`ynRecurErr`, `TestYnCertificateBoundNeverNegative`, and the final
+`return rel <= jyAcceptJ` of `jnMiller`, `TestJnMillerFinalComparison`).
+Locally:
 
 ```sh
 go install github.com/go-fleettools/mutate@v0.8.0
 go install github.com/go-fleettools/mutate/mutsweep@v0.8.0
 go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m
+# a pull request's view: only the files that differ from main
+go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m --changed-since origin/main
 ```
 
 ## Portability
