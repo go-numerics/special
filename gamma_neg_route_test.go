@@ -1,6 +1,7 @@
 package special
 
 import (
+	"runtime"
 	"testing"
 	"time"
 )
@@ -16,6 +17,11 @@ import (
 // than gammaNegDD (best of several interleaved rounds, so a loaded machine
 // cannot fail it, only a missing fast path).
 func TestGammaNegTakesTheFastPath(t *testing.T) {
+	if runtime.GOARCH == "386" {
+		// x87 code: the fast path is only 1.1x faster there (measured in CI),
+		// too close to the never-taken mutant to tell apart by time.
+		t.Skip("route is told by time; no margin on 386")
+	}
 	pts := []float64{-0.3, -0.45, -1.5, -2.5, -7.25, -20.5, -33.5, -50.5, -100.5, -150.25, -180.5}
 	const reps = 400
 	var sink float64
