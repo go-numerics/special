@@ -29,14 +29,14 @@ func besselYZeros(m int, lo, hi float64) []float64 {
 		if (fa < 0) != (fx < 0) {
 			l, r := a, x
 			for i := 0; i < 60; i++ {
-				mid := (l + r) / 2
+				mid := float64((l + r) / 2)
 				if (math.Yn(m, mid) < 0) == (fa < 0) {
 					l = mid
 				} else {
 					r = mid
 				}
 			}
-			zs = append(zs, (l+r)/2)
+			zs = append(zs, float64((l+r)/2))
 		}
 		a, fa = x, fx
 	}
@@ -63,7 +63,7 @@ func TestYnCertificateBoundNeverNegative(t *testing.T) {
 				continue
 			}
 			for k := -40; k <= 40; k++ {
-				for _, d := range []float64{float64(k) * 1e-12, float64(k) * 1e-13, float64(k) * 0x1p-45} {
+				for _, d := range []float64{float64(float64(k) * 1e-12), float64(float64(k) * 1e-13), float64(float64(k) * 0x1p-45)} {
 					x := z + d
 					_, e, ok := ynRecurErr(n, x)
 					probed++
@@ -98,7 +98,7 @@ func TestJnMillerFinalComparison(t *testing.T) {
 	defer func() { jnMillerStart = old }()
 	jnMillerStart = func(x float64) (jyPair, jyPair) {
 		j0, j1 := besselJ0Pair(x), besselJ1Pair(x)
-		j0.eb, j1.eb = 0.5*math.Abs(j0.h), 0.5*math.Abs(j1.h) // relative 1/2 >> 2^-51
+		j0.eb, j1.eb = float64(0.5*math.Abs(j0.h)), float64(0.5*math.Abs(j1.h)) // relative 1/2 >> 2^-51
 		return j0, j1
 	}
 	if r, e, ok := jnMiller(n, x); ok {

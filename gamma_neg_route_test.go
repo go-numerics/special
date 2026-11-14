@@ -37,7 +37,10 @@ func TestGammaNegTakesTheFastPath(t *testing.T) {
 	dd := best(gammaNegDD)
 	fast := best(gammaNeg)
 	_ = sink
-	if fast*2 > dd {
-		t.Errorf("gammaNeg %v vs gammaNegDD %v: the certified fast path is not taken (want at least 2x faster)", fast, dd)
+	// Measured: the fast path is 1.7x to 4x faster across architectures
+	// (riscv64 and loong64 under qemu the lowest); the never-taken mutant is
+	// about 0.7x (it pays both). 1.25x separates them.
+	if fast*5 > dd*4 {
+		t.Errorf("gammaNeg %v vs gammaNegDD %v: the certified fast path is not taken (want at least 1.25x faster)", fast, dd)
 	}
 }
