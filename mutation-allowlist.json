@@ -42,16 +42,16 @@
   {"file": "kv_fast.go", "func": "kvAsymPair", "mode": "boundary", "verdict": "SURVIVED", "text": "at > prev  [> to >=]",
    "reason": "Equality of two consecutive computed terms of the series, in absolute value and nonzero, is a coincidence no input reaches; the growth test stops a diverging series, and at equality the series neither converges faster nor slower than one step later. Zero terms (half-integer orders) end the loop at once through done."}
 ,
-  {"file": "i_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "bound <= float64(0x1p-57*math.Abs(uh))  [<= to <]",
+  {"file": "i_fast.go", "func": "ivAsymSum", "mode": "boundary", "verdict": "SURVIVED", "text": "bound <= float64(0x1p-57*math.Abs(uh))  [<= to <]",
    "reason": "Unreachable edge: equality of two computed float64 values is a coincidence. At equality the rounding of the terms is exactly 2^-57 of the sum, the stated limit of the certificate, which the 0.6 ulp bound absorbs. The deletion of the test is held (TestIvFastOracle, the fixtures)."},
-  {"file": "i_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "at <= prev  [<= to <]",
+  {"file": "i_fast.go", "func": "ivAsymSum", "mode": "boundary", "verdict": "SURVIVED", "text": "at <= prev  [<= to <]",
    "reason": "Equality of two consecutive nonzero computed terms of the series is a coincidence no input reaches; the growth test stops a diverging series, and at equality the series neither converges faster nor slower than one step later. Zero terms (half-integer orders) end the loop at once through done."},
-  {"file": "i_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "k <= ivSeriesMaxTerms  [<= to <]",
+  {"file": "i_fast.go", "func": "ivSeriesPair", "mode": "boundary", "verdict": "SURVIVED", "text": "k <= ivSeriesMaxTerms  [<= to <]",
    "reason": "Unreachable edge: where the range guard applies the series ends within 130 terms, and where it does not (x far above 24) the terms are Inf then NaN long before term 400, so the pair is NaN and refused whether the loop stops at 399 or 400. The deletion of the cap is held (TestIvLoopCaps: ivSeriesPair(0.3, 1e300) must return)."},
-  {"file": "i_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "j0 > ivMillerMaxLevel  [> to >=]",
+  {"file": "i_fast.go", "func": "ivStart", "mode": "boundary", "verdict": "SURVIVED", "text": "j0 > ivMillerMaxLevel  [> to >=]",
    "reason": "Equivalent mutant: at j0 = 600 the level that brings the bound below 2^-63 is beyond the table, so ivSolve returns -1 and ivStart declines whether this guard stops it or not (TestIvStartLevels: ivStart(10, 1200) declines). The deletion of the guard, which would index past the table, is held by assertion (TestIvStartLevels, ivStart(10, 2000) recovered)."},
-  {"file": "i_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "N < 0  [< to <=]",
+  {"file": "i_fast.go", "func": "ivStart", "mode": "boundary", "verdict": "SURVIVED", "text": "N < 0  [< to <=]",
    "reason": "Equivalent mutant: ivSolve returns -1 or a level N >= j0 >= 1, never 0, so N <= 0 and N < 0 are the same test. The deletion of the test is held (TestIvStartLevels, ivStart(31, 1190) declines)."},
-  {"file": "i_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "f <= target  [<= to <]",
+  {"file": "i_fast.go", "func": "ivSolve", "mode": "boundary", "verdict": "SURVIVED", "text": "f <= target  [<= to <]",
    "reason": "Unreachable edge: f is a sum of logarithms of a table, equal to the constant target only by coincidence; the target already stands 1e-6 below ln 2^-63 (ivLnTargetN), so a level accepted at equality still has its product below 2^-63. The deletion of the test is held."}
 ]

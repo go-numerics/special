@@ -299,8 +299,9 @@ func ivSolve(j0 int, hx, L, target float64) int {
 			return N
 		}
 		slope := L - (lf[N] - lf[N-1]) - (lf[N+1] - lf[N])
-		step := int(math.Ceil((target - f) / slope))
-		// slope < 0 and f > target: step >= 1
+		// slope < 0 and f > target: the step is at least 1 (the max also ends a
+		// loop whose exit test was removed: N then only grows)
+		step := max(1, int(math.Ceil((target-f)/slope)))
 		N += step
 	}
 	return -1
