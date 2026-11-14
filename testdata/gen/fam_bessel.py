@@ -438,6 +438,75 @@ def kn_edge_cases():
     return c
 
 
+def kv_edge_cases():
+    """Corners of kv_fast.go: small x, x near v, large v (Debye, 32 <= v <=
+    1100), x near the overflow of K_v and the underflow of e^-x, the threshold
+    x = 24 of the large-argument chain, negative v, v next to an integer."""
+    from common import rng
+    r = rng("kv_edge")
+    c = []
+    for v in (2.5, 7.3, 33.5, 100.5, 500.5, 1000.5):
+        for x in (1e-300, 1e-100, 1e-8, 1e-3, 0.05):
+            c.append(("small x", (v, x)))
+    for v in (32.0, 32.5, 50.5, 100.3, 300.7, 1000.2, 1099.9):
+        for x in (v, v * (1 + 1e-9), v * (1 - 1e-9), v + 1e-3, v - 1e-3, v * 1.5, v * 0.7):
+            c.append(("x near v", (v, x)))
+    for v in (31.999, 32.0, 32.0000001, 40.5, 99.9, 500.5, 1000.5, 1099.99, 1100.0):
+        for x in (1.0, 10.0, 100.0, 1000.0, 5000.0, 99999.0):
+            c.append(("large v", (v, x)))
+    for v in (1100.5, 1500.5, 5000.5):
+        for x in (1.0, 100.0, 1e4):
+            c.append(("v above Debye", (v, x)))
+    # the overflow edge of K_v (unscaled), where e^e crosses MaxFloat64, and
+    # the underflow edge (K_v e^x below 2^-1000 and past the smallest subnormal)
+    mx = mp.log(mpf(1.7976931348623157e308))
+    for v in (33.5, 100.5, 500.5, 1000.5):
+        with mp.workprec(200):
+            lo, hi = mpf(1e-3), mpf(5000)
+            for _ in range(70):
+                mid = (lo + hi) / 2
+                if mp.log(kv_mp(float(v), float(mid))) > mx:
+                    lo = mid
+                else:
+                    hi = mid
+            x0 = float(lo)
+        for k in range(-6, 7):
+            c.append(("overflow edge", (v, x0 * (1 + k * 2.0 ** -20) if k else x0)))
+    mn = mp.log(mpf(2.0) ** -1000)
+    for v in (0.3, 5.3, 20.7, 31.9, 33.5, 100.5):
+        with mp.workprec(200):
+            lo, hi = mpf(1), mpf(5000)
+            for _ in range(70):
+                mid = (lo + hi) / 2
+                if mp.log(kv_mp(float(v), float(mid))) > mn:
+                    lo = mid
+                else:
+                    hi = mid
+            x0 = float(lo)
+        for k in range(-6, 7):
+            c.append(("underflow edge", (v, x0 * (1 + k * 2.0 ** -20) if k else x0)))
+    for v in (0.3, 1.5, 1.7, 2.2, 15.5, 31.99):
+        for x in (23.9, 24.0, 24.0 + 2.0 ** -40, 25.0, 30.0):
+            c.append(("x near 24", (v, x)))
+    for v in (2.5, 20.3, 41.5, 300.5):
+        for x in (0.5, 3.0, 30.0, 300.0):
+            c.append(("negative v", (-v, x)))
+    for n in (2, 3, 5, 20, 31, 32, 100):
+        for d in (1e-12, 1e-9, 1e-5, -1e-12, -1e-9, -1e-5):
+            for x in (0.7, 5.0, 24.0, 40.0, 200.0):
+                c.append(("near-integer v", (n + d, x)))
+    for _ in range(40):
+        v = r.uniform(0, 1200)
+        x = math.exp(r.uniform(math.log(1e-2), math.log(5000)))
+        c.append(("random", (v, x)))
+    # roots of the polynomials of the Debye series (review of #78): a computed
+    # term can vanish there while the next one is large
+    for v, x in ((32.5, 3.7595746690511485), (32.5, 62.43318536919962), (1000.0, 816.4965809277256),
+                 (1100.0, 898.1462390204982), (300.0, 576.3063264847694)):
+        c.append(("Debye root", (v, x)))
+    return c
+
+
 def jyn_edge_cases(kind):
     """Corners of the recurrences of jn_yn_fast.go (0 < x < 100): x near the
     transition n ~ x from both sides, next to the zeros of J_n / Y_n (where
@@ -536,6 +605,8 @@ def fixtures():
                        lambda n, x: sc.kn(int(n), x), "K_n(x), n = args[0]"),
         "kn_edge": lambda: (2, kn_edge_cases(), kv_any,
                             lambda n, x: sc.kn(int(n), x), "K_n(x), n = args[0]; corners of kn_fast.go"),
+        "kv_edge": lambda: (2, kv_edge_cases(), kv_any, sc.kv, "K_v(x); corners of kv_fast.go"),
+        "kve_edge": lambda: (2, kv_edge_cases(), kve_any, sc.kve, "K_v(x) e^x; corners of kv_fast.go"),
         "ive": lambda: (2, two_arg_cases("ive", "Ie"), ive_any, sc.ive, "I_v(x) e^-|x|"),
         "kve": lambda: (2, two_arg_cases("kve", "Ke"), kve_any, sc.kve, "K_v(x) e^x"),
         "jn_zeros": lambda: (2, jn_zeros_cases(), jn_zero_mp,
@@ -555,7 +626,7 @@ class _Lazy(dict):
 
 
 FIXTURES = _Lazy(["j0", "j1", "y0", "y1", "i0", "i1", "k0", "k1", "i0e", "i1e", "k0e", "k1e",
-                  "jv", "yv", "jn", "yn", "jn_edge", "yn_edge", "iv", "kv", "kn", "kn_edge", "ive", "kve", "jn_zeros"])
+                  "jv", "yv", "jn", "yn", "jn_edge", "yn_edge", "iv", "kv", "kn", "kn_edge", "kv_edge", "kve_edge", "ive", "kve", "jn_zeros"])
 
 
 # ------------------------------------------------------------- tables (Go)

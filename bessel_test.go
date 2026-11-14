@@ -212,6 +212,35 @@ func init() {
 		"overflow edge":    1.5,
 		"n up to 1024":     1.5,
 	})
+	// the corners of kv_fast.go: Debye (32 <= v <= 1100), the large-argument
+	// chain (x >= 24), the overflow and underflow edges, also where the fast
+	// path declines and besselIK answers
+	register("kv_edge", besselTwo(Kv), map[string]float64{
+		"small x":        3,
+		"x near v":       3,
+		"large v":        3,
+		"v above Debye":  3,
+		"overflow edge":  3,
+		"underflow edge": 3,
+		"x near 24":      3,
+		"negative v":     3.5, // besselIK at small x: 3.3 ulp (v = -2.5, x = 0.5)
+		"near-integer v": 3,
+		"random":         3,
+		"Debye root":     3,
+	})
+	register("kve_edge", besselTwo(Kve), map[string]float64{
+		"small x":        3,
+		"x near v":       3,
+		"large v":        3,
+		"v above Debye":  3,
+		"overflow edge":  3,
+		"underflow edge": 3,
+		"x near 24":      3,
+		"negative v":     3,
+		"near-integer v": 3,
+		"random":         3,
+		"Debye root":     3,
+	})
 	register("ive", besselTwo(Ive), map[string]float64{
 		"special":             6,
 		"small x":             1.5,
