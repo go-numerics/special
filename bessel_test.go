@@ -226,6 +226,7 @@ func init() {
 		"negative v":     3.5, // besselIK at small x: 3.3 ulp (v = -2.5, x = 0.5)
 		"near-integer v": 3,
 		"random":         3,
+		"Debye root":     3,
 	})
 	register("kve_edge", besselTwo(Kve), map[string]float64{
 		"small x":        3,
@@ -238,6 +239,7 @@ func init() {
 		"negative v":     3,
 		"near-integer v": 3,
 		"random":         3,
+		"Debye root":     3,
 	})
 	register("ive", besselTwo(Ive), map[string]float64{
 		"special":             6,

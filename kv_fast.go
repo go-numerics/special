@@ -38,8 +38,10 @@ import (
 //   - the sum: |sum of terms k >= 1| <= 1/(12 v) (U_1(1) = -1/12 is its
 //     largest term) so its float64 rounding is at most 2^-53/(12 * 32) * 17
 //     additions < 2^-57 of the result.
-//   - truncation: the loop stops when a term is below 2^-64 and declines if
-//     k = 16 is reached without. NOT proven: Olver's bound for the remainder
+//   - truncation: the loop stops when max |U_{k+1}|/v^(k+1) is below 2^-64
+//     (a bound over p in [0, 1], never the computed term, which can vanish at
+//     a root of U_k) and declines if k = 16 is reached without. NOT proven:
+//     the terms beyond k+1 are taken to be smaller still, and Olver's bound for the remainder
 //     (Olver 1997, Asymptotics and Special Functions, pp. 374-378, cited by
 //     DLMF 10.41(iii)) was not opened. What stands in place of it: max |U_k|
 //     on [0,1] (go run ./testdata/gen/kvdebye -report) puts the first
@@ -144,23 +146,29 @@ func kvDebye(v, x float64, scaled bool) (float64, bool) {
 }
 
 // kvDebyeTail returns the sum of the terms k >= 1 of the Debye series, the
-// index of the last one added, and whether it fell below 2^-64.
+// index of the last one added, and whether the first neglected term is below
+// 2^-64. That is decided by max |U_{k+1}| / v^(k+1) (kvDebyeMaxU), a bound
+// that does not depend on p: stopping on a computed term is wrong, because
+// U_k(p) has roots in (0, 1) and the term k can be small by accident while
+// the term k+1 is not (Kv(32.5, 3.76), Kv(1000, 816.5): up to 1e9 ulp).
 func kvDebyeTail(v, S float64) (s float64, last int, done bool) {
 	invS := 1 / S
+	invV := 1 / v
 	q := float64(v / S)
 	q = float64(q * q)
 	pw := 1.0
+	vk := 1.0 // v^-k
 	for kk := 1; kk <= kvDebyeTerms; kk++ {
 		pw = float64(-pw * invS)
+		vk = float64(vk * invV)
 		cs := &kvDebyeU[kk-1]
 		h := cs[kk]
 		for j := kk - 1; j >= 0; j-- {
 			h = math.FMA(h, q, cs[j])
 		}
-		t := float64(pw * h)
-		s += t
+		s += float64(pw * h)
 		last = kk
-		if math.Abs(t) < 0x1p-64 {
+		if float64(kvDebyeMaxU[kk+1]*float64(vk*invV)) < 0x1p-64 {
 			return s, last, true
 		}
 	}

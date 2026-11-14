@@ -499,6 +499,11 @@ def kv_edge_cases():
         v = r.uniform(0, 1200)
         x = math.exp(r.uniform(math.log(1e-2), math.log(5000)))
         c.append(("random", (v, x)))
+    # roots of the polynomials of the Debye series (review of #78): a computed
+    # term can vanish there while the next one is large
+    for v, x in ((32.5, 3.7595746690511485), (32.5, 62.43318536919962), (1000.0, 816.4965809277256),
+                 (1100.0, 898.1462390204982), (300.0, 576.3063264847694)):
+        c.append(("Debye root", (v, x)))
     return c
 
 

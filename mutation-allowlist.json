@@ -37,8 +37,8 @@
    "reason": "Equivalent mutant: at k = -1021 the normal branch eh*pow2(k) is exact and math.Ldexp(eh, k) is exact too (the result is normal), so both return the same bits."},
   {"file": "gamma_fast.go", "mode": "delete", "verdict": "SURVIVED", "text": "k >= -1021",
    "reason": "Equivalent mutant: the subnormal branch math.Ldexp(eh, k) is the reference's own rounding and, for a normal result, exact, so it returns the same bits as eh*pow2(k) for every k >= -1021."},
-  {"file": "kv_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "math.Abs(t) < 0x1p-64  [< to <=]",
-   "reason": "Unreachable edge: a computed term equal to the stopping tolerance 2^-64 exactly is a coincidence, and at equality the neglected remainder is that tolerance itself, which the stated bound already contains."},
+  {"file": "kv_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "float64(kvDebyeMaxU[kk+1]*float64(vk*invV)) < 0x1p-64  [< to <=]",
+   "reason": "Unreachable edge: the bound max|U_(k+1)|/v^(k+1), a computed float64 that does not depend on p, equal to the tolerance 2^-64 exactly is a coincidence. At equality the bound on the first neglected term is 2^-64 itself, which is the tolerance the stated bound contains. (The rule stops on this bound, never on a computed term: a term vanishes at a root of its polynomial, TestKvDebyeRootRows and TestKvDebyeRootSweep.)"},
   {"file": "kv_fast.go", "mode": "boundary", "verdict": "SURVIVED", "text": "at > prev  [> to >=]",
    "reason": "Equality of two consecutive computed terms of the series, in absolute value and nonzero, is a coincidence no input reaches; the growth test stops a diverging series, and at equality the series neither converges faster nor slower than one step later. Zero terms (half-integer orders) end the loop at once through done."}
 ]

@@ -48,6 +48,26 @@ func next(u poly) poly {
 	return n
 }
 
+// maxAbs is max |U(p)| over 20001 points of [0, 1], in 200-bit arithmetic.
+func maxAbs(u poly) float64 {
+	mx := 0.0
+	for i := 0; i <= 20000; i++ {
+		p := new(big.Float).SetPrec(200).Quo(big.NewFloat(float64(i)), big.NewFloat(20000))
+		s := new(big.Float).SetPrec(200)
+		for e, c := range u {
+			pw := new(big.Float).SetPrec(200).SetInt64(1)
+			for j := 0; j < e; j++ {
+				pw.Mul(pw, p)
+			}
+			cf := new(big.Float).SetPrec(200).SetRat(c)
+			s.Add(s, cf.Mul(cf, pw))
+		}
+		f, _ := s.Float64()
+		mx = math.Max(mx, math.Abs(f))
+	}
+	return mx
+}
+
 func main() {
 	report := flag.Bool("report", false, "print the size of U_k instead of the table")
 	flag.Parse()
@@ -57,16 +77,7 @@ func main() {
 	}
 	if *report {
 		for k := 1; k <= kvDebyeMax; k++ {
-			mx := 0.0
-			for i := 0; i <= 2000; i++ {
-				p := float64(i) / 2000
-				s := 0.0
-				for e, c := range us[k] {
-					f, _ := c.Float64()
-					s += f * math.Pow(p, float64(e))
-				}
-				mx = math.Max(mx, math.Abs(s))
-			}
+			mx := maxAbs(us[k])
 			fmt.Printf("k=%2d max|U_k|=%.3e  v for 2^-64: %.1f\n", k, mx, math.Pow(mx*0x1p64, 1/float64(k)))
 		}
 		return
@@ -94,6 +105,16 @@ func main() {
 			fmt.Fprintf(w, "%v", f)
 		}
 		fmt.Fprintln(w, "},")
+	}
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "// kvDebyeMaxU[k] bounds max |U_k(p)| on [0, 1] (k = 0 .. 17): the maximum over")
+	fmt.Fprintln(w, "// 20001 points of [0, 1] in 200-bit arithmetic, times 1.1 (U_k varies by at")
+	fmt.Fprintln(w, "// well under 10% between grid points). The stopping rule of kvDebyeTail uses")
+	fmt.Fprintln(w, "// it: a bound on the neglected term that does not depend on p.")
+	fmt.Fprintf(w, "var kvDebyeMaxU = [%d]float64{1", kvDebyeOut+2)
+	for k := 1; k <= kvDebyeOut+1; k++ {
+		fmt.Fprintf(w, ", %v", 1.1*maxAbs(us[k]))
 	}
 	fmt.Fprintln(w, "}")
 	for k := 1; k <= kvDebyeMax; k++ {

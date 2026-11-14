@@ -388,3 +388,113 @@ func TestKvAsymTermCount(t *testing.T) {
 	}
 	t.Logf("most terms needed: %d", worst)
 }
+
+// TestKvDebyeRootRows: the five inputs of the review of #78, where a computed
+// Debye term vanished at a root of its polynomial and the series was cut with
+// the next term large (1e6 to 1e9 ulp). The oracle values are the reviewer's
+// 320-bit math/big integral (DLMF 10.32.9); the mpmath rows of kv_edge and
+// kve_edge ("Debye root") agree with them to the digits printed.
+func TestKvDebyeRootRows(t *testing.T) {
+	for _, c := range []struct{ v, x, want float64 }{
+		{32.5, 3.7595746690511485, 2.5568658466827499e25},
+		{32.5, 62.43318536919962, 4.5312826440384596e-25},
+		{1000, 816.4965809277256, 8.7196463727184022e-115},
+		{1100, 898.1462390204982, 0}, // no printed oracle: the mpmath row below
+		{300, 576.3063264847694, 0},
+	} {
+		got := Kv(c.v, c.x)
+		if c.want != 0 {
+			if d := math.Abs(got-c.want) / ulp(c.want); d > 1.5 {
+				t.Errorf("Kv(%g, %g) = %.17g, oracle %.17g: %.2g ulp", c.v, c.x, got, c.want, d)
+			}
+		}
+	}
+	n := 0
+	for _, scaled := range []bool{false, true} {
+		for _, r := range kvFixtureRows(t, scaled) {
+			if r.region != "Debye root" {
+				continue
+			}
+			n++
+			got := Kv(r.args[0], r.args[1])
+			if scaled {
+				got = Kve(r.args[0], r.args[1])
+			}
+			if e := ulpErr(got, r.hi, r.lo); e > kvFastBound {
+				t.Errorf("scaled=%v Kv(%g, %g) = %.17g: %.3g ulp from mpmath", scaled, r.args[0], r.args[1], got, e)
+			}
+		}
+	}
+	if n != 10 {
+		t.Errorf("%d Debye root rows, want 10", n)
+	}
+}
+
+// TestKvDebyeRootSweep: dense near the roots in (0, 1) of H_k(p^2), the
+// polynomial factor of U_k, k = 1..6, at v = 32.5, 300 and 1100, on both sides
+// of each root, against besselIK.
+func TestKvDebyeRootSweep(t *testing.T) {
+	var roots []float64
+	for k := 1; k <= 6; k++ {
+		h := func(q float64) float64 {
+			s := 0.0
+			for j := k; j >= 0; j-- {
+				s = math.FMA(s, q, kvDebyeU[k-1][j])
+			}
+			return s
+		}
+		prev := h(0)
+		for i := 1; i <= 20000; i++ {
+			a, b := float64(i-1)/20000, float64(i)/20000
+			cur := h(b)
+			if (prev < 0) != (cur < 0) {
+				for it := 0; it < 100; it++ {
+					m := a + float64((b-a)/2)
+					if (h(m) < 0) == (prev < 0) {
+						a = m
+					} else {
+						b = m
+					}
+				}
+				roots = append(roots, a)
+			}
+			prev = cur
+		}
+	}
+	if len(roots) < 6 {
+		t.Fatalf("only %d roots found", len(roots))
+	}
+	compared, worst := 0, 0.0
+	for _, r := range roots {
+		for _, v := range []float64{32.5, 300, 1100} {
+			for _, d := range []float64{0, 1e-12, -1e-12, 1e-9, -1e-9, 1e-6, -1e-6, 1e-4, -1e-4, 1e-3, -1e-3} {
+				q := r + d
+				if !(q > 0 && q < 1) {
+					continue
+				}
+				x := float64(v * math.Sqrt(1/q-1))
+				for _, scaled := range []bool{false, true} {
+					got, ok := kvDebye(v, x, scaled)
+					if !ok {
+						continue
+					}
+					_, want := besselIK(v, x, false, true, scaled)
+					if want == 0 || math.IsInf(want, 0) || math.Abs(want) < 0x1p-1000 {
+						continue
+					}
+					compared++
+					if e := math.Abs(got-want) / ulp(want); e > worst {
+						worst = e
+					}
+				}
+			}
+		}
+	}
+	t.Logf("%d roots, %d points compared, worst %.2f ulp from besselIK", len(roots), compared, worst)
+	if compared < 100 {
+		t.Errorf("only %d points compared", compared)
+	}
+	if worst > 3.5 {
+		t.Errorf("kvDebye is %.2f ulp from besselIK near the roots", worst)
+	}
+}
