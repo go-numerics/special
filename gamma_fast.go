@@ -194,5 +194,10 @@ func gammaNeg(x float64) float64 {
 	if ok {
 		return v
 	}
-	return gammaNegDD(x)
+	return gammaNegSlow(x)
 }
+
+// gammaNegSlow is the double-double fallback of gammaNeg, a variable so that a
+// test can replace it with a function that returns NaN and so tell, with no
+// timing, that a certified point never reaches it (TestGammaNegTakesTheFastPath).
+var gammaNegSlow = gammaNegDD
