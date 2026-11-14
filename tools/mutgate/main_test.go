@@ -219,20 +219,38 @@ func TestFuncAt(t *testing.T) {
 func TestChangedFast(t *testing.T) {
 	run := func(out string, exit int) Runner {
 		return func(_ context.Context, _ string, args []string) ([]byte, int, error) {
-			if strings.Join(args, " ") != "diff --name-only --diff-filter=d --relative main...HEAD" {
+			if strings.Join(args, " ") != "diff --name-only --relative main...HEAD" {
 				t.Errorf("git args %v", args)
 			}
 			return []byte(out), exit, nil
 		}
 	}
-	got, err := ChangedFast(context.Background(), run("README.md\nkv_fast.go\nsub/x_fast.go\nkv_fast_test.go\nbinom_fast.go\n", 0), ".", "main")
-	if err != nil || strings.Join(got, ",") != "binom_fast.go,kv_fast.go" {
-		t.Errorf("got %v, %v", got, err)
+	d := fixture(t, `[]`, "kv_fast.go", "binom_fast.go").Dir
+	ctx := context.Background()
+	// Only *_fast.go files (and documents, and other directories) changed:
+	// those files alone.
+	got, all, err := ChangedFast(ctx, run("README.md\nkv_fast.go\nsub/x_fast.go\ndocs/a.txt\nbinom_fast.go\n", 0), d, "main")
+	if err != nil || all || strings.Join(got, ",") != "binom_fast.go,kv_fast.go" {
+		t.Errorf("only fast files: %v, %v, %v", got, all, err)
 	}
-	if got, err := ChangedFast(context.Background(), run("", 0), ".", "main"); err != nil || len(got) != 0 {
-		t.Errorf("none changed: %v, %v", got, err)
+	if got, all, err := ChangedFast(ctx, run("", 0), d, "main"); err != nil || all || len(got) != 0 {
+		t.Errorf("none changed: %v, %v, %v", got, all, err)
 	}
-	if _, err := ChangedFast(context.Background(), run("fatal: bad revision", 128), ".", "main"); err == nil {
+	// Anything else that the sweep can feel: every file is swept.
+	for _, c := range []string{
+		"kv_fast.go\nkv_fast_test.go\n", // a deleted or changed test
+		"gamma.go\n",
+		"mutation-allowlist.json\n",
+		"go.mod\n",
+		"tools/mutgate/main.go\n",
+		".github/workflows/ci.yml\n",
+		"gone_fast.go\n", // a deleted *_fast.go: its entries go stale
+	} {
+		if got, all, err := ChangedFast(ctx, run(c, 0), d, "main"); err != nil || !all || got != nil {
+			t.Errorf("%q: %v, %v, %v: want every file", c, got, all, err)
+		}
+	}
+	if _, _, err := ChangedFast(ctx, run("fatal: bad revision", 128), d, "main"); err == nil {
 		t.Error("a failing git must be an error, not an empty list")
 	}
 }
@@ -253,6 +271,16 @@ func TestRootCmdChangedSince(t *testing.T) {
 	cmd.SetArgs([]string{"-C", t.TempDir(), "--changed-since", "main", "--git", "false"})
 	if err := cmd.Execute(); err == nil {
 		t.Error("a failing git must be an error")
+	}
+	// a git whose output is a non-document file ("echo" prints its arguments):
+	// every file is swept, said out loud (the empty directory then fails)
+	cmd = RootCmd()
+	out.Reset()
+	cmd.SetOut(&out)
+	cmd.SetErr(&errb)
+	cmd.SetArgs([]string{"-C", t.TempDir(), "--changed-since", "main", "--git", "echo"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(out.String(), "sweeping every") {
+		t.Errorf("other file changed: %v %q", err, out.String())
 	}
 	// a git that lists nothing: nothing to sweep, said out loud, success
 	cmd = RootCmd()

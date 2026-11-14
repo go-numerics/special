@@ -124,26 +124,45 @@ func resolveFuncs(dir string, fs []Finding) error {
 	return nil
 }
 
-// ChangedFast returns the *_fast.go files directly in dir that differ between
-// ref and HEAD (deleted files left out), sorted. The runner runs `git diff
-// --name-only --diff-filter=d --relative ref...HEAD` in dir.
-func ChangedFast(ctx context.Context, run Runner, dir, ref string) ([]string, error) {
-	out, exit, err := run(ctx, dir, []string{"diff", "--name-only", "--diff-filter=d", "--relative", ref + "...HEAD"})
+// ChangedFast says what a pull request must sweep, from the files that differ
+// between ref and HEAD (deletions included, the runner runs `git diff
+// --name-only --relative ref...HEAD` in dir). all is true when anything but a
+// *_fast.go or a document changed where the sweep can feel it: any other
+// non-document file in the package root (tests, the other sources, the
+// allowlist, go.mod), tools/mutgate, .github/workflows, or a *_fast.go that no
+// longer exists (its entries would go stale). Otherwise files holds the changed
+// *_fast.go files, sorted: nothing to sweep when it is empty too.
+func ChangedFast(ctx context.Context, run Runner, dir, ref string) (files []string, all bool, err error) {
+	out, exit, err := run(ctx, dir, []string{"diff", "--name-only", "--relative", ref + "...HEAD"})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if exit != 0 {
-		return nil, fmt.Errorf("git diff %s...HEAD exited %d: %s", ref, exit, strings.TrimSpace(string(out)))
+		return nil, false, fmt.Errorf("git diff %s...HEAD exited %d: %s", ref, exit, strings.TrimSpace(string(out)))
 	}
-	var files []string
 	for _, l := range strings.Split(string(out), "\n") {
 		l = strings.TrimSpace(l)
-		if l != "" && !strings.Contains(l, "/") && strings.HasSuffix(l, "_fast.go") {
-			files = append(files, l)
+		switch {
+		case l == "":
+		case strings.HasPrefix(l, "tools/mutgate/"), strings.HasPrefix(l, ".github/workflows/"):
+			all = true
+		case strings.Contains(l, "/"), strings.HasSuffix(l, ".md"):
+			// another directory, or a document
+		case strings.HasSuffix(l, "_fast.go"):
+			if _, serr := os.Stat(filepath.Join(dir, l)); serr != nil {
+				all = true
+			} else {
+				files = append(files, l)
+			}
+		default:
+			all = true
 		}
 	}
+	if all {
+		return nil, true, nil
+	}
 	sort.Strings(files)
-	return files, nil
+	return files, false, nil
 }
 
 var (
@@ -382,11 +401,13 @@ func RootCmd() *cobra.Command {
 				if len(files) > 0 {
 					return errors.New("--changed-since and --files are exclusive")
 				}
-				ch, err := ChangedFast(cmd.Context(), execRunner(gitBin), o.Dir, changedSince)
+				ch, all, err := ChangedFast(cmd.Context(), execRunner(gitBin), o.Dir, changedSince)
 				if err != nil {
 					return err
 				}
-				if len(ch) == 0 {
+				if all {
+					fmt.Fprintf(cmd.OutOrStdout(), "mutgate: a file other than a *_fast.go or a document differs from %s: sweeping every *_fast.go\n", changedSince)
+				} else if len(ch) == 0 {
 					// Explicit, not an error: a pull request that touches no
 					// *_fast.go has nothing to sweep (a push to main sweeps all).
 					fmt.Fprintf(cmd.OutOrStdout(), "mutgate: no *_fast.go differs from %s: nothing to sweep\n", changedSince)

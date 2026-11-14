@@ -87,21 +87,19 @@ func TestYnCertificateBoundNeverNegative(t *testing.T) {
 // start pair of J_0 whose error is large makes rel exceed jyAcceptJ, and the
 // value must be declined. No (n, x) in range gets there by itself (the chain
 // overflows first for the n that would), so the start pair is handed in
-// through jnMillerStart; the unmodified pair must still be accepted, which
+// through jnMillerWith; the unmodified pair must still be accepted, which
 // keeps the test from passing on a function that always declines.
 func TestJnMillerFinalComparison(t *testing.T) {
 	const n, x = 5, 3.0
 	if _, _, ok := jnMiller(n, x); !ok {
 		t.Fatal("jnMiller(5, 3) declines with the true start pair")
 	}
-	old := jnMillerStart
-	defer func() { jnMillerStart = old }()
-	jnMillerStart = func(x float64) (jyPair, jyPair) {
+	bad := func(x float64) (jyPair, jyPair) {
 		j0, j1 := besselJ0Pair(x), besselJ1Pair(x)
 		j0.eb, j1.eb = float64(0.5*math.Abs(j0.h)), float64(0.5*math.Abs(j1.h)) // relative 1/2 >> 2^-51
 		return j0, j1
 	}
-	if r, e, ok := jnMiller(n, x); ok {
+	if r, e, ok := jnMillerWith(n, x, bad); ok {
 		t.Errorf("jnMiller(5, 3) accepts a start error of 1/2 of the value: r = %g, e = %g", r, e)
 	}
 }

@@ -244,8 +244,11 @@ moves each comparison of a refusal one step (`-mutate boundary`: `<` to `<=`,
 `>` to `>=`) and deletes each refusal in turn, and `tools/mutgate` fails on any
 survivor, hang, or mutation caught only by a runtime panic (a guard held by
 luck, not by an assertion) that `mutation-allowlist.json` does not list with its
-reason, and on a listed entry that nothing matches any more. Pull requests sweep
-only the `*_fast.go` files they change; pushes to main sweep every file.
+reason, and on a listed entry that nothing matches any more. A pull request that
+changes only `*_fast.go` files (and documents) sweeps just those; one that
+changes anything else in the package root (tests, other sources, the allowlist),
+`tools/mutgate` or `.github/workflows` sweeps every file, and so does every push
+to main.
 Allowlist entries are keyed by file, function and mutation text.
 
 The gate does not cover every guard. mutsweep reaches refusals (an `if` whose
@@ -257,6 +260,13 @@ A clean gate says nothing about those; they are held by tests written for them
 and checked by running the mutation by hand (for example `ylow > 0` in
 `ynRecurErr`, `TestYnCertificateBoundNeverNegative`, and the final
 `return rel <= jyAcceptJ` of `jnMiller`, `TestJnMillerFinalComparison`).
+Six deletions are reported "not a mutant" because the mutated file does not
+compile, so the gate never tests them: `kv_fast.go:136` (`if !done`), `:219`
+(`if at > prev`) and `:240` (`if !(ok0 && ok1)`), `binom_fast.go:136`
+(`if !ok`), `gamma_fast.go:158` (the `zivRound` refusal) and `:194` (`if ok`
+in `gammaNeg`). Only the last is verified: `TestGammaNegTakesTheFastPath` holds
+it (the fallback is stubbed to return NaN). For the other five nothing is known
+to hold them; it is unverified.
 Locally:
 
 ```sh
