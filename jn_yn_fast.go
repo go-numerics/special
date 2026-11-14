@@ -357,6 +357,16 @@ func jnUp(n int, x float64) (r, e float64, ok bool) {
 // directly (the result is proportional to it), and the roundings of the
 // steps at most n (pi x / 2) 2^-96 of the result.
 func jnMiller(n int, x float64) (r, e float64, ok bool) {
+	return jnMillerWith(n, x, func(x float64) (jyPair, jyPair) {
+		return besselJ0Pair(x), besselJ1Pair(x)
+	})
+}
+
+// jnMillerWith is jnMiller with the start pairs of J_0 and J_1 given by start
+// (evaluated late, only when the chain gets that far), so that a test can hand
+// it a pair with a large error: no (n, x) in range reaches the final comparison
+// with rel above jyAcceptJ, so the comparison could not otherwise be held.
+func jnMillerWith(n int, x float64, start func(float64) (jyPair, jyPair)) (r, e float64, ok bool) {
 	if n < 2 || !(x >= jyFastMinX && x < jyFastMaxX && float64(n) > x) {
 		return 0, 0, false
 	}
@@ -406,7 +416,7 @@ func jnMiller(n int, x float64) (r, e float64, ok bool) {
 		}
 	}
 	// now (h0, l0) = J_1^rec, (h1, l1) = J_0^rec
-	j0, j1 := besselJ0Pair(x), besselJ1Pair(x)
+	j0, j1 := start(x)
 	t, rh, rl := j0, h1, l1
 	if math.Abs(j1.h) > math.Abs(j0.h) {
 		t, rh, rl = j1, h0, l0
