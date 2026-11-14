@@ -65,11 +65,13 @@ import (
 // K_{w-1} + (2w/x) K_w), normalised by I_u e^-x: I_{u+n} e^-x = I_u e^-x
 // r_n/r_0. All of r is positive, so no step cancels, and the step adds two
 // positive terms: the errors of the steps are those of the "dd-light" chain of
-// kn_fast.go. The truncation is certified a priori. The computed r is r_k =
-// a (I_k K_{N+1} - K_k I_{N+1}) (order u+k; the two solutions of the
-// recurrence that vanish at N+1), so r_k = a I_k (1 - e_k) with
+// kn_fast.go. The truncation is certified a priori. The two solutions of the
+// recurrence are I_k and (-1)^k K_k (order u+k; K satisfies the same law with
+// the opposite sign of the middle term), so the computed r, which vanishes at
+// N+1, is r_k = a I_k (1 - e_k) with e_k = (-1)^(N+1-k) |e_k| alternating in
+// sign and
 //
-//	e_k = K_k I_{N+1} / (I_k K_{N+1}) = prod_{j=k}^{N} (I_{j+1}/I_j) (K_j/K_{j+1}),
+//	|e_k| = K_k I_{N+1} / (I_k K_{N+1}) = prod_{j=k}^{N} (I_{j+1}/I_j) (K_j/K_{j+1}),
 //
 // and by DLMF 10.37 (opened 2026-11-14: I_nu(x) decreasing and K_nu(x)
 // increasing in the order nu >= 0 at fixed x > 0) every factor is at most 1;
@@ -77,11 +79,12 @@ import (
 // by DLMF 10.29.1 K_{w+1} >= (2w/x) K_w, so K_w/K_{w+1} <= x/(2w). With
 // g_j = min(1, x/(2j)) (j >= 1, a bound over the order u + j >= j):
 //
-//	e_n <= P(n, N) = prod_{j=n}^{N} g_j g_{j+1},
+//	|e_n| <= P(n, N) = prod_{j=n}^{N} g_j g_{j+1},
 //
-// e_0 <= e_n, and the ratio r_n/r_0 = (I_n/I_0)(1-e_n)/(1-e_0) is within
-// e_n/(1-e_n) of the truth. ivStart finds the least N with P <= 2^-63. The
-// levels above J (the first level where P <= 2^-24) run in plain float64: a
+// |e_0| <= |e_n|, and since the signs of e_0 and e_n may differ, the ratio
+// r_n/r_0 = (I_n/I_0)(1-e_n)/(1-e_0) is within (|e_n| + |e_0|)/(1-|e_0|)
+// <= 2P/(1-P) of the truth (about 2^-62 for P <= 2^-63). ivStart finds the
+// least N with P <= 2^-63. The levels above J (the first level where P <= 2^-24) run in plain float64: a
 // relative rounding d there moves the answer by at most d P(n, J), and there
 // are at most N - J of them: (N - J) 4 2^-53 2^-24 < 2^-62 for N - J < 512.
 // The base I_u e^-x is the pair of the I0e octave table (u = 0, x in [1/8,
@@ -90,7 +93,8 @@ import (
 // path declines.
 //
 // Total: 0.5 ulp rounding + 2^-58 (the base, the Debye sums, the
-// asymptotic pair) + 2^-62 (the certificates) + 2^-76 for the exponential:
+// asymptotic pair) + 2^-61 (the certificates: 2^-62 truncation, 2^-62
+// float64 levels) + 2^-76 for the exponential:
 // below 0.56 ulp for Paths 1 and 3, 0.6 for Path 2 (the 2^-57 allowed to its
 // float64 terms); TestIvFastFixture bounds every row at ivFastBound.
 const (
