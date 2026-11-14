@@ -127,9 +127,9 @@ func resolveFuncs(dir string, fs []Finding) error {
 // ChangedFast says what a pull request must sweep, from the files that differ
 // between ref and HEAD (deletions included, the runner runs `git diff
 // --name-only --relative ref...HEAD` in dir). all is true when anything but a
-// *_fast.go or a document changed where the sweep can feel it: any other
-// non-document file in the package root (tests, the other sources, the
-// allowlist, go.mod), tools/mutgate, .github/workflows, or a *_fast.go that no
+// document (docs/ or *.md) or a root *_fast.go changed: tests, the other
+// sources, testdata/, dd/, internal/, go.mod and go.sum, the allowlist,
+// tools/mutgate, .github/workflows, any other path, or a *_fast.go that no
 // longer exists (its entries would go stale). Otherwise files holds the changed
 // *_fast.go files, sorted: nothing to sweep when it is empty too.
 func ChangedFast(ctx context.Context, run Runner, dir, ref string) (files []string, all bool, err error) {
@@ -144,11 +144,9 @@ func ChangedFast(ctx context.Context, run Runner, dir, ref string) (files []stri
 		l = strings.TrimSpace(l)
 		switch {
 		case l == "":
-		case strings.HasPrefix(l, "tools/mutgate/"), strings.HasPrefix(l, ".github/workflows/"):
-			all = true
-		case strings.Contains(l, "/"), strings.HasSuffix(l, ".md"):
-			// another directory, or a document
-		case strings.HasSuffix(l, "_fast.go"):
+		case strings.HasPrefix(l, "docs/"), strings.HasSuffix(l, ".md"):
+			// a document: nothing to sweep
+		case !strings.Contains(l, "/") && strings.HasSuffix(l, "_fast.go"):
 			if _, serr := os.Stat(filepath.Join(dir, l)); serr != nil {
 				all = true
 			} else {

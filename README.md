@@ -246,9 +246,9 @@ survivor, hang, or mutation caught only by a runtime panic (a guard held by
 luck, not by an assertion) that `mutation-allowlist.json` does not list with its
 reason, and on a listed entry that nothing matches any more. A pull request that
 changes only `*_fast.go` files (and documents) sweeps just those; one that
-changes anything else in the package root (tests, other sources, the allowlist),
-`tools/mutgate` or `.github/workflows` sweeps every file, and so does every push
-to main.
+changes anything else (tests, other sources, `testdata/`, `dd/`, `internal/`,
+`go.mod`, the allowlist, `tools/mutgate`, `.github/workflows`) sweeps every file,
+and so does every push to main; one that changes only documents sweeps nothing.
 Allowlist entries are keyed by file, function and mutation text.
 
 The gate does not cover every guard. mutsweep reaches refusals (an `if` whose

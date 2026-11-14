@@ -229,12 +229,16 @@ func TestChangedFast(t *testing.T) {
 	ctx := context.Background()
 	// Only *_fast.go files (and documents, and other directories) changed:
 	// those files alone.
-	got, all, err := ChangedFast(ctx, run("README.md\nkv_fast.go\nsub/x_fast.go\ndocs/a.txt\nbinom_fast.go\n", 0), d, "main")
+	got, all, err := ChangedFast(ctx, run("README.md\nkv_fast.go\ndocs/a.txt\nbinom_fast.go\n", 0), d, "main")
 	if err != nil || all || strings.Join(got, ",") != "binom_fast.go,kv_fast.go" {
 		t.Errorf("only fast files: %v, %v, %v", got, all, err)
 	}
 	if got, all, err := ChangedFast(ctx, run("", 0), d, "main"); err != nil || all || len(got) != 0 {
 		t.Errorf("none changed: %v, %v, %v", got, all, err)
+	}
+	// Documents only: nothing to sweep.
+	if got, all, err := ChangedFast(ctx, run("README.md\ndocs/accuracy.md\ndocs/fig.png\n", 0), d, "main"); err != nil || all || len(got) != 0 {
+		t.Errorf("docs only: %v, %v, %v", got, all, err)
 	}
 	// Anything else that the sweep can feel: every file is swept.
 	for _, c := range []string{
@@ -242,6 +246,11 @@ func TestChangedFast(t *testing.T) {
 		"gamma.go\n",
 		"mutation-allowlist.json\n",
 		"go.mod\n",
+		"go.sum\n",
+		"testdata/jn_edge.tsv.gz\n",
+		"dd/dd.go\n",
+		"internal/libm/exp.go\n",
+		"kv_fast.go\nsub/x_fast.go\n", // a *_fast.go of another directory is not a root one
 		"tools/mutgate/main.go\n",
 		".github/workflows/ci.yml\n",
 		"gone_fast.go\n", // a deleted *_fast.go: its entries go stale
