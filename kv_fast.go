@@ -132,7 +132,7 @@ func kvDebye(v, x float64, scaled bool) (float64, bool) {
 	}
 	m, k := dd.ExpMant(e)
 	c := dd.Sqrt(dd.Div(besselPiOver2DD, S))
-	s, _, done := kvDebyeTail(v, S.Hi)
+	s, _, done := kvDebyeTail(v, S.Hi, -1)
 	if !done {
 		return 0, false
 	}
@@ -145,13 +145,14 @@ func kvDebye(v, x float64, scaled bool) (float64, bool) {
 	return math.Ldexp(p.Hi+p.Lo, k), true
 }
 
-// kvDebyeTail returns the sum of the terms k >= 1 of the Debye series, the
+// kvDebyeTail returns the sum of the terms k >= 1 of the Debye series (sign -1
+// for K, (-1)^k U_k; +1 for I, U_k: ivDebye), the
 // index of the last one added, and whether the first neglected term is below
 // 2^-64. That is decided by max |U_{k+1}| / v^(k+1) (kvDebyeMaxU), a bound
 // that does not depend on p: stopping on a computed term is wrong, because
 // U_k(p) has roots in (0, 1) and the term k can be small by accident while
 // the term k+1 is not (Kv(32.5, 3.76), Kv(1000, 816.5): up to 1e9 ulp).
-func kvDebyeTail(v, S float64) (s float64, last int, done bool) {
+func kvDebyeTail(v, S, sign float64) (s float64, last int, done bool) {
 	invS := 1 / S
 	invV := 1 / v
 	q := float64(v / S)
@@ -159,7 +160,7 @@ func kvDebyeTail(v, S float64) (s float64, last int, done bool) {
 	pw := 1.0
 	vk := 1.0 // v^-k
 	for kk := 1; kk <= kvDebyeTerms; kk++ {
-		pw = float64(-pw * invS)
+		pw = float64(pw * float64(sign*invS))
 		vk = float64(vk * invV)
 		cs := &kvDebyeU[kk-1]
 		h := cs[kk]
