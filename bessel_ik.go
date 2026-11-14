@@ -705,6 +705,11 @@ func Iv(v, x float64) float64 {
 			return float64(sign * I1(x))
 		}
 	}
+	if v > 0 {
+		if r, ok := ivFast(v, x, false); ok {
+			return float64(sign * r)
+		}
+	}
 	i, _ := besselIK(v, x, true, false, false)
 	return float64(sign * i)
 }
@@ -731,6 +736,11 @@ func Ive(v, x float64) float64 {
 			return I0e(x)
 		case 1:
 			return float64(sign * I1e(x))
+		}
+	}
+	if v > 0 {
+		if r, ok := ivFast(v, x, true); ok {
+			return float64(sign * r)
 		}
 	}
 	i, _ := besselIK(v, x, true, false, true)

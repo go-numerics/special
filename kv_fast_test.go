@@ -288,7 +288,7 @@ func TestKvDebyeLastTerm(t *testing.T) {
 	for v := 24.0; v < 32; v += 0.25 {
 		for x := 1e-3; x < 200; x = float64(x * 1.37) {
 			S, _ := kvDebyeExponent(v, x, false)
-			_, last, done := kvDebyeTail(v, S.Hi)
+			_, last, done := kvDebyeTail(v, S.Hi, -1)
 			if !done || last != kvDebyeTerms {
 				continue
 			}
@@ -307,7 +307,7 @@ func TestKvDebyeLastTerm(t *testing.T) {
 	worst := 0
 	for x := 1e-3; x < 1e6; x = float64(x * 1.37) {
 		S, _ := kvDebyeExponent(kvDebyeMinV, x, false)
-		_, last, done := kvDebyeTail(kvDebyeMinV, S.Hi)
+		_, last, done := kvDebyeTail(kvDebyeMinV, S.Hi, -1)
 		if !done {
 			t.Fatalf("v = 32, x = %g: the Debye sum did not converge", x)
 		}

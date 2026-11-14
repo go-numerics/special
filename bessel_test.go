@@ -241,6 +241,42 @@ func init() {
 		"random":         3,
 		"Debye root":     3,
 	})
+	// the corners of i_fast.go: Debye (32 <= v <= 1100), the large-argument
+	// expansion (x >= 24), the recurrence (x < 512), the overflow of e^x and of
+	// I_v, also where the fast path declines and besselIK answers (x < 1/8 for
+	// integer orders, negative non-integer orders, x >= 512 out of reach)
+	register("i_edge", besselTwo(Iv), map[string]float64{
+		"small x":                 1.5, // integer order below the I0e table: besselIK, 1.05 ulp
+		"x near v":                0.6,
+		"large v":                 0.6,
+		"v above Debye":           0.6,
+		"overflow of e^x":         1.5, // x > 700: besselIK, 1.25 ulp
+		"overflow edge":           2,   // Debye declines in the band: besselIK, 1.76 ulp
+		"underflow edge":          0.6,
+		"x near 24":               0.6,
+		"x near 512":              0.6,
+		"negative v":              3, // the reflection, besselIK: 2.56 ulp
+		"negative near-integer v": 3.5,
+		"near-integer v":          0.6,
+		"integer v":               0.6,
+		"random":                  0.6,
+	})
+	register("ive_edge", besselTwo(Ive), map[string]float64{
+		"small x":                 0.6,
+		"x near v":                0.6,
+		"large v":                 0.8, // besselIK where Debye declines: 0.71 ulp
+		"v above Debye":           0.6,
+		"overflow of e^x":         0.8,
+		"overflow edge":           0.6,
+		"underflow edge":          0.6,
+		"x near 24":               0.6,
+		"x near 512":              0.9, // x = 512 and beyond: besselIK, 0.79 ulp
+		"negative v":              3,
+		"negative near-integer v": 3.5,
+		"near-integer v":          0.6,
+		"integer v":               0.6,
+		"random":                  0.6,
+	})
 	register("ive", besselTwo(Ive), map[string]float64{
 		"special":             6,
 		"small x":             1.5,

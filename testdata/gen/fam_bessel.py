@@ -507,6 +507,89 @@ def kv_edge_cases():
     return c
 
 
+def i_edge_cases():
+    """Corners of i_fast.go: small x (below the I0e table at 1/8), x near v,
+    large v (Debye, 32 <= v <= 1100), the overflow of e^x (x near 709.78) and of
+    I_v itself, the underflow of I_v e^-x, the thresholds x = 24 (large
+    argument) and x = 512 (end of the recurrence), negative v (reflection
+    I_-v = I_v + (2/pi) sin(v pi) K_v, DLMF 10.27.2, delicate next to the
+    integers), v next to an integer, and the largest orders of the recurrence."""
+    from common import rng
+    r = rng("i_edge")
+    c = []
+    for v in (2.0, 2.5, 7.3, 31.0, 33.5, 100.5, 1000.5):
+        for x in (1e-300, 1e-100, 1e-8, 1e-3, 0.05, 0.124, 0.125, 0.126):
+            c.append(("small x", (v, x)))
+    for v in (2.0, 3.0, 5.5, 10.0, 20.7, 31.5, 32.0, 33.5, 100.3, 300.7, 1000.2, 1099.9):
+        for x in (v, v * (1 + 1e-9), v * (1 - 1e-9), v + 1e-3, v - 1e-3, v * 1.5, v * 0.7):
+            c.append(("x near v", (v, x)))
+    for v in (31.999, 32.0, 32.0000001, 40.5, 99.9, 500.5, 1000.5, 1099.99, 1100.0):
+        for x in (1.0, 10.0, 100.0, 1000.0, 5000.0, 99999.0):
+            c.append(("large v", (v, x)))
+    for v in (1100.5, 1500.5, 5000.5):
+        for x in (1.0, 100.0, 1e4):
+            c.append(("v above Debye", (v, x)))
+    # e^x overflows at 709.78: the unscaled function is I_v e^x of a pair
+    for v in (0.3, 2.0, 5.5, 20.0, 31.9, 33.5, 100.5, 500.5):
+        for x in (600.0, 700.0, 709.0, 709.5, 709.78, 709.7827, 710.0, 713.0, 713.98, 714.0, 800.0):
+            c.append(("overflow of e^x", (v, x)))
+    # the overflow edge of I_v (unscaled) for large v, where the exponent
+    # crosses ln MaxFloat64, and the underflow edge of I_v e^-x (2^-1000)
+    mx = mp.log(mpf(1.7976931348623157e308))
+    for v in (33.5, 100.5, 500.5, 1000.5):
+        with mp.workprec(200):
+            lo, hi = mpf(1e-3), mpf(5000)
+            for _ in range(70):
+                mid = (lo + hi) / 2
+                if mp.log(iv_mp(float(v), float(mid))) > mx:
+                    hi = mid
+                else:
+                    lo = mid
+            x0 = float(lo)
+        for k in range(-6, 7):
+            c.append(("overflow edge", (v, x0 * (1 + k * 2.0 ** -20) if k else x0)))
+    mn = mp.log(mpf(2.0) ** -1000)
+    for v in (0.3, 5.3, 20.7, 31.9, 33.5, 100.5):
+        with mp.workprec(200):
+            lo, hi = mpf(1e-3), mpf(5000)
+            for _ in range(70):
+                mid = (lo + hi) / 2
+                if mp.log(iv_mp(float(v), float(mid), True)) > mn:
+                    hi = mid
+                else:
+                    lo = mid
+            x0 = float(hi)
+        for k in range(-6, 7):
+            c.append(("underflow edge", (v, x0 * (1 + k * 2.0 ** -20) if k else x0)))
+    for v in (0.3, 1.5, 1.7, 2.0, 2.2, 15.5, 31.99):
+        for x in (23.9, 24.0, 24.0 + 2.0 ** -40, 25.0, 30.0):
+            c.append(("x near 24", (v, x)))
+    for v in (0.3, 1.5, 2.0, 5.5, 20.0, 31.99):
+        for x in (511.0, 511.99, 512.0 - 2.0 ** -44, 512.0, 512.0 + 2.0 ** -44, 600.0):
+            c.append(("x near 512", (v, x)))
+    for v in (0.5, 1.5, 2.5, 20.3, 41.5, 300.5, 0.001, 1.999):
+        for x in (0.5, 3.0, 30.0, 300.0):
+            c.append(("negative v", (-v, x)))
+    for n in (1, 2, 3, 5, 20, 31, 32, 100):
+        for d in (1e-12, 1e-9, 1e-5, -1e-12, -1e-9, -1e-5):
+            for x in (0.7, 5.0, 24.0, 40.0, 200.0):
+                c.append(("negative near-integer v", (-(n + d), x)))
+    for n in (2, 3, 5, 20, 31, 32, 100):
+        for d in (1e-12, 1e-9, 1e-5, -1e-12, -1e-9, -1e-5):
+            for x in (0.7, 5.0, 24.0, 40.0, 200.0):
+                c.append(("near-integer v", (n + d, x)))
+    for n in (2, 3, 10, 20, 31):
+        for x in (0.125, 0.5, 1.0, 5.0, 24.0, 100.0, 511.0):
+            c.append(("integer v", (float(n), x)))
+            c.append(("integer v", (float(-n), x)))
+            c.append(("integer v", (float(n), -x)))
+    for _ in range(40):
+        v = r.uniform(0, 1200)
+        x = math.exp(r.uniform(math.log(1e-2), math.log(5000)))
+        c.append(("random", (v, x)))
+    return c
+
+
 def jyn_edge_cases(kind):
     """Corners of the recurrences of jn_yn_fast.go (0 < x < 100): x near the
     transition n ~ x from both sides, next to the zeros of J_n / Y_n (where
@@ -605,6 +688,8 @@ def fixtures():
                        lambda n, x: sc.kn(int(n), x), "K_n(x), n = args[0]"),
         "kn_edge": lambda: (2, kn_edge_cases(), kv_any,
                             lambda n, x: sc.kn(int(n), x), "K_n(x), n = args[0]; corners of kn_fast.go"),
+        "i_edge": lambda: (2, i_edge_cases(), iv_any, sc.iv, "I_v(x); corners of i_fast.go"),
+        "ive_edge": lambda: (2, i_edge_cases(), ive_any, sc.ive, "I_v(x) e^-|x|; corners of i_fast.go"),
         "kv_edge": lambda: (2, kv_edge_cases(), kv_any, sc.kv, "K_v(x); corners of kv_fast.go"),
         "kve_edge": lambda: (2, kv_edge_cases(), kve_any, sc.kve, "K_v(x) e^x; corners of kv_fast.go"),
         "ive": lambda: (2, two_arg_cases("ive", "Ie"), ive_any, sc.ive, "I_v(x) e^-|x|"),
@@ -626,7 +711,7 @@ class _Lazy(dict):
 
 
 FIXTURES = _Lazy(["j0", "j1", "y0", "y1", "i0", "i1", "k0", "k1", "i0e", "i1e", "k0e", "k1e",
-                  "jv", "yv", "jn", "yn", "jn_edge", "yn_edge", "iv", "kv", "kn", "kn_edge", "kv_edge", "kve_edge", "ive", "kve", "jn_zeros"])
+                  "jv", "yv", "jn", "yn", "jn_edge", "yn_edge", "iv", "kv", "kn", "kn_edge", "kv_edge", "kve_edge", "i_edge", "ive_edge", "ive", "kve", "jn_zeros"])
 
 
 # ------------------------------------------------------------- tables (Go)
