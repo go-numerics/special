@@ -357,6 +357,10 @@ func jnUp(n int, x float64) (r, e float64, ok bool) {
 // directly (the result is proportional to it), and the roundings of the
 // steps at most n (pi x / 2) 2^-96 of the result.
 func jnMiller(n int, x float64) (r, e float64, ok bool) {
+	// (jnMillerStart is a variable only so that a test can hand jnMiller a
+	// start pair with a large error: no (n, x) in range reaches the final
+	// comparison with rel above jyAcceptJ, since the chain overflows first for
+	// the n that would, so the comparison could not otherwise be held.)
 	if n < 2 || !(x >= jyFastMinX && x < jyFastMaxX && float64(n) > x) {
 		return 0, 0, false
 	}
@@ -406,7 +410,7 @@ func jnMiller(n int, x float64) (r, e float64, ok bool) {
 		}
 	}
 	// now (h0, l0) = J_1^rec, (h1, l1) = J_0^rec
-	j0, j1 := besselJ0Pair(x), besselJ1Pair(x)
+	j0, j1 := jnMillerStart(x)
 	t, rh, rl := j0, h1, l1
 	if math.Abs(j1.h) > math.Abs(j0.h) {
 		t, rh, rl = j1, h0, l0
@@ -423,6 +427,11 @@ func jnMiller(n int, x float64) (r, e float64, ok bool) {
 	// (r and e are meaningless where ok is false; with cf1err already below
 	// 3/4 of jyAcceptJ this fails only if the start error of J_0 is large)
 	return r, float64(rel * math.Abs(r)), rel <= jyAcceptJ
+}
+
+// jnMillerStart returns the start pairs of J_0 and J_1 at x for jnMiller.
+var jnMillerStart = func(x float64) (j0, j1 jyPair) {
+	return besselJ0Pair(x), besselJ1Pair(x)
 }
 
 // jnFast is Jn's recurrence path for n >= 2 and 0 < x < 100.
