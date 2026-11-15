@@ -107,12 +107,20 @@ func kvFast(v, x float64, scaled bool) (r float64, ok bool) {
 	return 0, false
 }
 
+// kvReduce returns the nearest integer n to v (ties away from zero) and u = v
+// - n, |u| <= 1/2, exact: v and n are within a factor 2 (Sterbenz), or n = 0.
+// It is math.Round, not Floor(v + 0.5): for v = 0.49999999999999994 the sum
+// rounds to 1.
+func kvReduce(v float64) (n, u float64) {
+	n = math.Round(v)
+	return n, v - n
+}
+
 // kvCF2Chain is Path 3 (kv_cf2.go): v in (0, 32), kvCF2MinX <= x < kvAsymMinX.
 // With n the nearest integer to v and u = v - n (exact), |u| <= 1/2, the pair
 // K_u e^x, K_{u+1} e^x by Steed's CF2 in two phases, then kvChainUp.
 func kvCF2Chain(v, x float64, scaled bool) (float64, bool) {
-	n := math.Floor(v + 0.5)
-	u := v - n // exact: v and n are within a factor 2 (Sterbenz), or n = 0
+	n, u := kvReduce(v)
 	k0, k1, ok := kvCF2Pair(u, x)
 	if !ok {
 		return 0, false

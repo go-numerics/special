@@ -72,7 +72,7 @@ func bigKpair(u, x float64) (k0, k1 *big.Float) {
 // bigKve returns K_v(x) e^x for non-integer v > 0 (v = n + u with |u| >= 2^-100).
 func bigKve(v, x float64) *big.Float {
 	ivOracleInit()
-	n := math.Floor(v + 0.5)
+	n := math.Round(v)
 	u := v - n
 	k0, k1 := bigKpair(u, x)
 	if n == 0 {

@@ -51,7 +51,7 @@ import (
 // u) <= 5% and is summed in float64: below 2^-58 of the ratio. K_u e^x and the
 // ratio are then formed in double-double (2^-104 per operation). Measured
 // against the oracle (TestKvCF2PairOracle; the pull request quotes 1.2e5
-// points): K_u within 2^-58.6, K_(u+1) within 2^-57.5 relative at worst.
+// points): K_u within 2^-58.9, K_(u+1) within 2^-57.4 relative at worst.
 //
 // Truncation. For f the bound is rigorous: with c_k = -a_k, the tail tau_k =
 // c_(k+1) / (b_(k+1) - tau_(k+1)) of the fraction after level k is at most w_k
@@ -69,12 +69,12 @@ import (
 // relative at worst, at x just above kvCF2MinX. NOT PROVEN for all (u, x). The
 // cap kvCF2MaxIters declines (the answer is then besselIK's).
 //
-// Total: 0.5 ulp for the rounding, the start pair 2^-57.5 (0.045 ulp), the
+// Total: 0.5 ulp for the rounding, the start pair 2^-57.4 (0.05 ulp), the
 // recurrence R_n <= R_0 + n 2^-91 (kn_fast.go's derivation, n <= 32) and 2^-76
 // for e^-x: below 0.55 ulp; measured 0.52 on the sweeps, 0.50 on the fixtures.
 const (
 	// kvCF2MinX is where the double-double steps (4 below 3) still hold the
-	// start pair at 2^-57.5; at x = 1.4 it reaches 2^-56 (a_1 f weighs 5%).
+	// start pair at 2^-57.4; at x = 1.4 it reaches 2^-56 (a_1 f weighs 5%).
 	kvCF2MinX = 1.5
 	// kvCF2Stop, kvCF2FStop: the stopping tolerances for S and for a_1 f.
 	kvCF2Stop  = 0x1p-64

@@ -261,7 +261,7 @@ it in five shards (`--shard k/n`: the sorted file list, after `--files` or
 exactly one shard). An allowlist entry is judged only in the shard that sweeps
 its file, and a stale one fails in that shard alone. The shards are balanced by
 mutant count (`mutsweep -tally`: `jn_yn_fast.go` 43, `i_fast.go` 33 each alone;
-`binom` and `kn` 23; `factorial` and `kv` 19; `gamma` 7).
+`binom` and `kn` 23; `gamma` and `kv` 31; `factorial` and `kv_cf2` 6).
 
 The gate does not cover every guard. mutsweep reaches refusals (an `if` whose
 body returns, panics or breaks) and the comparisons of their conditions and of

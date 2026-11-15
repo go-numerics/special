@@ -246,17 +246,18 @@ func bigCF2f(u, x float64, N int) float64 {
 
 // TestKvCF2TermWeights: the claim of the comment on kvCF2PairTol: at the
 // first float64 step (k = kvCF2Terms(x) + 1) the terms still to come are
-// below 4e-3 of S (x < 3), 2e-3 (x < 8), 1e-3 (beyond), so that their
-// float64 rounding is below 2^-58 of the sum.
+// below 1e-3 of S (x < 3), 4e-4 (x < 8), 1.1e-4 (beyond): the header's 9.2e-4,
+// 3.3e-4 and 1.0e-4 with a little room. Four roundings of 2^-53 on such a weight
+// are below 2^-60 of the sum (4 * 1e-3 * 2^-53 = 2^-61.0).
 func TestKvCF2TermWeights(t *testing.T) {
 	limit := func(x float64) float64 {
 		switch {
 		case x < 3:
-			return 4e-3
+			return 1e-3
 		case x < 8:
-			return 2e-3
+			return 4e-4
 		}
-		return 1e-3
+		return 1.1e-4
 	}
 	worst := map[float64]float64{}
 	defer func() { t.Logf("worst weight of the float64 terms by limit class: %v", worst) }()
@@ -335,6 +336,24 @@ func TestKvCF2RangeEdges(t *testing.T) {
 	// path answers: besselAsymIK does, bit for bit
 	if _, ok := kvFast(2.5, kvAsymMinX, false); ok {
 		t.Error("kvFast(2.5, 24) answered")
+	}
+	// the nearest integer by Round: v = 0.49999999999999994 has n = 0, u = v
+	// (Floor(v + 0.5) gave n = 1, u = -1/2: the answer for v = 1/2)
+	v := math.Nextafter(0.5, 0)
+	if n, u := kvReduce(v); n != 0 || u != v {
+		t.Errorf("kvReduce(%v) = %v, %v, want 0, v", v, n, u)
+	}
+	for _, c := range []struct{ v, n, u float64 }{{0.5, 1, -0.5}, {1.5, 2, -0.5}, {2.5, 3, -0.5}, {31.5, 32, -0.5}, {7.25, 7, 0.25}, {7.75, 8, -0.25}} {
+		if n, u := kvReduce(c.v); n != c.n || u != c.u {
+			t.Errorf("kvReduce(%v) = %v, %v, want %v, %v", c.v, n, u, c.n, c.u)
+		}
+	}
+	rv, ok := kvFast(v, 5, true)
+	if !ok {
+		t.Error("kvFast(0.49999999999999994, 5) declined")
+	}
+	if e := ivOracleUlps(rv, bigKve(v, 5)); e > kvFastBound {
+		t.Errorf("Kve(0.49999999999999994, 5): %.3f ulp", e)
 	}
 	if _, ok := kvCF2Chain(0.3, 0.01, false); ok {
 		t.Error("kvCF2Chain(0.3, 0.01) answered past the cap")
