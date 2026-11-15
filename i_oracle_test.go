@@ -329,17 +329,30 @@ func TestIvOracleIntegral(t *testing.T) {
 
 func bigPiOnce() *big.Float { ivOracleInit(); return bigPi }
 
-// bigCos is cos(a) by Taylor after reducing |a| <= 2pi (the arguments here
-// are in [0, 100 pi / 600 * 20]).
+// bigCos is cos(a): a is first reduced by a whole number of turns 2pi (bigPi
+// at ivOraclePrec bits, so the reduction costs about |a| 2^-320), leaving |r| <
+// 2pi, where the Taylor series loses at most 9 bits to cancellation; the sum
+// stops when a term falls below 2^-(ivOraclePrec+8) in absolute value.
+//
+// Until the review of #86 it summed a fixed 200 terms with no reduction (its
+// comment already said it reduced): at a = 40 pi the cancellation and the
+// cutoff left bigYv(-40 + 2^-40, 7.1) 1.55 ulp off, since sin(v pi) is then
+// 2^-40 small. TestBigCosReduces holds the reduction.
 func bigCos(a *big.Float) *big.Float {
 	ivOracleInit()
-	a2 := bnew().Mul(a, a)
+	twoPi := bnew().Mul(bigPi, bf(2))
+	turns, _ := bnew().Quo(a, twoPi).Int(nil) // toward zero: |r| < 2pi
+	r := bnew().Sub(a, bnew().Mul(bnew().SetInt(turns), twoPi))
+	r2 := bnew().Mul(r, r)
 	sum, term := bf(1), bf(1)
-	for n := 1; n < 200; n++ {
-		term.Mul(term, a2)
+	for n := 1; n < 1000; n++ {
+		term.Mul(term, r2)
 		term.Quo(term, bf(float64((2*n-1)*(2*n))))
 		term.Neg(term)
 		sum.Add(sum, term)
+		if term.Sign() == 0 || term.MantExp(nil) < -ivOraclePrec-8 {
+			return sum
+		}
 	}
-	return sum
+	panic("bigCos: the Taylor series did not converge in 1000 terms")
 }
