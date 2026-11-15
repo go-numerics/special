@@ -261,6 +261,18 @@ func init() {
 		"cf2 tiny x":      3,
 		"cf2 v near 32":   0.6,
 		"cf2 random":      0.6,
+		// the corners of kv_temme_fast.go (0 < v < 32, 2^-1000 <= x < 1.5): 0.6
+		// ulp where it answers (K_v below 2^1020); the two "edge" regions hold rows
+		// on both sides of 2^1020 (above it, and up to MaxFloat64, it declines and
+		// besselIK answers: 1 ulp at worst on those rows)
+		"temme u near 0":        0.6,
+		"temme u near 1/2":      0.6,
+		"temme x near edge":     0.6,
+		"temme tiny x":          0.6,
+		"temme v near 32":       0.6,
+		"temme edge 2^1020":     1,
+		"temme edge MaxFloat64": 3,
+		"temme random":          0.6,
 	})
 	register("kve_edge", besselTwo(Kve), map[string]float64{
 		"small x":        3,
@@ -281,6 +293,15 @@ func init() {
 		"cf2 tiny x":      3,
 		"cf2 v near 32":   0.6,
 		"cf2 random":      0.6,
+
+		"temme u near 0":        0.6,
+		"temme u near 1/2":      0.6,
+		"temme x near edge":     0.6,
+		"temme tiny x":          0.6,
+		"temme v near 32":       0.6,
+		"temme edge 2^1020":     1,
+		"temme edge MaxFloat64": 3,
+		"temme random":          0.6,
 	})
 	// the corners of i_fast.go: Debye (32 <= v <= 1100), the large-argument
 	// expansion (x >= 24), the recurrence (x < 512), the overflow of e^x and of

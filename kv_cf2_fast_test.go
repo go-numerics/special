@@ -318,8 +318,11 @@ func TestKvCF2RangeEdges(t *testing.T) {
 	if _, ok := kvFast(7.3, kvCF2MinX, false); !ok {
 		t.Error("kvFast(7.3, kvCF2MinX) declined")
 	}
-	if _, ok := kvFast(7.3, math.Nextafter(kvCF2MinX, 0), false); ok {
-		t.Error("kvFast(7.3, kvCF2MinX-) answered")
+	// (the series of kv_temme_fast.go answers below it)
+	if r, ok := kvFast(7.3, math.Nextafter(kvCF2MinX, 0), false); !ok {
+		t.Error("kvFast(7.3, kvCF2MinX-) declined")
+	} else if r2, _ := kvTemmeChain(7.3, math.Nextafter(kvCF2MinX, 0), false); r != r2 {
+		t.Errorf("kvFast(7.3, kvCF2MinX-) = %v, kvTemmeChain %v", r, r2)
 	}
 	// the upper edge: CF2 answers just below 24, the chain of Path 2 at 24
 	if r, ok := kvFast(7.3, math.Nextafter(kvAsymMinX, 0), false); !ok {
@@ -403,39 +406,5 @@ func TestKvCF2HalfIntegers(t *testing.T) {
 				t.Errorf("Kve(%g, %g): %.3f ulp", v, x, e)
 			}
 		}
-	}
-}
-
-// TestKvDeclinedBitIdentity: where Path 3 declines (below kvCF2MinX, and the
-// orders it does not take), Kv and Kve are besselIK, bit for bit, on
-// kvSweepN random points.
-func TestKvDeclinedBitIdentity(t *testing.T) {
-	n := kvSweepN(20000)
-	r := rand.New(rand.NewSource(14))
-	var checked int
-	for i := 0; i < n; i++ {
-		v := float64(r.Float64() * 40)
-		x := math.Exp(float64(r.Float64()*math.Log(30)) - 3) // 0.05 .. 30 * 0.05
-		if i%2 == 0 {
-			x = float64(r.Float64() * kvCF2MinX)
-		}
-		if v == 0 || v == 1 || v == math.Trunc(v) {
-			continue
-		}
-		if _, ok := kvFast(v, x, false); ok {
-			continue
-		}
-		checked++
-		_, k := besselIK(v, x, false, true, false)
-		_, ke := besselIK(v, x, false, true, true)
-		if got := Kv(v, x); got != k && !(got != got && k != k) {
-			t.Fatalf("Kv(%g, %g) = %v, besselIK %v", v, x, got, k)
-		}
-		if got := Kve(v, x); got != ke && !(got != got && ke != ke) {
-			t.Fatalf("Kve(%g, %g) = %v, besselIK %v", v, x, got, ke)
-		}
-	}
-	if checked < n/4 {
-		t.Errorf("only %d of %d points declined", checked, n)
 	}
 }

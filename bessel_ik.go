@@ -776,11 +776,13 @@ func besselKvArgs(v, x float64) (r float64, done bool) {
 // Algorithm: K0/K1 for v = 0, 1; integer v >= 2 with 1 <= x < 512 through the
 // hi + lo recurrence of Kn (kn_fast.go); v >= 32 by Debye's uniform expansion
 // and 2 < v < 32 with x >= 24 by the large-argument expansion plus recurrence,
-// 0 < v < 32 with 1.5 <= x < 24 by CF2 plus recurrence (kv_fast.go,
-// kv_cf2_fast.go, error <= 0.6 ulp); otherwise Temme's series (x <= 2) or
-// Steed's CF2 (in double-double) for the fractional order and forward
-// recurrence in double-double (Boost.Math bessel_ik.hpp), or the large-x
-// expansion DLMF 10.40.2 where it converges.
+// 0 < v < 32 with 1.5 <= x < 24 by CF2 plus recurrence, and with 2^-1000 <= x
+// < 1.5 by Temme's series plus recurrence (kv_fast.go, kv_cf2_fast.go,
+// kv_temme_fast.go, error <= 0.6 ulp); otherwise (K_v of 2^1020 or more, x
+// below 2^-1000, v above 1100, x >= 1e6, the single series at x >= 24) Temme's
+// series (x <= 0.5) or Steed's CF2 (in double-double) for the fractional order
+// and forward recurrence in double-double (Boost.Math bessel_ik.hpp), or the
+// large-x expansion DLMF 10.40.2 where it converges.
 func Kv(v, x float64) float64 {
 	if r, done := besselKvArgs(v, x); done {
 		return r
