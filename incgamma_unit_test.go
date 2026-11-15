@@ -4,8 +4,24 @@ import (
 	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/rand"
+	"os"
+	"strconv"
 	"testing"
 )
+
+// incRobustN is the number of random draws of TestIncRobustness: 8000 by
+// default, or INC_ROBUST from the environment (INC_ROBUST=30000 is the size it
+// ran at until v0.18.0). At 30000 the test alone took 5m11s of the 13m test
+// budget on macos-latest under -race, and the suite went over it (13m5s on
+// main at b4e5a092).
+func incRobustN() int {
+	if s := os.Getenv("INC_ROBUST"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 8000
+}
 
 // Edge values of the incomplete gamma family (SciPy's conventions).
 func TestIncGammaEdges(t *testing.T) {
@@ -101,7 +117,7 @@ func TestIncRobustness(t *testing.T) {
 	lu := func(lo, hi float64) float64 {
 		return libm.Exp(libm.Log(lo) + float64(r.Float64()*(libm.Log(hi)-libm.Log(lo))))
 	}
-	for i := 0; i < 30000; i++ {
+	for i, n := 0, incRobustN(); i < n; i++ {
 		a, b := lu(1e-300, 1e300), lu(1e-300, 1e300)
 		if r.Intn(2) == 0 {
 			a, b = lu(1e-5, 1e5), lu(1e-5, 1e5)
