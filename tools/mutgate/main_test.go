@@ -302,6 +302,96 @@ func TestRootCmdChangedSince(t *testing.T) {
 	}
 }
 
+func TestParseShard(t *testing.T) {
+	if k, n, err := ParseShard(""); err != nil || k != 0 || n != 1 {
+		t.Errorf("empty: %d %d %v", k, n, err)
+	}
+	if k, n, err := ParseShard("3/5"); err != nil || k != 2 || n != 5 {
+		t.Errorf("3/5: %d %d %v", k, n, err)
+	}
+	for _, bad := range []string{"0/5", "6/5", "1/0", "a/b", "3", "1/2x", "-1/2"} {
+		if _, _, err := ParseShard(bad); err == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+}
+
+// TestShardFiles: the shards partition the list, whatever its length and
+// order: their union is the unsharded set and no file is in two.
+func TestShardFiles(t *testing.T) {
+	files := []string{"kv_fast.go", "binom_fast.go", "i_fast.go", "gamma_fast.go", "kn_fast.go", "jn_yn_fast.go", "factorial_fast.go", "kv_cf2_fast.go"}
+	for n := 1; n <= 10; n++ {
+		seen := map[string]int{}
+		for k := 0; k < n; k++ {
+			for _, f := range ShardFiles(files, k, n) {
+				seen[f]++
+			}
+		}
+		if len(seen) != len(files) {
+			t.Errorf("n=%d: union has %d of %d files", n, len(seen), len(files))
+		}
+		for f, c := range seen {
+			if c != 1 {
+				t.Errorf("n=%d: %s in %d shards", n, f, c)
+			}
+		}
+	}
+	got := ShardFiles(files, 1, 5)
+	if len(got) != 2 || got[0] != "factorial_fast.go" || got[1] != "kv_cf2_fast.go" {
+		t.Errorf("shard 2/5 = %v", got)
+	}
+}
+
+// TestGateShards: a sharded gate sweeps exactly its files; an entry is judged
+// only in the shard of its file, and a stale one fails in that shard alone.
+func TestGateShards(t *testing.T) {
+	listed := `[
+ {"file":"kn_fast.go","func":"F","mode":"boundary","verdict":"SURVIVED","text":"s <= math.MaxFloat64  [<= to <]","reason":"r1"},
+ {"file":"kn_fast.go","func":"F","mode":"boundary","verdict":"caught by PANIC","text":"x < knFastMaxX  [< to <=]","reason":"r2"},
+ {"file":"jn_yn_fast.go","func":"F","mode":"boundary","verdict":"HUNG","text":"a || b","reason":"r3"}]`
+	ctx := context.Background()
+	// sorted: jn_yn_fast.go (index 0), kn_fast.go (index 1)
+	jn := "5 mutations: 4 caught, 0 caught by PANIC, 0 not mutants, 0 survived, 1 hung\n\nwhat nothing holds:\n  HUNG             jn_yn_fast.go:628  a || b\n"
+	run := func(shard string, outs map[string]string) (bool, string, error) {
+		o := fixture(t, listed, "kn_fast.go", "jn_yn_fast.go")
+		o.Shard = shard
+		ok, err := Gate(ctx, fakeRunner(outs, map[string]int{"boundary": 1}), o)
+		return ok, o.Log.(*bytes.Buffer).String(), err
+	}
+	// shard 1/2 = jn_yn_fast.go: green with its own finding, and kn_fast.go's
+	// entries are not judged
+	ok, log, err := run("1/2", map[string]string{"boundary": jn, "delete": clean})
+	if err != nil || !ok || strings.Contains(log, "kn_fast.go") && strings.Contains(log, "STALE") {
+		t.Fatalf("shard 1/2: ok %v err %v\n%s", ok, err, log)
+	}
+	// shard 2/2 = kn_fast.go: its two entries are stale when nothing is found
+	ok, log, err = func() (bool, string, error) {
+		o := fixture(t, listed, "kn_fast.go", "jn_yn_fast.go")
+		o.Shard = "2/2"
+		ok, err := Gate(ctx, fakeRunner(map[string]string{"boundary": clean, "delete": clean}, nil), o)
+		return ok, o.Log.(*bytes.Buffer).String(), err
+	}()
+	if err != nil || ok || strings.Count(log, "STALE") != 2 || strings.Contains(log, "jn_yn_fast.go") && strings.Contains(log, "STALE allowlist entry (nothing matches it any more, remove it): jn_yn_fast.go") {
+		t.Fatalf("shard 2/2 stale: ok %v err %v\n%s", ok, err, log)
+	}
+	// a shard with no file is green and says so; a bad shard is an error
+	o := fixture(t, listed, "kn_fast.go")
+	o.Shard = "2/3"
+	ok, err = Gate(ctx, fakeRunner(nil, nil), o)
+	if err != nil || !ok || !strings.Contains(o.Log.(*bytes.Buffer).String(), "nothing to sweep") {
+		t.Errorf("empty shard: ok %v err %v", ok, err)
+	}
+	o = fixture(t, listed, "kn_fast.go")
+	o.Shard = "x"
+	if _, err = Gate(ctx, fakeRunner(nil, nil), o); err == nil {
+		t.Error("a bad shard must be an error")
+	}
+	// the unsharded sweep still refuses an empty directory
+	if _, err := Gate(ctx, fakeRunner(nil, nil), fixture(t, `[]`)); err == nil {
+		t.Error("no file, no shard: error")
+	}
+}
+
 func TestGateRefusals(t *testing.T) {
 	ctx := context.Background()
 	if _, err := Gate(ctx, fakeRunner(nil, nil), fixture(t, `[]`)); err == nil {
