@@ -600,7 +600,9 @@ func besselIsInt(v float64) bool {
 // Orders beyond 1e7 are supported only where the power series or the
 // large-x expansion applies; elsewhere the result is NaN. The cost of
 // Steed's method grows like x, so above x = 1e6 the large-x expansion is
-// used even next to a zero.
+// used even next to a zero. For x > 20 and |v| <= 40 Hankel's P, Q form with
+// a certificate answers first (jv_hankel_fast.go, within 0.63 ulp, declining
+// next to the zeros); otherwise the above.
 func Jv(v, x float64) float64 {
 	switch {
 	case math.IsNaN(v) || math.IsNaN(x):
@@ -624,7 +626,12 @@ func Jv(v, x float64) float64 {
 			return 0
 		}
 		return math.Copysign(math.Inf(1), -sinPi(v))
-	case v > 0:
+	case x > hankelMinX:
+		if r, _, ok := hankelFast(v, x, false); ok {
+			return r
+		}
+	}
+	if v > 0 {
 		j, _ := besselJYPos(v, x, true, false)
 		return j
 	}
@@ -666,7 +673,12 @@ func Yv(v, x float64) float64 {
 			return 0
 		}
 		return math.Copysign(math.Inf(1), -c)
-	case v > 0:
+	case x > hankelMinX:
+		if r, _, ok := hankelFast(v, x, true); ok {
+			return r
+		}
+	}
+	if v > 0 {
 		_, y := besselJYPos(v, x, false, true)
 		return y
 	}

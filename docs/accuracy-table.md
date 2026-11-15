@@ -44,16 +44,17 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **jn_edge** | 1055 | 6 | 1.63 | 8.8e+15 | 6/6 |
 | **jn_zeros** | 690 | 2 | 0.50 | 0.85 | 2/2 |
 | **jv** | 8687 | 10 | 6.22 | wrong | 10/10 |
+| jv_edge | 791 | 7 | 10210 | 8.7e+16 | 6/7 |
 | **k0** | 5013 | 6 | 2.00 | wrong | 6/6 |
 | **k0e** | 4013 | 5 | 1.94 | wrong | 5/5 |
 | k1 | 5013 | 6 | 1.96 | wrong | 5/6 |
 | **k1e** | 4013 | 5 | 2.09 | wrong | 5/5 |
-| **kn** | 6577 | 8 | 2.95 | wrong | 8/8 |
+| **kn** | 6577 | 8 | 2.16 | wrong | 8/8 |
 | **kn_edge** | 190 | 5 | 1.17 | wrong | 5/5 |
-| **kv** | 7687 | 9 | 3.82 | wrong | 9/9 |
-| **kv_edge** | 1480 | 17 | 3.30 | wrong | 17/17 |
-| **kve** | 8687 | 10 | 3.65 | wrong | 10/10 |
-| **kve_edge** | 1480 | 17 | 2.33 | 1710 | 17/17 |
+| **kv** | 7687 | 9 | 1.89 | wrong | 9/9 |
+| **kv_edge** | 2845 | 25 | 2.19 | wrong | 25/25 |
+| **kve** | 8687 | 10 | 1.51 | wrong | 10/10 |
+| **kve_edge** | 2845 | 25 | 1.10 | wrong | 25/25 |
 | **log1pexp** | 3010 | 4 | 0.50 | 0.96 | 4/4 |
 | **log_expit** | 4010 | 5 | 0.50 | 1.04 | 5/5 |
 | **log_factorial** | 3307 | 5 | 1.00 | wrong | 5/5 |
@@ -75,6 +76,7 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **yn** | 7577 | 9 | 6.22 | wrong | 9/9 |
 | **yn_edge** | 1120 | 7 | 1.77 | wrong | 7/7 |
 | **yv** | 8687 | 10 | 2.66 | wrong | 10/10 |
+| **yv_edge** | 791 | 7 | 17 | 2.5e+16 | 7/7 |
 | **zeta** | 5081 | 8 | 0.53 | 1.9e+12 | 8/8 |
 | **zeta_hurwitz** | 6006 | 7 | 0.50 | 306 | 7/7 |
 
@@ -369,14 +371,21 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | jn_zeros | n >= 20, k <= 20 | 140 | **0.50** | 0.50 | 0.85 | 0.85 |
 | jv | special | 187 | **1.84** | 1.84 | wrong | wrong |
 | jv | small x | 1000 | **0.75** | 0.67 | 6.3e+15 | 5.6e+15 |
-| jv | moderate | 1000 | **1.29** | 1.26 | 40775 | 6420 |
-| jv | large x | 1000 | **1.90** | 1.81 | 19644 | 16312 |
+| jv | moderate | 1000 | **1.29** | 0.93 | 40775 | 6420 |
+| jv | large x | 1000 | **1.81** | 1.39 | 19644 | 16312 |
 | jv | huge x | 1000 | **1.99** | 1.76 | 5.3e+18 | 2.1e+18 |
 | jv | near zeros | 1000 | **2.07** | 1.63 | 7.2e+11 | 3.9e+11 |
 | jv | large order | 1000 | **1.35** | 1.10 | 6.8e+13 | 6.5e+09 |
 | jv | v ~ x | 500 | **0.50** | 0.50 | 3372 | 3372 |
 | jv | negative v | 1000 | **6.22** | 3.77 | 1572 | 1254 |
 | jv | integer v | 1000 | **0.98** | 0.97 | 1063 | 823 |
+| jv_edge | x near 20 | 30 | **0.50** | 0.50 | 348 | 348 |
+| jv_edge | half-integer v | 50 | 10210 | 10210 | 1059 | 1059 |
+| jv_edge | near zeros | 320 | **1.82** | 1.82 | 7.2e+12 | 7.2e+12 |
+| jv_edge | order edge | 42 | **1.09** | 1.09 | 6607 | 6607 |
+| jv_edge | negative v | 25 | **0.80** | 0.80 | 693 | 693 |
+| jv_edge | large x | 24 | **1.10** | 1.10 | 8.7e+16 | 8.7e+16 |
+| jv_edge | random | 300 | **2.01** | 2.01 | 37106 | 37106 |
 | k0 | special | 13 | **0.35** | 0.35 | wrong | wrong |
 | k0 | small x | 1000 | **1.14** | 1.07 | 3.70 | 2.64 |
 | k0 | moderate | 1000 | **1.61** | 1.42 | 5.78 | 4.32 |
@@ -400,71 +409,87 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | k1e | large x | 1000 | **0.50** | 0.50 | 2.28 | 2.27 |
 | k1e | huge x | 1000 | **0.50** | 0.50 | 1.92 | 1.91 |
 | kn | special | 77 | **0.50** | 0.50 | wrong | wrong |
-| kn | small x | 1000 | **1.68** | 1.45 | wrong | 10 |
-| kn | moderate | 1000 | **1.85** | 1.20 | 29 | 26 |
+| kn | small x | 1000 | **0.55** | 0.50 | wrong | 10 |
+| kn | moderate | 1000 | **0.77** | 0.51 | 29 | 26 |
 | kn | large x | 1000 | **2.16** | 1.43 | 6.6e+15 | 4.8e+15 |
 | kn | over/underflow edge | 1000 | **1.19** | 1.00 | 9.0e+15 | 8.9e+15 |
 | kn | large order | 1000 | **1.25** | 0.84 | wrong | wrong |
 | kn | v ~ x | 500 | **0.50** | 0.50 | 2736 | 2736 |
-| kn | negative n | 1000 | **2.95** | 2.50 | 73 | 70 |
+| kn | negative n | 1000 | **1.72** | 1.10 | 73 | 70 |
 | kn_edge | x near 1 | 40 | **0.44** | 0.44 | 442 | 442 |
 | kn_edge | x near 512 | 40 | **0.49** | 0.49 | 3354 | 3354 |
 | kn_edge | large n, large x | 18 | **0.44** | 0.44 | 2220 | 2220 |
 | kn_edge | overflow edge | 52 | **1.17** | 1.17 | wrong | wrong |
 | kn_edge | n up to 1024 | 40 | **0.50** | 0.50 | 1984 | 1984 |
-| kv | special | 187 | **0.76** | 0.76 | wrong | wrong |
-| kv | small x | 1000 | **1.78** | 1.58 | wrong | wrong |
-| kv | moderate | 1000 | **2.08** | 1.97 | 43 | 41 |
+| kv | special | 187 | **0.50** | 0.50 | wrong | wrong |
+| kv | small x | 1000 | **0.50** | 0.50 | wrong | wrong |
+| kv | moderate | 1000 | **1.26** | 0.89 | 43 | 41 |
 | kv | large x | 1000 | **1.89** | 1.87 | 7.4e+15 | 6.4e+15 |
 | kv | over/underflow edge | 1000 | **1.25** | 1.12 | 9.0e+15 | 8.8e+15 |
 | kv | large order | 1000 | **0.97** | 0.63 | wrong | wrong |
 | kv | v ~ x | 500 | **0.50** | 0.50 | 2679 | 2679 |
-| kv | negative v | 1000 | **3.82** | 3.36 | 64 | 53 |
-| kv | integer v | 1000 | **2.87** | 2.83 | 74 | 74 |
-| kv_edge | small x | 30 | **1.58** | 1.58 | 40 | 40 |
+| kv | negative v | 1000 | **1.42** | 1.37 | 64 | 53 |
+| kv | integer v | 1000 | **1.23** | 0.94 | 74 | 74 |
+| kv_edge | small x | 30 | **0.50** | 0.50 | 40 | 40 |
 | kv_edge | x near v | 49 | **0.49** | 0.49 | 2062 | 2062 |
 | kv_edge | large v | 54 | **0.43** | 0.43 | 1931 | 1931 |
 | kv_edge | v above Debye | 9 | **0** | 0 | 0 | 0 |
 | kv_edge | overflow edge | 52 | **1.93** | 1.93 | wrong | wrong |
 | kv_edge | underflow edge | 78 | **2.19** | 2.19 | 781 | 781 |
 | kv_edge | x near 24 | 30 | **0.97** | 0.97 | 19 | 19 |
-| kv_edge | negative v | 16 | **3.30** | 3.30 | 48 | 48 |
+| kv_edge | negative v | 16 | **0.77** | 0.77 | 48 | 48 |
 | kv_edge | near-integer v | 210 | **1.09** | 1.09 | 503 | 503 |
 | kv_edge | random | 40 | **0.42** | 0.42 | 8.1e+11 | 8.1e+11 |
 | kv_edge | Debye root | 5 | **0.49** | 0.49 | 716 | 716 |
 | kv_edge | cf2 u near 1/2 | 246 | **0.49** | 0.49 | 611 | 611 |
 | kv_edge | cf2 u near 0 | 220 | **0.50** | 0.50 | 91 | 91 |
-| kv_edge | cf2 x near edge | 64 | **0.84** | 0.84 | 434 | 434 |
-| kv_edge | cf2 tiny x | 42 | **2.64** | 2.64 | 66 | 66 |
+| kv_edge | cf2 x near edge | 64 | **0.49** | 0.49 | 434 | 434 |
+| kv_edge | cf2 tiny x | 42 | **0.48** | 0.48 | 66 | 66 |
 | kv_edge | cf2 v near 32 | 35 | **0.49** | 0.49 | 56 | 56 |
 | kv_edge | cf2 random | 300 | **0.50** | 0.50 | 340 | 340 |
+| kv_edge | temme u near 0 | 424 | **0.49** | 0.49 | 46 | 46 |
+| kv_edge | temme u near 1/2 | 287 | **0.50** | 0.50 | 222 | 222 |
+| kv_edge | temme x near edge | 112 | **0.50** | 0.50 | 153 | 153 |
+| kv_edge | temme tiny x | 72 | **0.50** | 0.50 | 152 | 152 |
+| kv_edge | temme v near 32 | 42 | **0.50** | 0.50 | 79 | 79 |
+| kv_edge | temme edge 2^1020 | 14 | **0.67** | 0.67 | wrong | wrong |
+| kv_edge | temme edge MaxFloat64 | 14 | **0.78** | 0.78 | wrong | wrong |
+| kv_edge | temme random | 400 | **0.50** | 0.50 | 131 | 131 |
 | kve | special | 187 | **0.78** | 0.78 | wrong | wrong |
-| kve | small x | 1000 | **1.48** | 1.25 | wrong | 292 |
-| kve | moderate | 1000 | **1.76** | 1.67 | 86 | 79 |
+| kve | small x | 1000 | **0.50** | 0.50 | wrong | 292 |
+| kve | moderate | 1000 | **0.73** | 0.57 | 86 | 79 |
 | kve | large x | 1000 | **1.05** | 1.00 | 119 | 58 |
 | kve | over/underflow edge | 1000 | **0.51** | 0.51 | 3.59 | 3.38 |
 | kve | huge x | 1000 | **0.50** | 0.50 | wrong | wrong |
 | kve | large order | 1000 | **0.50** | 0.50 | wrong | wrong |
 | kve | v ~ x | 500 | **0.50** | 0.50 | 2418 | 2418 |
-| kve | negative v | 1000 | **3.65** | 3.40 | 1147 | 132 |
-| kve | integer v | 1000 | **2.88** | 2.60 | 73 | 70 |
-| kve_edge | small x | 30 | **1.44** | 1.44 | 39 | 39 |
+| kve | negative v | 1000 | **0.94** | 0.82 | 1147 | 132 |
+| kve | integer v | 1000 | **1.51** | 1.31 | 73 | 70 |
+| kve_edge | small x | 30 | **0.45** | 0.45 | 39 | 39 |
 | kve_edge | x near v | 49 | **0.49** | 0.49 | 1710 | 1710 |
 | kve_edge | large v | 54 | **0.51** | 0.51 | 975 | 975 |
 | kve_edge | v above Debye | 9 | **0.17** | 0.17 | 686 | 686 |
 | kve_edge | overflow edge | 52 | **0.50** | 0.50 | 39 | 39 |
 | kve_edge | underflow edge | 78 | **0.93** | 0.93 | 83 | 83 |
 | kve_edge | x near 24 | 30 | **0.50** | 0.50 | 18 | 18 |
-| kve_edge | negative v | 16 | **2.33** | 2.33 | 42 | 42 |
-| kve_edge | near-integer v | 210 | **1.03** | 1.03 | 620 | 620 |
+| kve_edge | negative v | 16 | **0.48** | 0.48 | 42 | 42 |
+| kve_edge | near-integer v | 210 | **0.72** | 0.72 | 620 | 620 |
 | kve_edge | random | 40 | **0.47** | 0.47 | 638 | 638 |
 | kve_edge | Debye root | 5 | **0.38** | 0.38 | 388 | 388 |
 | kve_edge | cf2 u near 1/2 | 246 | **0.50** | 0.50 | 565 | 565 |
 | kve_edge | cf2 u near 0 | 220 | **0.50** | 0.50 | 86 | 86 |
-| kve_edge | cf2 x near edge | 64 | **0.60** | 0.60 | 400 | 400 |
-| kve_edge | cf2 tiny x | 42 | **1.78** | 1.78 | 61 | 61 |
+| kve_edge | cf2 x near edge | 64 | **0.49** | 0.49 | 400 | 400 |
+| kve_edge | cf2 tiny x | 42 | **0.49** | 0.49 | 61 | 61 |
 | kve_edge | cf2 v near 32 | 35 | **0.49** | 0.49 | 44 | 44 |
 | kve_edge | cf2 random | 300 | **0.50** | 0.50 | 469 | 469 |
+| kve_edge | temme u near 0 | 424 | **0.50** | 0.50 | 43 | 43 |
+| kve_edge | temme u near 1/2 | 287 | **0.50** | 0.50 | 124 | 124 |
+| kve_edge | temme x near edge | 112 | **0.49** | 0.49 | 169 | 169 |
+| kve_edge | temme tiny x | 72 | **0.50** | 0.50 | 152 | 152 |
+| kve_edge | temme v near 32 | 42 | **0.50** | 0.50 | 45 | 45 |
+| kve_edge | temme edge 2^1020 | 14 | **0.96** | 0.96 | wrong | wrong |
+| kve_edge | temme edge MaxFloat64 | 14 | **1.10** | 1.10 | wrong | wrong |
+| kve_edge | temme random | 400 | **0.50** | 0.50 | 131 | 131 |
 | log1pexp | special | 10 | **0.21** | 0.21 | 0.21 | 0.21 |
 | log1pexp | [-746,-30) | 1000 | **0.50** | 0.50 | 0.70 | 0.66 |
 | log1pexp | [-30,30) | 1000 | **0.50** | 0.50 | 0.96 | 0.95 |
@@ -585,14 +610,21 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | yn_edge | random | 60 | **0.49** | 0.49 | 93 | 93 |
 | yv | special | 187 | **1.40** | 1.40 | wrong | wrong |
 | yv | small x | 1000 | **2.44** | 2.39 | wrong | 408 |
-| yv | moderate | 1000 | **1.84** | 1.75 | 15788 | 1568 |
-| yv | large x | 1000 | **1.66** | 1.59 | 7655 | 2725 |
-| yv | huge x | 1000 | **1.99** | 1.90 | 1.2e+19 | 6.3e+18 |
+| yv | moderate | 1000 | **1.84** | 1.45 | 15788 | 1568 |
+| yv | large x | 1000 | **1.53** | 1.48 | 7655 | 2725 |
+| yv | huge x | 1000 | **1.99** | 1.67 | 1.2e+19 | 6.3e+18 |
 | yv | near zeros | 1000 | **1.74** | 1.70 | 2.8e+12 | 1.3e+12 |
 | yv | large order | 1000 | **1.81** | 1.24 | wrong | 250879 |
 | yv | v ~ x | 500 | **0.50** | 0.50 | 13525 | 13525 |
 | yv | negative v | 1000 | **2.66** | 2.62 | 1710 | 1579 |
 | yv | integer v | 1000 | **0.66** | 0.60 | 217 | 78 |
+| yv_edge | x near 20 | 30 | **1.77** | 1.77 | 147 | 147 |
+| yv_edge | half-integer v | 50 | **0.66** | 0.66 | 138 | 138 |
+| yv_edge | near zeros | 320 | **1.48** | 1.48 | 2.5e+12 | 2.5e+12 |
+| yv_edge | order edge | 42 | **1.19** | 1.19 | 241 | 241 |
+| yv_edge | negative v | 25 | **1.49** | 1.49 | 4404 | 4404 |
+| yv_edge | large x | 24 | **1.38** | 1.38 | 2.5e+16 | 2.5e+16 |
+| yv_edge | random | 300 | **17** | 17 | 2632 | 2632 |
 | zeta | special | 13 | **0.33** | 0.33 | 3.67 | 3.67 |
 | zeta | near pole | 968 | **0.50** | 0.50 | 4.36 | 4.36 |
 | zeta | [-1,2] | 1000 | **0.53** | 0.50 | 53 | 49 |
