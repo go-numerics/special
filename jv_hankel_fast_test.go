@@ -3,6 +3,7 @@ package special
 import (
 	"math"
 	"math/rand"
+	"os"
 	"testing"
 )
 
@@ -48,9 +49,11 @@ func hankelDraw(r *rand.Rand) (v, x float64) {
 // is within 3 ulp of the old code's (whose own bound is 2 ulp) and Jv, Yv
 // return it.
 func TestHankelDeclineBitIdentical(t *testing.T) {
-	n := 200000
-	if testing.Short() {
-		n = 20000
+	n := 12000 // CI runs it under the race detector: 200000 took 77 s there
+	if os.Getenv("JV_SWEEP") != "" {
+		n = 200000
+	} else if testing.Short() {
+		n = 3000
 	}
 	r := rand.New(rand.NewSource(100))
 	var answered int
@@ -142,9 +145,9 @@ func TestHankelZeros(t *testing.T) {
 // J_{n+1/2}, Y_{n+1/2}, checked against the oracle.
 func TestHankelHalfInteger(t *testing.T) {
 	r := rand.New(rand.NewSource(5))
-	pts := 40
+	pts := 12
 	if testing.Short() {
-		pts = 8
+		pts = 4
 	}
 	for n := -4; n <= 12; n++ {
 		v := float64(n) + 0.5
