@@ -15,9 +15,10 @@ import (
 // relative error): the exponent and the prefactor are carried in
 // double-double, the sums are split so that their float64 rounding is 2^-58
 // of the result, and the recurrence is the "dd-light" chain of kn_fast.go.
-// Path 3 (kv_cf2_fast.go) takes 0 < v < 32 and 1.5 <= x < 24 by Steed's CF2.
-// Everything else (x < 1.5: Temme's series, Steed's CF2 in double-double) is
-// answered by besselIK as before, bit for bit.
+// Path 3 (kv_cf2_fast.go) takes 0 < v < 32 and 1.5 <= x < 24 by Steed's CF2;
+// Path 4 (kv_temme_fast.go) takes 0 < v < 32 and 2^-1000 <= x < 1.5 by Temme's
+// series. Everything else (x < 2^-1000, results of 2^1000 or more, the single
+// series of besselAsymIK) is answered by besselIK as before, bit for bit.
 //
 // Path 1, v in [32, 1100], x < 1e6 (kvDebye). With z = x/v, S = sqrt(v^2 +
 // x^2) = v sqrt(1+z^2), p = v/S and v eta = S + v ln(x/(v+S)) (DLMF 10.41.7),
@@ -103,6 +104,9 @@ func kvFast(v, x float64, scaled bool) (r float64, ok bool) {
 	}
 	if x >= kvCF2MinX && x < kvAsymMinX {
 		return kvCF2Chain(v, x, scaled)
+	}
+	if x >= kvTemmeMinX && x < kvCF2MinX {
+		return kvTemmeChain(v, x, scaled)
 	}
 	return 0, false
 }
