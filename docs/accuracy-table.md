@@ -34,8 +34,10 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **i0e** | 5013 | 6 | 0.53 | 4.77 | 6/6 |
 | **i1** | 6013 | 7 | 1.77 | wrong | 7/7 |
 | **i1e** | 5013 | 6 | 1.20 | 6.34 | 6/6 |
-| **iv** | 7687 | 9 | 2.87 | wrong | 9/9 |
+| **i_edge** | 1113 | 14 | 2.74 | wrong | 14/14 |
+| **iv** | 7687 | 9 | 2.76 | wrong | 9/9 |
 | **ive** | 8687 | 10 | 12 | wrong | 10/10 |
+| **ive_edge** | 1113 | 14 | 3.08 | wrong | 14/14 |
 | **j0** | 6013 | 7 | 1.84 | wrong | 7/7 |
 | **j1** | 6013 | 7 | 2.13 | wrong | 7/7 |
 | **jn** | 8077 | 10 | 4.19 | wrong | 10/10 |
@@ -49,7 +51,9 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **kn** | 6577 | 8 | 2.95 | wrong | 8/8 |
 | **kn_edge** | 190 | 5 | 1.17 | wrong | 5/5 |
 | **kv** | 7687 | 9 | 3.82 | wrong | 9/9 |
+| **kv_edge** | 1480 | 17 | 3.30 | wrong | 17/17 |
 | **kve** | 8687 | 10 | 3.65 | wrong | 10/10 |
+| **kve_edge** | 1480 | 17 | 2.33 | 1710 | 17/17 |
 | **log1pexp** | 3010 | 4 | 0.50 | 0.96 | 4/4 |
 | **log_expit** | 4010 | 5 | 0.50 | 1.04 | 5/5 |
 | **log_factorial** | 3307 | 5 | 1.00 | wrong | 5/5 |
@@ -284,25 +288,53 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | i1e | large x | 1000 | **0.54** | 0.51 | 2.02 | 1.76 |
 | i1e | huge x | 1000 | **0.50** | 0.50 | 1.71 | 1.59 |
 | i1e | negative x | 1000 | **1.20** | 1.17 | 5.53 | 5.12 |
+| i_edge | small x | 56 | **1.05** | 1.05 | 5.5e+15 | 5.5e+15 |
+| i_edge | x near v | 84 | **0.51** | 0.51 | 2013 | 2013 |
+| i_edge | large v | 54 | **0.48** | 0.48 | 739 | 739 |
+| i_edge | v above Debye | 9 | **0** | 0 | 0 | 0 |
+| i_edge | overflow of e^x | 88 | **1.25** | 1.25 | 10504 | 10504 |
+| i_edge | overflow edge | 52 | **1.76** | 1.76 | wrong | wrong |
+| i_edge | underflow edge | 78 | **0.48** | 0.48 | 335 | 335 |
+| i_edge | x near 24 | 35 | **0.45** | 0.45 | 6.30 | 6.30 |
+| i_edge | x near 512 | 30 | **0.53** | 0.53 | 6.18 | 6.18 |
+| i_edge | negative v | 32 | **2.56** | 2.56 | 128 | 128 |
+| i_edge | negative near-integer v | 240 | **2.74** | 2.74 | 442 | 442 |
+| i_edge | near-integer v | 210 | **0.49** | 0.49 | 387 | 387 |
+| i_edge | integer v | 105 | **0.49** | 0.49 | 6.18 | 6.18 |
+| i_edge | random | 40 | **0.48** | 0.48 | 1773 | 1773 |
 | iv | special | 187 | **2.09** | 2.09 | wrong | wrong |
-| iv | small x | 1000 | **0.87** | 0.82 | 9.0e+15 | 9.0e+15 |
-| iv | moderate | 1000 | **2.12** | 1.92 | 12 | 9.07 |
-| iv | large x | 1000 | **2.87** | 2.09 | 14 | 10 |
+| iv | small x | 1000 | **0.50** | 0.50 | 9.0e+15 | 9.0e+15 |
+| iv | moderate | 1000 | **0.50** | 0.50 | 12 | 9.07 |
+| iv | large x | 1000 | **0.50** | 0.50 | 14 | 10 |
 | iv | over/underflow edge | 1000 | **1.58** | 1.28 | 9997 | 8820 |
-| iv | large order | 1000 | **2.01** | 1.80 | wrong | 2655 |
-| iv | v ~ x | 500 | **2.02** | 2.02 | 1483 | 1483 |
+| iv | large order | 1000 | **0.64** | 0.50 | wrong | 2655 |
+| iv | v ~ x | 500 | **0.50** | 0.50 | 1483 | 1483 |
 | iv | negative v | 1000 | **2.76** | 2.69 | 17 | 12 |
-| iv | integer v | 1000 | **2.18** | 2.18 | 12 | 10 |
+| iv | integer v | 1000 | **2.18** | 1.91 | 12 | 10 |
 | ive | special | 187 | **4.57** | 4.57 | wrong | wrong |
-| ive | small x | 1000 | **0.92** | 0.79 | 1.0e+14 | 1.5e+13 |
-| ive | moderate | 1000 | **2.07** | 1.94 | 584 | 435 |
-| ive | large x | 1000 | **1.71** | 1.51 | 140 | 139 |
-| ive | over/underflow edge | 1000 | **0.51** | 0.50 | 4.39 | 4.35 |
+| ive | small x | 1000 | **0.50** | 0.50 | 1.0e+14 | 1.5e+13 |
+| ive | moderate | 1000 | **0.50** | 0.50 | 584 | 435 |
+| ive | large x | 1000 | **0.50** | 0.50 | 140 | 139 |
+| ive | over/underflow edge | 1000 | **0.50** | 0.50 | 4.39 | 4.35 |
 | ive | huge x | 1000 | **0.50** | 0.50 | wrong | wrong |
-| ive | large order | 1000 | **1.37** | 1.13 | 8.5e+15 | 6.1e+15 |
-| ive | v ~ x | 500 | **1.01** | 1.01 | 2350 | 2350 |
+| ive | large order | 1000 | **0.50** | 0.50 | 8.5e+15 | 6.1e+15 |
+| ive | v ~ x | 500 | **0.50** | 0.50 | 2350 | 2350 |
 | ive | negative v | 1000 | **12** | 5.72 | 8152 | 7476 |
-| ive | integer v | 1000 | **1.51** | 0.99 | 310 | 297 |
+| ive | integer v | 1000 | **0.94** | 0.94 | 310 | 297 |
+| ive_edge | small x | 56 | **0.59** | 0.59 | 3.3e+07 | 3.3e+07 |
+| ive_edge | x near v | 84 | **0.50** | 0.50 | 7.4e+15 | 7.4e+15 |
+| ive_edge | large v | 54 | **0.71** | 0.71 | 1157 | 1157 |
+| ive_edge | v above Debye | 9 | **0.12** | 0.12 | 754 | 754 |
+| ive_edge | overflow of e^x | 88 | **0.68** | 0.68 | 673 | 673 |
+| ive_edge | overflow edge | 52 | **0.50** | 0.50 | 1121 | 1121 |
+| ive_edge | underflow edge | 78 | **0.50** | 0.50 | 680 | 680 |
+| ive_edge | x near 24 | 35 | **0.49** | 0.49 | 19 | 19 |
+| ive_edge | x near 512 | 30 | **0.79** | 0.79 | 47 | 47 |
+| ive_edge | negative v | 32 | **2.58** | 2.58 | wrong | wrong |
+| ive_edge | negative near-integer v | 240 | **3.08** | 3.08 | 3.1e+13 | 3.1e+13 |
+| ive_edge | near-integer v | 210 | **0.50** | 0.50 | 219 | 219 |
+| ive_edge | integer v | 105 | **0.51** | 0.51 | 53 | 53 |
+| ive_edge | random | 40 | **0.48** | 0.48 | 1348 | 1348 |
 | j0 | special | 13 | **0.49** | 0.49 | wrong | wrong |
 | j0 | small x | 1000 | **0.50** | 0.48 | 2.50 | 1.58 |
 | j0 | moderate | 1000 | **0.55** | 0.51 | 304 | 206 |
@@ -372,33 +404,67 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | kn | moderate | 1000 | **1.85** | 1.20 | 29 | 26 |
 | kn | large x | 1000 | **2.16** | 1.43 | 6.6e+15 | 4.8e+15 |
 | kn | over/underflow edge | 1000 | **1.19** | 1.00 | 9.0e+15 | 8.9e+15 |
-| kn | large order | 1000 | **1.63** | 1.63 | wrong | wrong |
-| kn | v ~ x | 500 | **1.38** | 1.38 | 2736 | 2736 |
+| kn | large order | 1000 | **1.25** | 0.84 | wrong | wrong |
+| kn | v ~ x | 500 | **0.50** | 0.50 | 2736 | 2736 |
 | kn | negative n | 1000 | **2.95** | 2.50 | 73 | 70 |
 | kn_edge | x near 1 | 40 | **0.44** | 0.44 | 442 | 442 |
-| kn_edge | x near 512 | 40 | **1.03** | 1.03 | 3354 | 3354 |
+| kn_edge | x near 512 | 40 | **0.49** | 0.49 | 3354 | 3354 |
 | kn_edge | large n, large x | 18 | **0.44** | 0.44 | 2220 | 2220 |
 | kn_edge | overflow edge | 52 | **1.17** | 1.17 | wrong | wrong |
-| kn_edge | n up to 1024 | 40 | **0.87** | 0.87 | 1984 | 1984 |
-| kv | special | 187 | **0.97** | 0.97 | wrong | wrong |
+| kn_edge | n up to 1024 | 40 | **0.50** | 0.50 | 1984 | 1984 |
+| kv | special | 187 | **0.76** | 0.76 | wrong | wrong |
 | kv | small x | 1000 | **1.78** | 1.58 | wrong | wrong |
 | kv | moderate | 1000 | **2.08** | 1.97 | 43 | 41 |
 | kv | large x | 1000 | **1.89** | 1.87 | 7.4e+15 | 6.4e+15 |
 | kv | over/underflow edge | 1000 | **1.25** | 1.12 | 9.0e+15 | 8.8e+15 |
-| kv | large order | 1000 | **1.65** | 1.64 | wrong | wrong |
-| kv | v ~ x | 500 | **1.73** | 1.73 | 2679 | 2679 |
+| kv | large order | 1000 | **0.97** | 0.63 | wrong | wrong |
+| kv | v ~ x | 500 | **0.50** | 0.50 | 2679 | 2679 |
 | kv | negative v | 1000 | **3.82** | 3.36 | 64 | 53 |
 | kv | integer v | 1000 | **2.87** | 2.83 | 74 | 74 |
+| kv_edge | small x | 30 | **1.58** | 1.58 | 40 | 40 |
+| kv_edge | x near v | 49 | **0.49** | 0.49 | 2062 | 2062 |
+| kv_edge | large v | 54 | **0.43** | 0.43 | 1931 | 1931 |
+| kv_edge | v above Debye | 9 | **0** | 0 | 0 | 0 |
+| kv_edge | overflow edge | 52 | **1.93** | 1.93 | wrong | wrong |
+| kv_edge | underflow edge | 78 | **2.19** | 2.19 | 781 | 781 |
+| kv_edge | x near 24 | 30 | **0.97** | 0.97 | 19 | 19 |
+| kv_edge | negative v | 16 | **3.30** | 3.30 | 48 | 48 |
+| kv_edge | near-integer v | 210 | **1.09** | 1.09 | 503 | 503 |
+| kv_edge | random | 40 | **0.42** | 0.42 | 8.1e+11 | 8.1e+11 |
+| kv_edge | Debye root | 5 | **0.49** | 0.49 | 716 | 716 |
+| kv_edge | cf2 u near 1/2 | 246 | **0.49** | 0.49 | 611 | 611 |
+| kv_edge | cf2 u near 0 | 220 | **0.50** | 0.50 | 91 | 91 |
+| kv_edge | cf2 x near edge | 64 | **0.84** | 0.84 | 434 | 434 |
+| kv_edge | cf2 tiny x | 42 | **2.64** | 2.64 | 66 | 66 |
+| kv_edge | cf2 v near 32 | 35 | **0.49** | 0.49 | 56 | 56 |
+| kv_edge | cf2 random | 300 | **0.50** | 0.50 | 340 | 340 |
 | kve | special | 187 | **0.78** | 0.78 | wrong | wrong |
 | kve | small x | 1000 | **1.48** | 1.25 | wrong | 292 |
 | kve | moderate | 1000 | **1.76** | 1.67 | 86 | 79 |
-| kve | large x | 1000 | **1.36** | 1.09 | 119 | 58 |
+| kve | large x | 1000 | **1.05** | 1.00 | 119 | 58 |
 | kve | over/underflow edge | 1000 | **0.51** | 0.51 | 3.59 | 3.38 |
 | kve | huge x | 1000 | **0.50** | 0.50 | wrong | wrong |
-| kve | large order | 1000 | **1.13** | 1.01 | wrong | wrong |
-| kve | v ~ x | 500 | **0.99** | 0.99 | 2418 | 2418 |
+| kve | large order | 1000 | **0.50** | 0.50 | wrong | wrong |
+| kve | v ~ x | 500 | **0.50** | 0.50 | 2418 | 2418 |
 | kve | negative v | 1000 | **3.65** | 3.40 | 1147 | 132 |
 | kve | integer v | 1000 | **2.88** | 2.60 | 73 | 70 |
+| kve_edge | small x | 30 | **1.44** | 1.44 | 39 | 39 |
+| kve_edge | x near v | 49 | **0.49** | 0.49 | 1710 | 1710 |
+| kve_edge | large v | 54 | **0.51** | 0.51 | 975 | 975 |
+| kve_edge | v above Debye | 9 | **0.17** | 0.17 | 686 | 686 |
+| kve_edge | overflow edge | 52 | **0.50** | 0.50 | 39 | 39 |
+| kve_edge | underflow edge | 78 | **0.93** | 0.93 | 83 | 83 |
+| kve_edge | x near 24 | 30 | **0.50** | 0.50 | 18 | 18 |
+| kve_edge | negative v | 16 | **2.33** | 2.33 | 42 | 42 |
+| kve_edge | near-integer v | 210 | **1.03** | 1.03 | 620 | 620 |
+| kve_edge | random | 40 | **0.47** | 0.47 | 638 | 638 |
+| kve_edge | Debye root | 5 | **0.38** | 0.38 | 388 | 388 |
+| kve_edge | cf2 u near 1/2 | 246 | **0.50** | 0.50 | 565 | 565 |
+| kve_edge | cf2 u near 0 | 220 | **0.50** | 0.50 | 86 | 86 |
+| kve_edge | cf2 x near edge | 64 | **0.60** | 0.60 | 400 | 400 |
+| kve_edge | cf2 tiny x | 42 | **1.78** | 1.78 | 61 | 61 |
+| kve_edge | cf2 v near 32 | 35 | **0.49** | 0.49 | 44 | 44 |
+| kve_edge | cf2 random | 300 | **0.50** | 0.50 | 469 | 469 |
 | log1pexp | special | 10 | **0.21** | 0.21 | 0.21 | 0.21 |
 | log1pexp | [-746,-30) | 1000 | **0.50** | 0.50 | 0.70 | 0.66 |
 | log1pexp | [-30,30) | 1000 | **0.50** | 0.50 | 0.96 | 0.95 |

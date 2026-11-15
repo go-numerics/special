@@ -17,7 +17,7 @@ func kvFixtureRows(t testing.TB, scaled bool) []fixtureRow {
 // kvFastRow answers a row by the fast path alone, on |v| as Kv does.
 func kvFastRow(r fixtureRow, scaled bool) (float64, bool) {
 	v, x := math.Abs(r.args[0]), r.args[1]
-	if !(v > 1 && x > 0 && x <= math.MaxFloat64) || v != v || math.IsInf(v, 0) {
+	if !(v > 0 && x > 0 && x <= math.MaxFloat64) || v != v || math.IsInf(v, 0) {
 		return 0, false
 	}
 	return kvFast(v, x, scaled)
@@ -29,15 +29,18 @@ func TestKvFastFixture(t *testing.T) {
 	for _, scaled := range []bool{false, true} {
 		worst := map[string]float64{}
 		count := map[string]int{}
-		var debye, asym int
+		var debye, asym, cf2 int
 		for _, r := range kvFixtureRows(t, scaled) {
 			got, ok := kvFastRow(r, scaled)
 			if !ok {
 				continue
 			}
-			if math.Abs(r.args[0]) >= kvDebyeMinV {
+			switch {
+			case math.Abs(r.args[0]) >= kvDebyeMinV:
 				debye++
-			} else {
+			case r.args[1] < kvAsymMinX:
+				cf2++
+			default:
 				asym++
 			}
 			count[r.region]++
@@ -45,8 +48,8 @@ func TestKvFastFixture(t *testing.T) {
 				worst[r.region] = e
 			}
 		}
-		if debye < 100 || asym < 100 {
-			t.Fatalf("scaled=%v: only %d Debye and %d large-argument rows reached the fast paths", scaled, debye, asym)
+		if debye < 100 || asym < 100 || cf2 < 800 {
+			t.Fatalf("scaled=%v: only %d Debye, %d large-argument and %d CF2 rows reached the fast paths", scaled, debye, asym, cf2)
 		}
 		for reg, w := range worst {
 			t.Logf("scaled=%v %-22s %5d rows  worst %.3f ulp", scaled, reg, count[reg], w)
@@ -105,7 +108,7 @@ func TestKvFastFallbackRate(t *testing.T) {
 // bit.
 func TestKvFastFallback(t *testing.T) {
 	for _, c := range []struct{ v, x float64 }{
-		{2.5, 3}, {7.7, 10}, {33.3, 1e6}, {1200.5, 5}, {3.3, 23.9}, {0.4, 5}, {50.5, 2e6}, {2.5, 30}, {4.9, 40},
+		{2.5, 1.4}, {7.7, 0.9}, {33.3, 1e6}, {1200.5, 5}, {3.3, 0.2}, {0.4, 0.5}, {50.5, 2e6}, {2.5, 30}, {4.9, 40},
 	} {
 		if _, ok := kvFast(c.v, c.x, false); ok {
 			t.Errorf("kvFast(%g, %g) answered, expected a decline", c.v, c.x)
@@ -207,8 +210,11 @@ func TestKvFastRangeEdges(t *testing.T) {
 	if _, ok := kvFast(7.5, kvAsymMinX, false); !ok {
 		t.Error("kvFast(7.5, 24) declined")
 	}
-	if _, ok := kvFast(7.5, math.Nextafter(kvAsymMinX, 0), false); ok {
-		t.Error("kvFast(7.5, 24-) answered")
+	// (below 24 it is Path 3's, TestKvCF2RangeEdges)
+	if r, ok := kvFast(7.5, math.Nextafter(kvAsymMinX, 0), false); !ok {
+		t.Error("kvFast(7.5, 24-) declined")
+	} else if want, _ := kvCF2Chain(7.5, math.Nextafter(kvAsymMinX, 0), false); r != want {
+		t.Errorf("kvFast(7.5, 24-) = %v, not Path 3's %v", r, want)
 	}
 	// 4 v^2 - 1 = 4 x: the single series of besselAsymIK still converges
 	if _, ok := kvFast(5.5, 30, false); ok {

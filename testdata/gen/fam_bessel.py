@@ -504,6 +504,47 @@ def kv_edge_cases():
     for v, x in ((32.5, 3.7595746690511485), (32.5, 62.43318536919962), (1000.0, 816.4965809277256),
                  (1100.0, 898.1462390204982), (300.0, 576.3063264847694)):
         c.append(("Debye root", (v, x)))
+    c += kv_cf2_cases(r)
+    return c
+
+
+def kv_cf2_cases(r):
+    """Corners of kv_cf2.go (CF2 for 0 < v < 32, 1.5 <= x < 24), appended after
+    the rows above so that those keep their draws: the reduced order u = v -
+    round(v) near +-1/2 (a_1 = u^2 - 1/4 near 0) and near 0, x on both sides of
+    the edges 1.5 and 24, tiny x (declined: besselIK), v next to 32, v below 1,
+    and a random sweep."""
+    c = []
+    for n in (0, 1, 2, 5, 17, 31):
+        for d in (0.0, 1e-9, -1e-9, 1e-6, -1e-6, 0.4999999, -0.4999999):
+            v = n + 0.5 + d if d not in (0.4999999, -0.4999999) else n + d
+            if v <= 0:
+                continue
+            for x in (1.5, 2.0, 3.7, 9.0, 17.3, 23.999):
+                c.append(("cf2 u near 1/2", (v, x)))
+    for n in (0, 1, 2, 5, 17, 31):
+        for d in (1e-12, -1e-12, 1e-9, -1e-9, 1e-5, -1e-5, 0.03, -0.03):
+            v = n + d
+            if v <= 0:
+                continue
+            for x in (1.5, 2.0, 5.5, 12.0, 23.999):
+                c.append(("cf2 u near 0", (v, x)))
+    for v in (0.3, 0.5, 0.7, 1.5, 1.7, 4.2, 11.3, 31.5):
+        # (x = 24.0 itself is in "x near 24": above 4 v^2 - 1 = 4 x it is the
+        # single series of besselIK, 1.02 ulp at v = 4.2, not this path's)
+        for x in (1.4999999999999998, 1.5, 1.5000000000000002, 1.9999999999999998, 2.0, 2.0000000000000004,
+                  23.999999999999996, 23.999999999999993):
+            c.append(("cf2 x near edge", (v, x)))
+    for v in (0.3, 1.5, 2.3, 7.7, 19.9, 31.9):
+        for x in (1e-300, 1e-100, 1e-8, 1e-3, 0.3, 0.9, 1.2):
+            c.append(("cf2 tiny x", (v, x)))
+    for v in (31.0, 31.5, 31.75, 31.999, 31.9999999, 32.0, 32.0000001):
+        for x in (1.5, 2.0, 6.0, 15.0, 23.9):
+            c.append(("cf2 v near 32", (v, x)))
+    for _ in range(300):
+        v = r.uniform(0.01, 31.99)
+        x = math.exp(r.uniform(math.log(1.5), math.log(24)))
+        c.append(("cf2 random", (v, x)))
     return c
 
 

@@ -15,8 +15,9 @@ import (
 // relative error): the exponent and the prefactor are carried in
 // double-double, the sums are split so that their float64 rounding is 2^-58
 // of the result, and the recurrence is the "dd-light" chain of kn_fast.go.
-// Everything else (small x, moderate x with a fractional order: Temme's
-// series, Steed's CF2) is answered by besselIK as before, bit for bit.
+// Path 3 (kv_cf2_fast.go) takes 0 < v < 32 and 1.5 <= x < 24 by Steed's CF2.
+// Everything else (x < 1.5: Temme's series, Steed's CF2 in double-double) is
+// answered by besselIK as before, bit for bit.
 //
 // Path 1, v in [32, 1100], x < 1e6 (kvDebye). With z = x/v, S = sqrt(v^2 +
 // x^2) = v sqrt(1+z^2), p = v/S and v eta = S + v ln(x/(v+S)) (DLMF 10.41.7),
@@ -100,7 +101,24 @@ func kvFast(v, x float64, scaled bool) (r float64, ok bool) {
 	if x >= kvAsymMinX && float64(4*v*v)-1 > float64(4*x) {
 		return kvAsymChain(v, x, scaled)
 	}
+	if x >= kvCF2MinX && x < kvAsymMinX {
+		return kvCF2Chain(v, x, scaled)
+	}
 	return 0, false
+}
+
+// kvCF2Chain is Path 3 (kv_cf2.go): v in (0, 32), kvCF2MinX <= x < kvAsymMinX.
+// With n the nearest integer to v and u = v - n (exact), |u| <= 1/2, the pair
+// K_u e^x, K_{u+1} e^x by Steed's CF2 in two phases, then kvChainUp.
+func kvCF2Chain(v, x float64, scaled bool) (float64, bool) {
+	n := math.Floor(v + 0.5)
+	u := v - n // exact: v and n are within a factor 2 (Sterbenz), or n = 0
+	k0, k1, ok := kvCF2Pair(u, x)
+	if !ok {
+		return 0, false
+	}
+	h, l := kvChainUp(u, int(n), x, k0.Hi, k0.Lo, k1.Hi, k1.Lo)
+	return kvScaleOut(h, l, x, scaled)
 }
 
 // kvDebyeExponent returns S = sqrt(v^2 + x^2) and the exponent -v eta (+ x if
@@ -241,9 +259,22 @@ func kvAsymChain(v, x float64, scaled bool) (float64, bool) {
 	if !(ok0 && ok1) {
 		return 0, false
 	}
+	// (v > 1, so n >= 1 and the chain ends at h1)
+	h, l := kvChainUp(u, int(n), x, h0, l0, h1, l1)
+	return kvScaleOut(h, l, x, scaled)
+}
+
+// kvChainUp is the upward recurrence of Path 2 and Path 3: from the pairs
+// (h0, l0) = K_u e^x and (h1, l1) = K_{u+1} e^x to K_{u+n} e^x, n >= 0 (for
+// n = 0 the first pair), for u > -1 and x > 0: every K is positive and K_{w+1} > K_w, so
+// no step cancels (kn_fast.go).
+func kvChainUp(u float64, n int, x, h0, l0, h1, l1 float64) (h, l float64) {
+	if n == 0 {
+		return h0, l0
+	}
 	qh := 2 / x
 	ql := math.FMA(-qh, x, 2) / x
-	for k := 1; k < int(n); k++ {
+	for k := 1; k < n; k++ {
 		wh, wl := dd.TwoSum(u, float64(k))
 		ch, ce := dd.TwoProd(wh, qh)
 		cl := ce + float64(wh*ql) + float64(wl*qh)
@@ -252,8 +283,12 @@ func kvAsymChain(v, x float64, scaled bool) (float64, bool) {
 		lo := (l0 + pe + se) + math.FMA(ch, l1, float64(cl*h1))
 		h0, l0, h1, l1 = h1, l1, s, lo
 	}
-	// (v > 1, so n >= 1 and the chain ends at h1)
-	h, l := h1, l1
+	return h1, l1
+}
+
+// kvScaleOut turns the pair K e^x = h + l into the result: itself if scaled,
+// else times e^-x from dd.ExpMant, rounded once; ok false below 2^-1000.
+func kvScaleOut(h, l, x float64, scaled bool) (float64, bool) {
 	if scaled {
 		return h + l, true
 	}

@@ -27,7 +27,7 @@ from mpmath import mp, mpf
 
 PREC = 192
 PREC2 = 320
-TIMEOUT_S = 20
+TIMEOUT_S = int(os.environ.get("GEN_TIMEOUT", "20"))  # raise on a loaded machine: a timed-out row is dropped
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "fixtures"))
