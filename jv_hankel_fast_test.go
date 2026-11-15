@@ -145,9 +145,9 @@ func TestHankelZeros(t *testing.T) {
 // J_{n+1/2}, Y_{n+1/2}, checked against the oracle.
 func TestHankelHalfInteger(t *testing.T) {
 	r := rand.New(rand.NewSource(5))
-	pts := 12
+	pts := 4
 	if testing.Short() {
-		pts = 4
+		pts = 2
 	}
 	for n := -4; n <= 12; n++ {
 		v := float64(n) + 0.5

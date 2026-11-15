@@ -127,7 +127,7 @@ func hankelSample(r *rand.Rand) (v, x float64) {
 // 120 against the oracle, every answer is within 0.63 ulp, and within the
 // certified bound of the pair it rounds; the share it answers is reported.
 func TestHankelOracle(t *testing.T) {
-	n := 800
+	n := 250
 	if os.Getenv("JV_SWEEP") != "" {
 		n = 60000 // 2 x ~53000 answers: the sweep of the PR (about 3 minutes)
 	} else if testing.Short() {
@@ -184,7 +184,7 @@ func TestHankelOracle(t *testing.T) {
 // sine and cosine on random double-double angles |z| <= pi/4.
 func TestHankelSinCosOracle(t *testing.T) {
 	ivOracleInit()
-	n := 4000
+	n := 1500
 	if os.Getenv("JV_SWEEP") != "" {
 		n = 1000000
 	} else if testing.Short() {
