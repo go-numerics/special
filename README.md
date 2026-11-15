@@ -250,6 +250,13 @@ changes anything else (tests, other sources, `testdata/`, `dd/`, `internal/`,
 `go.mod`, the allowlist, `tools/mutgate`, `.github/workflows`) sweeps every file,
 and so does every push to main; one that changes only documents sweeps nothing.
 Allowlist entries are keyed by file, function and mutation text.
+The full sweep took about 40 minutes in one job (the limit is 45), so CI runs
+it in five shards (`--shard k/n`: the sorted file list, after `--files` or
+`--changed-since`, split by index mod n, so a new `*_fast.go` always lands in
+exactly one shard). An allowlist entry is judged only in the shard that sweeps
+its file, and a stale one fails in that shard alone. The shards are balanced by
+mutant count (`mutsweep -tally`: `jn_yn_fast.go` 43, `i_fast.go` 33 each alone;
+`binom` and `kn` 23; `factorial` and `kv` 19; `gamma` 7).
 
 The gate does not cover every guard. mutsweep reaches refusals (an `if` whose
 body returns, panics or breaks) and the comparisons of their conditions and of
@@ -275,6 +282,8 @@ go install github.com/go-fleettools/mutate/mutsweep@v0.8.0
 go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m
 # a pull request's view: only the files that differ from main
 go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m --changed-since origin/main
+# one of CI's five shards
+go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m --shard 4/5
 ```
 
 ## Portability

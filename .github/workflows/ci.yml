@@ -227,10 +227,19 @@ jobs:
   # guards held only by an index panic; that verdict is a failure here.
   # -timeout 3m per mutant: mutsweep refuses anything under 3x the baseline
   # run of `go test .` (about 10 s), and prints the baseline.
+  # The full sweep took about 40 minutes in one job, so it runs in five shards
+  # (mutgate --shard k/n: sorted *_fast.go index mod 5, after --changed-since;
+  # entries are judged in the shard of their file; an empty shard is green).
+  # By mutant count (mutsweep -tally): jn_yn_fast 43, i_fast 33, binom + kn 23,
+  # factorial + kv 19, gamma 7 - each of the two big files alone.
   mutation:
-    name: mutation gate (mutsweep, *_fast.go)
+    name: mutation gate (mutsweep, *_fast.go, shard ${{ matrix.shard }}/5)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -248,10 +257,10 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m --changed-since "$BASE_SHA"
+        run: go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m --changed-since "$BASE_SHA" --shard ${{ matrix.shard }}/5
       - name: Sweep every *_fast.go, both modes (push to main)
         if: github.event_name != 'pull_request'
-        run: go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m
+        run: go -C tools run ./mutgate -C .. --allowlist ../mutation-allowlist.json --timeout 3m --shard ${{ matrix.shard }}/5
 
   govulncheck:
     name: govulncheck

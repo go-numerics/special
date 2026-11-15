@@ -277,8 +277,40 @@ func execRunner(bin string) Runner {
 	}
 }
 
+// ParseShard reads "k/n" (1 <= k <= n) as a 0-based index and a count; the
+// empty string is no sharding (0, 1).
+func ParseShard(s string) (k, n int, err error) {
+	if s == "" {
+		return 0, 1, nil
+	}
+	var rest string
+	if c, serr := fmt.Sscanf(s, "%d/%d%s", &k, &n, &rest); c != 2 || (serr == nil && rest != "") {
+		return 0, 0, fmt.Errorf("--shard %q: want k/n", s)
+	}
+	if n < 1 || k < 1 || k > n {
+		return 0, 0, fmt.Errorf("--shard %q: want 1 <= k <= n", s)
+	}
+	return k - 1, n, nil
+}
+
+// ShardFiles returns the files of shard k (0-based) of n: the sorted files at
+// the indexes i with i mod n == k. The shards 0..n-1 partition the list, so a
+// *_fast.go added later lands in exactly one of them and is never skipped.
+func ShardFiles(files []string, k, n int) []string {
+	s := append([]string(nil), files...)
+	sort.Strings(s)
+	var out []string
+	for i, f := range s {
+		if i%n == k {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
 // Options configure Gate.
 type Options struct {
+	Shard     string // "k/n": sweep only the files of shard k of n (after Files is resolved)
 	Dir       string
 	Allowlist string
 	Timeout   time.Duration // per mutant, passed to mutsweep -timeout
@@ -304,6 +336,20 @@ func Gate(ctx context.Context, run Runner, o Options) (ok bool, err error) {
 	}
 	if len(files) == 0 {
 		return false, fmt.Errorf("no *_fast.go file in %s: a gate over nothing reads as green", o.Dir)
+	}
+	sk, sn, serr := ParseShard(o.Shard)
+	if serr != nil {
+		return false, serr
+	}
+	if o.Shard != "" {
+		all := len(files)
+		files = ShardFiles(files, sk, sn)
+		if len(files) == 0 {
+			// Not an error: a shard may hold no file (fewer files than shards).
+			fmt.Fprintf(o.Log, "mutgate: shard %s holds none of the %d file(s): nothing to sweep\n", o.Shard, all)
+			return true, nil
+		}
+		fmt.Fprintf(o.Log, "mutgate: shard %s: %s (of %d file(s))\n", o.Shard, strings.Join(files, ","), all)
 	}
 	modes := o.Modes
 	if len(modes) == 0 {
@@ -431,6 +477,7 @@ func RootCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&files, "files", nil, "files to sweep (default: every *_fast.go of --dir)")
 	cmd.Flags().StringVar(&changedSince, "changed-since", "", "sweep only the *_fast.go files that differ between this git ref and HEAD (git diff ref...HEAD); for pull requests")
 	cmd.Flags().StringVar(&gitBin, "git", "git", "the git binary of --changed-since")
+	cmd.Flags().StringVar(&o.Shard, "shard", "", "k/n: sweep only shard k of n of the files (after --files / --changed-since: sorted index mod n); an allowlist entry is judged in the shard that sweeps its file")
 	cmd.Flags().StringSliceVar(&modes, "modes", nil, "mutation modes (default: boundary,delete)")
 	cmd.Flags().StringSliceVar(&o.Command, "command", nil, "test command (default: go test -json -count=1 .)")
 	return cmd
