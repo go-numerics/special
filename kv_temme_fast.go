@@ -99,9 +99,10 @@ import (
 // 2^-72 relative) moves sigma by 2^-72 |sigma| <= 2^-63.5 (|sigma| <= 347 at x =
 // 2^-1000); the exponentials (dd.ExpMant, 2^-76) and the Gamma polynomials
 // (float64 beyond the 4th term, 2^-69) are smaller. Together the start pair is
-// within 2^-61 relative of the exact (measured: TestKvTemmePairOracle).
+// within 2^-60 relative of the exact (measured on 1.2e5 points,
+// TestKvTemmePairOracle: K_u 2^-64.7, K_(u+1) 2^-62.0; Kv and Kve 0.500 ulp).
 //
-// Total: 0.5 ulp for the rounding, the start pair 2^-61 (0.004 ulp), the
+// Total: 0.5 ulp for the rounding, the start pair 2^-60 (0.008 ulp), the
 // recurrence R_n <= R_0 + n 2^-91 (kn_fast.go's derivation, n <= 32), and 2^-76 for
 // e^x of the scaled value: below 0.52 ulp.
 //

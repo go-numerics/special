@@ -265,7 +265,8 @@ exactly one shard). An allowlist entry is judged only in the shard that sweeps
 its file, and a stale one fails in that shard alone. The shards are balanced by
 mutant count (`mutsweep -tally`: `jn_yn_fast.go` 43, `i_fast.go` 33 each alone;
 `binom` and `kn` 23; `gamma` and `kv` 31; `factorial` and `kv_cf2` 6;
-`i` 33 and `kv_temme` N, the last file sorting into the fourth shard).
+`i` 33 and `kv_temme` 16 (9 comparisons and 7 refusals) = 49 in the fourth shard,
+`jn_yn` 43 alone in the fifth).
 
 The gate does not cover every guard. mutsweep reaches refusals (an `if` whose
 body returns, panics or breaks) and the comparisons of their conditions and of
@@ -276,14 +277,16 @@ A clean gate says nothing about those; they are held by tests written for them
 and checked by running the mutation by hand (for example `ylow > 0` in
 `ynRecurErr`, `TestYnCertificateBoundNeverNegative`, and the final
 `return rel <= jyAcceptJ` of `jnMiller`, `TestJnMillerFinalComparison`).
-Eight deletions are reported "not a mutant" because the mutated file does not
-compile, so the gate never tests them: `kv_fast.go:154` (`if !done`), `:238`
-(`if at > prev`), `:259` (`if !(ok0 && ok1)`) and `:117` (`if !ok` of
-`kvCF2Chain`), `kv_cf2_fast.go:184` (`if !converged`; both of these last two are
-asserted by `TestKvCF2Caps`, which was not run with the deletion), `binom_fast.go:136`
+Nine deletions are reported "not a mutant" because the mutated file does not
+compile, so the gate never tests them: `kv_fast.go:166` (`if !done`), `:250`
+(`if at > prev`), `:271` (`if !(ok0 && ok1)`) and `:129` (`if !ok` of
+`kvCF2Chain`), `kv_temme_fast.go:300` (`if !ok` of `kvTemmeChain`, asserted by
+`TestKvTemmeCaps` at x = 30, which was not run with the deletion),
+`kv_cf2_fast.go:184` (`if !converged`; asserted by `TestKvCF2Caps`, likewise not
+run with the deletion), `binom_fast.go:136`
 (`if !ok`), `gamma_fast.go:158` (the `zivRound` refusal) and `:194` (`if ok`
 in `gammaNeg`). Only the last is verified: `TestGammaNegTakesTheFastPath` holds
-it (the fallback is stubbed to return NaN). For the other five nothing is known
+it (the fallback is stubbed to return NaN). For the other six nothing is known
 to hold them; it is unverified.
 Locally:
 
