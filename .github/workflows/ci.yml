@@ -230,8 +230,9 @@ jobs:
   # The full sweep took about 40 minutes in one job, so it runs in five shards
   # (mutgate --shard k/n: sorted *_fast.go index mod 5, after --changed-since;
   # entries are judged in the shard of their file; an empty shard is green).
-  # By mutant count (mutsweep -tally): jn_yn_fast 43, i_fast 33, binom + kn 23,
-  # factorial + kv 19, gamma 7 - each of the two big files alone.
+  # By mutant count (mutsweep -tally, refusals + comparisons), sorted index mod 5:
+  # jn_yn 43 | i 33 | gamma 7 + kv 24 = 31 | binom 14 + kn 9 = 23 |
+  # factorial 0 + kv_cf2 6 = 6; the two big files alone.
   mutation:
     name: mutation gate (mutsweep, *_fast.go, shard ${{ matrix.shard }}/5)
     runs-on: ubuntu-latest

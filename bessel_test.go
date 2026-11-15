@@ -227,6 +227,16 @@ func init() {
 		"near-integer v": 3,
 		"random":         3,
 		"Debye root":     3,
+		// the corners of kv_cf2_fast.go (0 < v < 32, 1.5 <= x < 24): 0.6 ulp
+		// where it answers; "tiny x" (x < 1.5) is besselIK, unchanged (2.64 ulp
+		// at v = 0.3, x = 0.3); the first and last rows of "x near edge" are
+		// below its range (besselIK) or at its top
+		"cf2 u near 1/2":  0.6,
+		"cf2 u near 0":    0.6,
+		"cf2 x near edge": 3,
+		"cf2 tiny x":      3,
+		"cf2 v near 32":   0.6,
+		"cf2 random":      0.6,
 	})
 	register("kve_edge", besselTwo(Kve), map[string]float64{
 		"small x":        3,
@@ -240,6 +250,13 @@ func init() {
 		"near-integer v": 3,
 		"random":         3,
 		"Debye root":     3,
+
+		"cf2 u near 1/2":  0.6,
+		"cf2 u near 0":    0.6,
+		"cf2 x near edge": 3,
+		"cf2 tiny x":      3,
+		"cf2 v near 32":   0.6,
+		"cf2 random":      0.6,
 	})
 	// the corners of i_fast.go: Debye (32 <= v <= 1100), the large-argument
 	// expansion (x >= 24), the recurrence (x < 512), the overflow of e^x and of

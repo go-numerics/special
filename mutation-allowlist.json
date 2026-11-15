@@ -53,5 +53,11 @@
   {"file": "i_fast.go", "func": "ivStart", "mode": "boundary", "verdict": "SURVIVED", "text": "N < 0  [< to <=]",
    "reason": "Equivalent mutant: ivSolve returns -1 or a level N >= j0 >= 1, never 0, so N <= 0 and N < 0 are the same test. The deletion of the test is held (TestIvStartLevels, ivStart(31, 1190) declines)."},
   {"file": "i_fast.go", "func": "ivSolve", "mode": "boundary", "verdict": "SURVIVED", "text": "f <= target  [<= to <]",
-   "reason": "Unreachable edge: f is a sum of logarithms of a table, equal to the constant target only by coincidence; the target already stands 1e-6 below ln 2^-63 (ivLnTargetN), so a level accepted at equality still has its product below 2^-63. The deletion of the test is held."}
+   "reason": "Unreachable edge: f is a sum of logarithms of a table, equal to the constant target only by coincidence; the target already stands 1e-6 below ln 2^-63 (ivLnTargetN), so a level accepted at equality still has its product below 2^-63. The deletion of the test is held."},
+  {"file": "kv_cf2_fast.go", "func": "kvInvTable", "mode": "boundary", "verdict": "SURVIVED", "text": "k <= kvCF2MaxIters  [<= to <]",
+   "reason": "Equivalent mutant: the float64 loop of kvCF2PairTol runs k < kvCF2MaxIters and reads kvInv[k-1] and kvInv[k] only, so the entry kvInv[kvCF2MaxIters] is never read."},
+  {"file": "kv_cf2_fast.go", "func": "kvCF2FTail", "mode": "boundary", "verdict": "SURVIVED", "text": "den > 0  [> to >=]",
+   "reason": "Equivalent mutant: at den == 0 the quotient w*dl*Df/den is +Inf (dl and Df are positive), the value the refusal returns. The deletion of the test is held (TestKvCF2FBracket: w Df >= 1 must give +Inf)."},
+  {"file": "kv_cf2_fast.go", "func": "kvCF2PairTol", "mode": "boundary", "verdict": "SURVIVED", "text": "k < kvCF2MaxIters  [< to <=]",
+   "reason": "Unreachable edge: the cap only bounds a loop that never reaches it inside the range (at most about 260 steps at x = kvCF2MinX, TestKvCF2Truncation), and converging exactly at step 1000 below the range is a coincidence; one more step (index 1000 is in the table) changes only which of two declines or answers a point outside the range gets. The cap is held (TestKvCF2Caps: x = 0.01 declines)."}
 ]
