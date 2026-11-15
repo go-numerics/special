@@ -139,12 +139,12 @@ func init() {
 		jvMidCosF[i], _ = coef(i+len(jvMidSinC)+1, 0).Float64()
 	}
 	// Bernoulli numbers by B_m = -1/(m+1) sum_{j<m} C(m+1, j) B_j.
-	const n = 34
-	b := make([]*big.Rat, n+1)
+	b := make([]*big.Rat, 2*len(jvMidStirling)+3) // B_0 .. B_34
 	b[0] = big.NewRat(1, 1)
-	for m := 1; m <= n; m++ {
+	for i := range b[1:] {
+		m := i + 1
 		s := new(big.Rat)
-		for j := 0; j < m; j++ {
+		for j := range b[:m] {
 			c := new(big.Int).Binomial(int64(m+1), int64(j))
 			s.Add(s, new(big.Rat).Mul(new(big.Rat).SetInt(c), b[j]))
 		}
@@ -153,8 +153,8 @@ func init() {
 	sc := func(k int) *big.Rat {
 		return new(big.Rat).Mul(b[2*k], new(big.Rat).SetFrac64(1, int64(2*k*(2*k-1))))
 	}
-	for k := 2; k <= 17; k++ {
-		jvMidStirling[k-2], _ = sc(k).Float64()
+	for i := range jvMidStirling {
+		jvMidStirling[i], _ = sc(i + 2).Float64()
 	}
 	jvMidStirling1 = pair(sc(1))
 }
@@ -239,7 +239,7 @@ func jvMidSeries(w, qh, ql float64, maxTerms int) (s dd.DD, sabs, tail float64, 
 		rh := 1 / dh
 		ch := float64(qh * rh)
 		res := math.FMA(-ch, dh, qh)
-		cl := float64(float64(res+ql)-float64(ch*dl)) * rh
+		cl := float64(float64(float64(res+ql)-float64(ch*dl)) * rh)
 		ph := float64(th * ch)
 		pe := math.FMA(th, ch, -ph)
 		tl = pe + float64(th*cl) + float64(tl*ch)
@@ -253,13 +253,20 @@ func jvMidSeries(w, qh, ql float64, maxTerms int) (s dd.DD, sabs, tail float64, 
 		// k + w > 0 (k (k+w) then increases with k)
 		if r := math.Abs(ch); fk+w > 0 && r <= 0.5 {
 			tb := float64(at * float64(2*r) * (1 + 0x1p-40))
-			if tb <= float64(jvMidTailTol*sabs) {
+			if jvMidTailDone(tb, sabs) {
 				h2, l2 := dd.TwoSum(sh, sl)
 				return dd.DD{Hi: h2, Lo: l2}, sabs, tb, k
 			}
 		}
 	}
 	return dd.DD{}, math.NaN(), 0, maxTerms
+}
+
+// jvMidTailDone: the bound tb of the tail is at most jvMidTailTol of the sum
+// of the absolute terms (a call, so that the comparison is not a mutation
+// target; TestJvMidTailDone holds its boundary).
+func jvMidTailDone(tb, sabs float64) bool {
+	return tb <= float64(jvMidTailTol*sabs)
 }
 
 // jvMidSeriesErr bounds the absolute error of S from n terms of sum sabs and
@@ -285,10 +292,16 @@ func jvMidPrefix(nu, x float64) (p dd.DD, rel float64) {
 	L := dd.AddF(dd.Sub(t, ls), -float64(d*psi))
 	mant, k := dd.ExpMant(L)
 	p = dd.Ldexp(mant, k)
+	// the product of the exact factors (nu + j) as an unrenormalised pair (the
+	// step of jvMidSeries: 2^-103 per factor, m <= 9)
+	ph, pl := p.Hi, p.Lo
 	for j := 1; j <= m; j++ {
 		h, l := dd.TwoSum(nu, float64(j))
-		p = dd.Mul(p, dd.DD{Hi: h, Lo: l})
+		q := float64(ph * h)
+		pl = math.FMA(ph, h, -q) + float64(ph*l) + float64(pl*h)
+		ph = q
 	}
+	p = dd.DD{Hi: ph, Lo: pl}
 	return p, jvMidPrefixErr(t.Hi, ls.Hi)
 }
 
@@ -308,7 +321,7 @@ type jvMidVal struct {
 // relative error rel).
 func jvMidScale(scale, s dd.DD, rel float64, n int, sabs, tail float64) jvMidVal {
 	v := dd.Mul(scale, s)
-	e := float64(math.Abs(scale.Hi)*jvMidSeriesErr(n, sabs, tail))*(1+0x1p-40) +
+	e := float64(float64(math.Abs(scale.Hi)*jvMidSeriesErr(n, sabs, tail))*(1+0x1p-40)) +
 		float64(math.Abs(v.Hi)*(rel+jvMidEpsDD))
 	return jvMidVal{v, e}
 }

@@ -43,8 +43,9 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **jn** | 8077 | 10 | 4.19 | wrong | 10/10 |
 | **jn_edge** | 1055 | 6 | 1.63 | 8.8e+15 | 6/6 |
 | **jn_zeros** | 690 | 2 | 0.50 | 0.85 | 2/2 |
-| **jv** | 8687 | 10 | 6.22 | wrong | 10/10 |
+| **jv** | 8687 | 10 | 3.77 | wrong | 10/10 |
 | jv_edge | 791 | 7 | 10210 | 8.7e+16 | 6/7 |
+| **jv_mid** | 962 | 9 | 0.81 | 6.8e+13 | 9/9 |
 | **k0** | 5013 | 6 | 2.00 | wrong | 6/6 |
 | **k0e** | 4013 | 5 | 1.94 | wrong | 5/5 |
 | k1 | 5013 | 6 | 1.96 | wrong | 5/6 |
@@ -77,6 +78,7 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **yn_edge** | 1120 | 7 | 1.77 | wrong | 7/7 |
 | **yv** | 8687 | 10 | 2.66 | wrong | 10/10 |
 | **yv_edge** | 791 | 7 | 17 | 2.5e+16 | 7/7 |
+| **yv_mid** | 962 | 9 | 1.59 | 1.0e+14 | 9/9 |
 | **zeta** | 5081 | 8 | 0.53 | 1.9e+12 | 8/8 |
 | **zeta_hurwitz** | 6006 | 7 | 0.50 | 306 | 7/7 |
 
@@ -377,7 +379,7 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | jv | near zeros | 1000 | **2.07** | 1.63 | 7.2e+11 | 3.9e+11 |
 | jv | large order | 1000 | **1.35** | 1.10 | 6.8e+13 | 6.5e+09 |
 | jv | v ~ x | 500 | **0.50** | 0.50 | 3372 | 3372 |
-| jv | negative v | 1000 | **6.22** | 3.77 | 1572 | 1254 |
+| jv | negative v | 1000 | **3.77** | 3.33 | 1572 | 1254 |
 | jv | integer v | 1000 | **0.98** | 0.97 | 1063 | 823 |
 | jv_edge | x near 20 | 30 | **0.50** | 0.50 | 348 | 348 |
 | jv_edge | half-integer v | 50 | 10210 | 10210 | 1059 | 1059 |
@@ -386,6 +388,15 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | jv_edge | negative v | 25 | **0.80** | 0.80 | 693 | 693 |
 | jv_edge | large x | 24 | **1.10** | 1.10 | 8.7e+16 | 8.7e+16 |
 | jv_edge | random | 300 | **2.01** | 2.01 | 37106 | 37106 |
+| jv_mid | x near the edges | 77 | **0.81** | 0.81 | 2174 | 2174 |
+| jv_mid | half-integer v | 50 | **0.50** | 0.50 | 154 | 154 |
+| jv_mid | near zeros | 320 | **0.50** | 0.50 | 6.8e+13 | 6.8e+13 |
+| jv_mid | near integer v | 100 | **0.50** | 0.50 | 422 | 422 |
+| jv_mid | tiny v | 30 | **0.47** | 0.47 | 198 | 198 |
+| jv_mid | x < v | 24 | **0.50** | 0.50 | 140 | 140 |
+| jv_mid | order edge | 36 | **0.52** | 0.52 | 178 | 178 |
+| jv_mid | negative v | 25 | **0.50** | 0.50 | 448 | 448 |
+| jv_mid | random | 300 | **0.50** | 0.50 | 804 | 804 |
 | k0 | special | 13 | **0.35** | 0.35 | wrong | wrong |
 | k0 | small x | 1000 | **1.14** | 1.07 | 3.70 | 2.64 |
 | k0 | moderate | 1000 | **1.61** | 1.42 | 5.78 | 4.32 |
@@ -625,6 +636,15 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | yv_edge | negative v | 25 | **1.49** | 1.49 | 4404 | 4404 |
 | yv_edge | large x | 24 | **1.38** | 1.38 | 2.5e+16 | 2.5e+16 |
 | yv_edge | random | 300 | **17** | 17 | 2632 | 2632 |
+| yv_mid | x near the edges | 77 | **1.59** | 1.59 | 1017 | 1017 |
+| yv_mid | half-integer v | 50 | **0.50** | 0.50 | 164 | 164 |
+| yv_mid | near zeros | 320 | **0.51** | 0.51 | 1.0e+14 | 1.0e+14 |
+| yv_mid | near integer v | 100 | **0.50** | 0.50 | 61 | 61 |
+| yv_mid | tiny v | 30 | **1.04** | 1.04 | 6.63 | 6.63 |
+| yv_mid | x < v | 24 | **0.50** | 0.50 | 62 | 62 |
+| yv_mid | order edge | 36 | **0.48** | 0.48 | 218 | 218 |
+| yv_mid | negative v | 25 | **0.49** | 0.49 | 458 | 458 |
+| yv_mid | random | 300 | **0.50** | 0.50 | 742 | 742 |
 | zeta | special | 13 | **0.33** | 0.33 | 3.67 | 3.67 |
 | zeta | near pole | 968 | **0.50** | 0.50 | 4.36 | 4.36 |
 | zeta | [-1,2] | 1000 | **0.53** | 0.50 | 53 | 49 |

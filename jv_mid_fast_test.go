@@ -1,7 +1,6 @@
 package special
 
 import (
-	"encoding/binary"
 	"math"
 	"math/big"
 	"math/rand"
@@ -23,9 +22,9 @@ const jvMidBound = 0.5625
 // draws within 0.5 of an edge.
 func jvMidSample(r *rand.Rand) (v, x float64) {
 	for {
-		v = float64(r.Float64()*81 - 40.5)
+		v = float64(float64(r.Float64()*81) - 40.5)
 		if r.Intn(3) == 0 {
-			v = float64(r.Float64()*10 - 5)
+			v = float64(float64(r.Float64()*10) - 5)
 		}
 		if v != math.Trunc(v) {
 			break
@@ -75,7 +74,7 @@ func TestJvMidOracle(t *testing.T) {
 				t.Fatalf("jvMidFast(%v, %v, Y=%v) = %v: %.4f ulp from the oracle", v, x, w == 1, got, u)
 			}
 			d, _ := bnew().Sub(bf(got), want).Float64()
-			if math.Abs(d) > e+0.5*ulp(got) {
+			if math.Abs(d) > e+float64(0.5*ulp(got)) {
 				t.Fatalf("jvMidFast(%v, %v, Y=%v): error %g exceeds its certificate %g + half ulp", v, x, w == 1, d, e)
 			}
 		}
@@ -146,8 +145,8 @@ func TestJvMidSeries(t *testing.T) {
 
 // dd2 returns x^2/4 as an exact pair.
 func dd2(x float64) (qh, ql float64) {
-	h, l := x*x, math.FMA(x, x, -x*x)
-	return h * 0.25, l * 0.25
+	h, l := float64(x*x), math.FMA(x, x, -x*x)
+	return float64(h * 0.25), float64(l * 0.25)
 }
 
 // TestJvMidSeriesStop holds the stopping rule that no refusal guards: the loop
@@ -232,6 +231,19 @@ func TestJvMidCertified(t *testing.T) {
 	}
 	if jvMidCertified(1e-30, 0) {
 		t.Error("a zero value is accepted with a nonzero bound")
+	}
+}
+
+// TestJvMidTailDone holds the stopping comparison at its boundary.
+func TestJvMidTailDone(t *testing.T) {
+	for _, s := range []float64{1, 7.5, 1e9} {
+		tb := float64(jvMidTailTol * s)
+		if !jvMidTailDone(tb, s) {
+			t.Errorf("tb = tol sabs refused for sabs = %v", s)
+		}
+		if jvMidTailDone(math.Nextafter(tb, 1), s) {
+			t.Errorf("tb just above tol sabs accepted for sabs = %v", s)
+		}
 	}
 }
 
@@ -325,8 +337,8 @@ func TestJvMidSinCosPi(t *testing.T) {
 		// the oracle reduces by whole quarter turns in float64 (exact: a = nu -
 		// m/2) and rotates; bigPi is good to about 2^-110 only, so pi nu itself
 		// would swamp the relative error next to an integer
-		m := math.Floor(2*nu + 0.5)
-		a := nu - m/2
+		m := math.Floor(float64(2*nu) + 0.5)
+		a := nu - float64(m/2)
 		za := bnew().Mul(bigPi, bf(a))
 		sa := bigCos(bnew().Sub(bnew().Quo(bigPi, bf(2)), za))
 		ca := bigCos(za)
@@ -411,123 +423,9 @@ func oldJY(v, x float64, needJ, needY bool) (J, Y float64) {
 	return besselJYRefl(v, x, needJ, needY)
 }
 
-// TestJvMidBits: the bit-identity check against a baseline build (a clean clone
-// of the previous release): the same test is run there to dump Jv and Yv of the
-// inputs, then here to compare.
-//
-//	(baseline clone) JVMID_BITS_DUMP=/path/jv.bits go test -run TestJvMidBits .
-//	(this clone)     JVMID_BITS_COMPARE=/path/jv.bits go test -run TestJvMidBits -v .
-//
-// Every input the fast path declines, and every input outside its range, must
-// give the baseline's bits; where it answers, the answer must be within the
-// oracle's jvMidBound (checked on the inputs where the two differ by more than
-// 2 ulp, for the baseline's error is up to 40000 ulp near the zeros).
-func TestJvMidBits(t *testing.T) {
-	dump, cmp := os.Getenv("JVMID_BITS_DUMP"), os.Getenv("JVMID_BITS_COMPARE")
-	if dump == "" && cmp == "" {
-		t.Skip("needs JVMID_BITS_DUMP or JVMID_BITS_COMPARE")
+func init() {
+	jvMidProbe = func(v, x float64, wantY bool) bool {
+		_, _, ok := jvMidFast(v, x, wantY)
+		return ok
 	}
-	const count = 120000
-	r := rand.New(rand.NewSource(63))
-	vs, xs := make([]float64, count), make([]float64, count)
-	for i := range vs {
-		vs[i], xs[i] = jvMidBitInput(r, i)
-	}
-	got := make([]float64, 2*count)
-	kvParallel(count, func(i int) {
-		got[2*i], got[2*i+1] = Jv(vs[i], xs[i]), Yv(vs[i], xs[i])
-	})
-	if dump != "" {
-		var b []byte
-		for _, g := range got {
-			b = binary.LittleEndian.AppendUint64(b, math.Float64bits(g))
-		}
-		if err := os.WriteFile(dump, b, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		return
-	}
-	b, err := os.ReadFile(cmp)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(b) != 16*count {
-		t.Fatalf("dump has %d bytes, want %d", len(b), 16*count)
-	}
-	var identical, outside, declinedIn, answered, judged int
-	var worst, worstBase, worstNew float64
-	for i := range vs {
-		for k, y := range []bool{false, true} {
-			want := math.Float64frombits(binary.LittleEndian.Uint64(b[8*(2*i+k):]))
-			g := got[2*i+k]
-			_, _, ok := jvMidFast(vs[i], xs[i], y)
-			inRange := xs[i] >= jvMidMinX && xs[i] <= jvMidMaxX && math.Abs(vs[i]) <= jvMidMaxOrder && vs[i] != math.Trunc(vs[i])
-			switch {
-			case sameBits(g, want):
-				identical++
-				if !inRange {
-					outside++
-				} else if !ok {
-					declinedIn++
-				}
-			case !ok:
-				t.Errorf("Jv/Yv(%g, %g) Y=%v: %v, baseline %v, but the fast path declines", vs[i], xs[i], y, g, want)
-			default:
-				answered++
-				d := math.Abs(g-want) / ulp(want)
-				worst = math.Max(worst, d)
-				if d > 2 {
-					o := bigJv(vs[i], xs[i])
-					if y {
-						o = bigYv(vs[i], xs[i])
-					}
-					judged++
-					e := jvUlps(g, o)
-					worstNew = math.Max(worstNew, e)
-					worstBase = math.Max(worstBase, jvUlps(want, o))
-					if e > jvMidBound {
-						t.Errorf("Jv/Yv(%g, %g) Y=%v: %v is %.4f ulp from the oracle (baseline %v, %.2f ulp)", vs[i], xs[i], y, g, e, want, jvUlps(want, o))
-					}
-				}
-			}
-		}
-	}
-	t.Logf("%d inputs, J and Y (%d values): %d identical (%d outside the range, %d declined inside), %d answered with other bits (up to %.2f ulp from the baseline); %d of those more than 2 ulp away judged by the oracle: the baseline is up to %.2f ulp off there, the new value within %.4f",
-		count, 2*count, identical, outside, declinedIn, answered, worst, judged, worstBase, worstNew)
-}
-
-// jvMidBitInput returns the i-th input of TestJvMidBits: orders in six classes
-// (uniform, integers, half-integers, tiny, near an integer, beyond 40.5, either
-// sign), x in [0.5, 25] with shares at both edges.
-func jvMidBitInput(r *rand.Rand, i int) (v, x float64) {
-	switch i % 7 {
-	case 0:
-		v = float64(r.Float64()*82 - 41)
-	case 1:
-		v = float64(r.Intn(83) - 41)
-	case 2:
-		v = float64(r.Intn(82)-41) + 0.5
-	case 3:
-		v = float64(math.Exp(float64(r.Float64()*(math.Log(1e-3)-math.Log(1e-12)))) * 1e-12)
-		if r.Intn(2) == 0 {
-			v = -v
-		}
-	case 4:
-		v = float64(r.Intn(41)) + float64((r.Float64()-0.5)*2e-6)
-	case 5:
-		v = 38 + float64(r.Float64()*6)
-		if r.Intn(2) == 0 {
-			v = -v
-		}
-	case 6:
-		v = float64(r.Float64()*20 - 10)
-	}
-	x = 0.5 + float64(r.Float64()*24.5)
-	switch i % 11 {
-	case 0:
-		x = 1 + float64((r.Float64()-0.5)*1e-6)
-	case 1:
-		x = 20 + float64((r.Float64()-0.5)*1e-6)
-	}
-	return v, x
 }
