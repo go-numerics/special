@@ -131,6 +131,30 @@ func init() {
 		"negative v":  6,
 		"integer v":   4,
 	})
+	// the corners of jv_hankel_fast.go (x > 20, |v| <= 40): 0.63 ulp where it
+	// answers; where it declines (next to the zeros, beyond its range) the
+	// modulus-phase code answers as before, and its worst rows are the ones
+	// that set these budgets: J_2.5(25) is next to a zero, 10210 ulp
+	// ("half-integer v"; 185 ulp at x = 31.4), Y_-26.4(25.8) is 16.7 ulp
+	// ("random", x < |v|): both unchanged by this path, which declines there.
+	register("jv_edge", besselTwo(Jv), map[string]float64{
+		"x near 20":      1,
+		"half-integer v": 11000,
+		"near zeros":     2.5,
+		"order edge":     1.5,
+		"negative v":     1.5,
+		"large x":        1.5,
+		"random":         3,
+	})
+	register("yv_edge", besselTwo(Yv), map[string]float64{
+		"x near 20":      2,
+		"half-integer v": 1,
+		"near zeros":     2,
+		"order edge":     1.5,
+		"negative v":     2,
+		"large x":        2,
+		"random":         20,
+	})
 	register("jn", func(a []float64) float64 { return Jn(int(a[0]), a[1]) }, map[string]float64{
 		"special":     2.5,
 		"small x":     1.5,

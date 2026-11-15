@@ -260,8 +260,11 @@ it in five shards (`--shard k/n`: the sorted file list, after `--files` or
 `--changed-since`, split by index mod n, so a new `*_fast.go` always lands in
 exactly one shard). An allowlist entry is judged only in the shard that sweeps
 its file, and a stale one fails in that shard alone. The shards are balanced by
-mutant count (`mutsweep -tally`: `jn_yn_fast.go` 43, `i_fast.go` 33 each alone;
-`binom` and `kn` 23; `gamma` and `kv` 31; `factorial` and `kv_cf2` 6).
+mutant count (`mutsweep -tally`; with `jv_hankel_fast.go` (12: 7 comparisons
+and 5 refusals; the deletion of `if inDD` does not compile) the sorted index mod
+5 is `jn_yn_fast.go` 43 alone; `i` 33 and `kv` 24 = 57; `binom` 14 and
+`jv_hankel` 12 = 26; `gamma` 7 and `kv_cf2` 6 =
+13; `factorial` 0 and `kn` 9 = 9).
 
 The gate does not cover every guard. mutsweep reaches refusals (an `if` whose
 body returns, panics or breaks) and the comparisons of their conditions and of

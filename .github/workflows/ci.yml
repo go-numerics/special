@@ -231,8 +231,9 @@ jobs:
   # (mutgate --shard k/n: sorted *_fast.go index mod 5, after --changed-since;
   # entries are judged in the shard of their file; an empty shard is green).
   # By mutant count (mutsweep -tally, refusals + comparisons), sorted index mod 5:
-  # jn_yn 43 | i 33 | gamma 7 + kv 24 = 31 | binom 14 + kn 9 = 23 |
-  # factorial 0 + kv_cf2 6 = 6; the two big files alone.
+  # jn_yn 43 | i 33 + kv 24 = 57 | binom 14 + jv_hankel 12 = 26 |
+  # gamma 7 + kv_cf2 6 = 13 | factorial 0 + kn 9 = 9 (jv_hankel_fast.go sorts
+  # between jn_yn and kn and moved kn, kv_cf2 and kv up one index).
   mutation:
     name: mutation gate (mutsweep, *_fast.go, shard ${{ matrix.shard }}/5)
     runs-on: ubuntu-latest
