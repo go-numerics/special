@@ -114,7 +114,10 @@ time):
   1.5 <= x < 24 now take a continued-fraction fast path (`kv_cf2_fast.go`,
   0.6 ulp), about 2.6x faster on the "moderate" rows in the in-repo benchmark
   (`BenchmarkKvRows`, interleaved against v0.15.0, load above 8); the refbench
-  ratios are not remeasured.
+  ratios are not remeasured. The last Kv region that fell back to the slow
+  path, 0 < v < 32 with 2^-1000 <= x < 1.5 (up to 3.9 ulp there), now takes
+  Temme's series (`kv_temme_fast.go`, 0.6 ulp stated, 0.500 measured); its
+  timing is deferred (the machine's load was above 8).
 
 Since v0.5.6, `I1`, `I1e`, `K1` and `K1e` use the same fitted octave
 interpolants as `I0e` and `K0e` (and are more accurate: worst case against
@@ -261,7 +264,8 @@ it in five shards (`--shard k/n`: the sorted file list, after `--files` or
 exactly one shard). An allowlist entry is judged only in the shard that sweeps
 its file, and a stale one fails in that shard alone. The shards are balanced by
 mutant count (`mutsweep -tally`: `jn_yn_fast.go` 43, `i_fast.go` 33 each alone;
-`binom` and `kn` 23; `gamma` and `kv` 31; `factorial` and `kv_cf2` 6).
+`binom` and `kn` 23; `gamma` and `kv` 31; `factorial` and `kv_cf2` 6;
+`i` 33 and `kv_temme` N, the last file sorting into the fourth shard).
 
 The gate does not cover every guard. mutsweep reaches refusals (an `if` whose
 body returns, panics or breaks) and the comparisons of their conditions and of

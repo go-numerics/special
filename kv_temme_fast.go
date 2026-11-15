@@ -14,11 +14,15 @@ import (
 // K_v itself is the result, K_v e^x one double-double product more.
 //
 // Method. Temme (1975, "On the numerical evaluation of the modified Bessel
-// function of the third kind", J. Comput. Phys. 19, 324-337; the recurrences
-// below are those of Boost's temme_ik in bessel_ik.go, and of Bessels.jl's
-// besselk, besselk.jl at 009b615, read 2026-11-15, MIT; neither Temme's paper
-// nor DLMF 10.31 was reopened for this change, the formulas are held by the
-// math/big oracle of kv_oracle_test.go on 1.5e5 points). With
+// function of the third kind", J. Comput. Phys. 19, 324-337, not reopened; the
+// recurrences below are those of Boost's temme_ik in bessel_ik.go and of
+// besselk_temme_series in Bessels.jl, src/BesselFunctions/besselk.jl at
+// 009b615 (MIT), read 2026-11-15, which also takes g1, g2 as Taylor
+// polynomials in v^2 and sinh(mu)/mu as a series in mu^2, but only for |v| <
+// 1e-5 and in float64, here for every |u| <= 1/2 in double-double. DLMF 10.31,
+// opened 2026-11-15, gives only the integer-order series (10.31.1) and refers
+// to 10.25.2 and 10.27.4 for the rest: the formulas are held by the math/big
+// oracle of kv_oracle_test.go, not by it). With
 // L = ln(2/x), sigma = u L, c_k = (x^2/4)^k / k! and E = e^sigma,
 //
 //	K_u = sum_k c_k f_k,    (x/2) K_(u+1) = sum_k c_k h_k,
