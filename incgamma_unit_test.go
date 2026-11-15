@@ -9,6 +9,30 @@ import (
 	"testing"
 )
 
+// TestIncGammaInvRareBranches pins three blocks of incgamma_inv.go that, until
+// v0.18.0, only TestIncRobustness's 30000 random draws reached (draws 9190 and
+// 24634 of its seed): the 100% coverage gate must not depend on a sweep's size.
+func TestIncGammaInvRareBranches(t *testing.T) {
+	// A huge a and a tiny p: P underflows to 0 on the way (igamLogTail,
+	// v == 0) while the bracket is still open above (the x*16 step).
+	a, p := 1.2281663178666986e+35, 3.1135951180766048e-294
+	x := GammaPInv(a, p)
+	if !(x > 0 && x < math.Inf(1)) {
+		t.Fatalf("GammaPInv(%g, %g) = %g, want a finite positive root", a, p, x)
+	}
+	// The root brackets p between its neighbours (P increases in x).
+	lo, hi := GammaP(a, math.Nextafter(x, 0)), GammaP(a, math.Nextafter(x, math.Inf(1)))
+	if !(lo <= p && p <= hi) {
+		t.Errorf("GammaPInv(%g, %g) = %g: P at its neighbours is [%g, %g], not around p", a, p, x, lo, hi)
+	}
+	// A root just above the smallest subnormal's halfway point: the answer is
+	// 2^-1074, not 0 (igamInvBelowSubnormal, g <= 0).
+	a, q := 0.0025242087815098694, 0.8472743669729926
+	if x := GammaQInv(a, q); x != 0x1p-1074 {
+		t.Errorf("GammaQInv(%g, %g) = %g, want 2^-1074", a, q, x)
+	}
+}
+
 // incRobustN is the number of random draws of TestIncRobustness: 8000 by
 // default, or INC_ROBUST from the environment (INC_ROBUST=30000 is the size it
 // ran at until v0.18.0). At 30000 the test alone took 5m11s of the 13m test
