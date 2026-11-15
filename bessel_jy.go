@@ -602,7 +602,9 @@ func besselIsInt(v float64) bool {
 // Steed's method grows like x, so above x = 1e6 the large-x expansion is
 // used even next to a zero. For x > 20 and |v| <= 40 Hankel's P, Q form with
 // a certificate answers first (jv_hankel_fast.go, within 0.63 ulp, declining
-// next to the zeros); otherwise the above.
+// next to the zeros), and for 1 <= x <= 20 and a non-integer |v| <= 40.5 the
+// two power series of J_v and J_-v in double-double (jv_mid_fast.go, within
+// 0.5625 ulp, declining next to the zeros); otherwise the above.
 func Jv(v, x float64) float64 {
 	switch {
 	case math.IsNaN(v) || math.IsNaN(x):
@@ -628,6 +630,10 @@ func Jv(v, x float64) float64 {
 		return math.Copysign(math.Inf(1), -sinPi(v))
 	case x > hankelMinX:
 		if r, _, ok := hankelFast(v, x, false); ok {
+			return r
+		}
+	case x >= jvMidMinX:
+		if r, _, ok := jvMidFast(v, x, false); ok {
 			return r
 		}
 	}
@@ -675,6 +681,10 @@ func Yv(v, x float64) float64 {
 		return math.Copysign(math.Inf(1), -c)
 	case x > hankelMinX:
 		if r, _, ok := hankelFast(v, x, true); ok {
+			return r
+		}
+	case x >= jvMidMinX:
+		if r, _, ok := jvMidFast(v, x, true); ok {
 			return r
 		}
 	}

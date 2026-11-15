@@ -778,6 +778,52 @@ def hankel_edge_cases(kind):
     return c
 
 
+def mid_edge_cases(kind):
+    """Corners of jv_mid_fast.go (1 <= x <= 20, non-integer |v| <= 40.5, the
+    two power series): x on both sides of both edges, half-integer orders,
+    orders next to an integer and next to zero (where 1/sin(v pi) multiplies the
+    rounding of Y and the path declines), the zeros of J_v / Y_v (where it
+    declines), x < v (J tiny, Y huge), orders next to 40.5, negative orders and
+    a random sweep."""
+    from common import rng
+    r = rng("mid_edge_" + kind.lower())
+    c = []
+    for v in (0.3, 1.7, 6.3, 14.5, 39.9, -2.7, -19.2):
+        for x in (1.0 - 2.0 ** -53, 1.0, 1.0 + 2.0 ** -40, 1.0000001, 1.5, 2.0,
+                  19.5, 19.9999999, 20.0 - 2.0 ** -48, 20.0, 20.0 + 2.0 ** -40):
+            c.append(("x near the edges", (v, x)))
+    for v in (0.5, 1.5, 2.5, 7.5, 19.5, 39.5, -0.5, -1.5, -3.5, -11.5):
+        for x in (1.5, 3.3, 7.7, 12.1, 19.9):
+            c.append(("half-integer v", (v, x)))
+    for v in (0.3, 1.7, 6.3, 14.5):
+        zs = [z for z in zeros_of(kind, v, 40) if 1 < z < 20]
+        for x in near(r, zs, 60, lo=1e-14, hi=1e-4):
+            c.append(("near zeros", (v, x)))
+        for x in near(r, zs, 20, lo=1e-3, hi=3e-2):
+            c.append(("near zeros", (v, x)))
+    for n in (1, 2, 5, 13, 30):
+        for d in (1e-3, 1e-6, 1e-9, -1e-6, -1e-12):
+            for x in (1.3, 4.1, 9.9, 17.7):
+                c.append(("near integer v", (n + d, x)))
+    for v in (1e-8, 1e-5, 1e-3, -1e-8, -1e-5, -1e-3):
+        for x in (1.0, 2.2, 6.1, 14.4, 20.0):
+            c.append(("tiny v", (v, x)))
+    for v in (5.3, 12.7, 25.5, 38.2, -8.4, -25.5):
+        for x in (1.0, 2.5, 4.4, 8.8):
+            c.append(("x < v", (v, x)))
+    for v in (39.5, 39.9, 40.0, 40.4, 40.5, 40.6, 41.5, -40.4, -40.5):
+        for x in (1.5, 7.0, 13.2, 19.0):
+            c.append(("order edge", (v, x)))
+    for v in (-0.3, -2.7, -7.7, -19.2, -39.5):
+        for x in (1.1, 3.0, 8.0, 14.0, 19.7):
+            c.append(("negative v", (v, x)))
+    for _ in range(300):
+        v = r.uniform(-40.5, 40.5)
+        x = r.uniform(1.0, 20.0)
+        c.append(("random", (v, x)))
+    return c
+
+
 def jn_zero_mp(n, k):
     return mp.besseljzero(int(n), int(k))
 
@@ -823,6 +869,8 @@ def fixtures():
                             lambda n, x: sc.yn(int(n), x), "Y_n(x), n = args[0]; corners of jn_yn_fast.go"),
         "jv_edge": lambda: (2, hankel_edge_cases("J"), jv_any, sc.jv, "J_v(x); corners of jv_hankel_fast.go"),
         "yv_edge": lambda: (2, hankel_edge_cases("Y"), yv_any, sc.yv, "Y_v(x); corners of jv_hankel_fast.go"),
+        "jv_mid": lambda: (2, mid_edge_cases("J"), jv_any, sc.jv, "J_v(x); corners of jv_mid_fast.go"),
+        "yv_mid": lambda: (2, mid_edge_cases("Y"), yv_any, sc.yv, "Y_v(x); corners of jv_mid_fast.go"),
         "iv": lambda: (2, two_arg_cases("iv", "I"), iv_any, sc.iv, "I_v(x)"),
         "kv": lambda: (2, two_arg_cases("kv", "K"), kv_any, sc.kv, "K_v(x)"),
         "kn": lambda: (2, two_arg_cases("kn", "K", True), kv_any,
@@ -852,7 +900,7 @@ class _Lazy(dict):
 
 
 FIXTURES = _Lazy(["j0", "j1", "y0", "y1", "i0", "i1", "k0", "k1", "i0e", "i1e", "k0e", "k1e",
-                  "jv", "yv", "jv_edge", "yv_edge", "jn", "yn", "jn_edge", "yn_edge", "iv", "kv", "kn", "kn_edge", "kv_edge", "kve_edge", "i_edge", "ive_edge", "ive", "kve", "jn_zeros"])
+                  "jv", "yv", "jv_edge", "yv_edge", "jv_mid", "yv_mid", "jn", "yn", "jn_edge", "yn_edge", "iv", "kv", "kn", "kn_edge", "kv_edge", "kve_edge", "i_edge", "ive_edge", "ive", "kve", "jn_zeros"])
 
 
 # ------------------------------------------------------------- tables (Go)

@@ -155,6 +155,27 @@ func init() {
 		"large x":        2,
 		"random":         20,
 	})
+	// the corners of jv_mid_fast.go (1 <= x <= 20, non-integer |v| <= 40.5):
+	// 0.5625 ulp where it answers; where it declines (next to the zeros and, for
+	// Y, next to an integer order) the code that was there answers as before.
+	// The rows at the edges (x just below 1 or above 20, v of 40.5 and beyond, |v| < 1e-5) are
+	// answered by the code that was there: those budgets are its (0.81, 0.52,
+	// 1.59 and 1.04 ulp measured).
+	jvMidBudget := func(edges, tiny float64) map[string]float64 {
+		return map[string]float64{
+			"x near the edges": edges,
+			"half-integer v":   0.6,
+			"near zeros":       0.6,
+			"near integer v":   0.6,
+			"tiny v":           tiny,
+			"x < v":            0.6,
+			"order edge":       0.6,
+			"negative v":       0.6,
+			"random":           0.6,
+		}
+	}
+	register("jv_mid", besselTwo(Jv), jvMidBudget(1, 0.6))
+	register("yv_mid", besselTwo(Yv), jvMidBudget(2, 1.5))
 	register("jn", func(a []float64) float64 { return Jn(int(a[0]), a[1]) }, map[string]float64{
 		"special":     2.5,
 		"small x":     1.5,
