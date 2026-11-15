@@ -23,7 +23,7 @@ func TestBigCosReduces(t *testing.T) {
 	for _, a := range []float64{0.3, 1, 2.5, -1.7} {
 		base := bigCos(bf(a))
 		for _, k := range []float64{20, 40, -40, 318} { // up to 2000 / (2 pi)
-			shifted := bnew().Add(bf(a), bnew().Mul(bf(2*k), bigPi))
+			shifted := bnew().Add(bf(a), bnew().Mul(bf(float64(2*k)), bigPi))
 			near("cos(a + 2 pi k)", bigCos(shifted), base)
 		}
 	}
