@@ -157,16 +157,12 @@ func archHashCases() []hashCase {
 				emit(Factorial2(int(n)))
 			}
 		}},
-		{"LogSumExp,Softmax,LogSoftmax", func(emit func(float64)) {
-			x := spread(300, r(-50, 50))
-			emit(LogSumExp(x))
-			for _, v := range Softmax(nil, x) {
-				emit(v)
-			}
-			for _, v := range LogSoftmax(nil, x) {
-				emit(v)
-			}
-		}},
+		// LogSumExp, Softmax and LogSoftmax are not here since softmax_fast.go:
+		// their exponential is floats.Exp, whose polynomial is left open to
+		// fusion (arm64, ppc64le, s390x, riscv64 fuse it, amd64 v1 does not), so
+		// their bits differ by architecture within the stated bound. The bound
+		// is what TestSoftmaxBound, TestLogSoftmaxBound and TestLogSumExpBound
+		// assert on every lane of the CI.
 		{"JnZeros", func(emit func(float64)) {
 			for _, n := range []int{0, 1, 4} {
 				for _, v := range JnZeros(n, 30) {

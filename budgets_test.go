@@ -153,11 +153,11 @@ var measuredBudgets = map[string]map[string]float64{
 	},
 	"log_softmax4": {
 		"special":           1,
-		"moderate":          1,
-		"one dominant":      1.1,
-		"huge":              1,
-		"wide spread":       1,
-		"near cancellation": 1,
+		"moderate":          1.5,
+		"one dominant":      2.2,
+		"huge":              1.5,
+		"wide spread":       1.5,
+		"near cancellation": 1.7,
 	},
 	"logbeta": {
 		"special":            1,
@@ -188,11 +188,11 @@ var measuredBudgets = map[string]map[string]float64{
 	},
 	"logsumexp4": {
 		"special":           1,
-		"moderate":          1,
+		"moderate":          1.2,
 		"one dominant":      1,
 		"huge":              1,
 		"wide spread":       1,
-		"near cancellation": 1,
+		"near cancellation": 1.5,
 	},
 	"ndtr": {
 		"special":     1,
@@ -225,11 +225,11 @@ var measuredBudgets = map[string]map[string]float64{
 	},
 	"softmax4": {
 		"special":           1,
-		"moderate":          1,
-		"one dominant":      1,
-		"huge":              1,
-		"wide spread":       1.5,
-		"near cancellation": 1,
+		"moderate":          2.9,
+		"one dominant":      1.5,
+		"huge":              2.7,
+		"wide spread":       2.2,
+		"near cancellation": 1.5,
 	},
 	"xlog1py": {
 		"special":   1,
