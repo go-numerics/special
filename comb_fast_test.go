@@ -89,8 +89,8 @@ func TestGammaSignNegative(t *testing.T) {
 	}
 }
 
-// The pooled scratch of Softmax must not leak between calls of different
-// lengths and callers.
+// Softmax must not keep state between calls of different lengths (the stack
+// scratch of the two chunk sizes of softmax_fast.go) and callers.
 func TestSoftmaxScratchReuse(t *testing.T) {
 	long := make([]float64, 5000)
 	for i := range long {

@@ -67,12 +67,14 @@ func smShift(v, m float64) (h, l float64) {
 	return h, l
 }
 
-// smAdd is one step of a compensated sum: s + c holds the sum so far to
-// 2^-106 relative.
+// smAdd is one step of a compensated sum, Fast2Sum (Dekker): s + c holds the
+// sum so far to 2^-106 relative. It needs s >= t, which holds here: every
+// accumulator starts at 1 and every summand is at most 1 (exp(h) <= 1 for
+// h <= 0, and the correction e l moves a value below 1 by a relative 2^-53 at
+// most).
 func smAdd(s, c, t float64) (float64, float64) {
 	a := s + t
-	bb := a - s
-	return a, c + ((s - (a - bb)) + (t - bb))
+	return a, c + (t - (a - s))
 }
 
 // smChunk writes exp(x_i - m) into buf (the exponentials of the corrected
@@ -96,9 +98,10 @@ func smChunk(buf, x []float64, m, mark float64, lo []float64) (dd.DD, int) {
 		lo[i] = l
 	}
 	floats.Exp(buf, buf)
-	var s0, s1, s2, s3, c0, c1, c2, c3 float64
-	i := 0
-	for ; i+4 <= n; i += 4 {
+	s0, s1, s2, s3 := 1.0, 1.0, 1.0, 1.0
+	var c0, c1, c2, c3 float64
+	for g := range n / 4 {
+		i := 4 * g
 		e0 := math.FMA(buf[i], lo[i], buf[i])
 		e1 := math.FMA(buf[i+1], lo[i+1], buf[i+1])
 		e2 := math.FMA(buf[i+2], lo[i+2], buf[i+2])
@@ -109,13 +112,16 @@ func smChunk(buf, x []float64, m, mark float64, lo []float64) (dd.DD, int) {
 		s2, c2 = smAdd(s2, c2, e2)
 		s3, c3 = smAdd(s3, c3, e3)
 	}
-	for ; i < n; i++ {
+	for j := range n % 4 {
+		i := 4*(n/4) + j
 		e := math.FMA(buf[i], lo[i], buf[i])
 		buf[i] = e
 		s0, c0 = smAdd(s0, c0, e)
 	}
 	var s dd.DD
-	for _, f := range [...]float64{s0, s1, s2, s3, c0, c1, c2, c3} {
+	// s_j - 1 is exact (s_j in [1, 2^53)): the ones the accumulators started
+	// with leave no rounding error, even when the sum of the others is tiny.
+	for _, f := range [...]float64{s0 - 1, s1 - 1, s2 - 1, s3 - 1, c0, c1, c2, c3} {
 		s = dd.AddF(s, f)
 	}
 	return s, k
@@ -137,16 +143,17 @@ func smSum(dst, x []float64, m, mark float64) (dd.DD, int) {
 func smRun(dst, x []float64, m, mark float64, lo, tmp []float64) (dd.DD, int) {
 	var s dd.DD
 	k := 0
-	for len(x) > 0 {
-		c := min(len(x), len(lo))
+	size := len(lo)
+	for ci := range (len(x) + size - 1) / size {
+		start := ci * size
+		c := min(len(x)-start, size)
 		buf := tmp[:c]
 		if dst != nil {
-			buf, dst = dst[:c], dst[c:]
+			buf = dst[start : start+c]
 		}
-		cs, ck := smChunk(buf, x[:c], m, mark, lo)
+		cs, ck := smChunk(buf, x[start:start+c], m, mark, lo)
 		s = dd.Add(s, cs)
 		k += ck
-		x = x[c:]
 	}
 	return s, k
 }

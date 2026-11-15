@@ -65,6 +65,9 @@ func logSoftmaxRef(x []float64) []dd.DD {
 	return out
 }
 
+// inU is x in units of u = 2^-53 (an exact scaling by a power of two).
+func inU(x float64) float64 { return math.Ldexp(x, 53) }
+
 // relErr returns |got - want| / |want| for a double-double want, and the
 // absolute error.
 func relErr(got float64, want dd.DD) (rel, abs float64) {
@@ -81,12 +84,12 @@ var smShapes = []struct {
 	name string
 	gen  func(r *rand.Rand) float64
 }{
-	{"moderate", func(r *rand.Rand) float64 { return r.NormFloat64() * 3 }},
-	{"wide", func(r *rand.Rand) float64 { return -700 * r.Float64() }},
-	{"refbench", func(r *rand.Rand) float64 { return -50 + 100*r.Float64() }},
+	{"moderate", func(r *rand.Rand) float64 { return float64(r.NormFloat64() * 3) }},
+	{"wide", func(r *rand.Rand) float64 { return float64(-700 * r.Float64()) }},
+	{"refbench", func(r *rand.Rand) float64 { return -50 + float64(100*r.Float64()) }},
 	{"huge", func(r *rand.Rand) float64 { return 1e6 + r.NormFloat64() }},
-	{"hugeneg", func(r *rand.Rand) float64 { return -1e15 * (1 + r.Float64()) }},
-	{"tiny", func(r *rand.Rand) float64 { return r.NormFloat64() * 1e-9 }},
+	{"hugeneg", func(r *rand.Rand) float64 { return float64(-1e15 * (1 + r.Float64())) }},
+	{"tiny", func(r *rand.Rand) float64 { return float64(r.NormFloat64() * 1e-9) }},
 	{"dominant", func(r *rand.Rand) float64 {
 		if r.IntN(50) == 0 {
 			return 40 + r.Float64()
@@ -97,7 +100,7 @@ var smShapes = []struct {
 		if r.IntN(3) == 0 {
 			return math.Inf(-1)
 		}
-		return 5 * r.NormFloat64()
+		return float64(5 * r.NormFloat64())
 	}},
 	{"ties", func(r *rand.Rand) float64 { return float64(r.IntN(3)) - 1 }},
 }
@@ -140,14 +143,14 @@ func TestSoftmaxBound(t *testing.T) {
 						if rel > softmaxErr {
 							t.Fatalf("%s n=%d: Softmax[%d] = %v, want %v: relative error %g > %g (x_i = %v)", sh.name, n, i, got[i], ref[i].Hi, rel, softmaxErr, x[i])
 						}
-					} else if abs > softmaxErr*ref[i].Hi+0x1p-1073 {
+					} else if abs > float64(softmaxErr*ref[i].Hi)+0x1p-1073 {
 						t.Fatalf("%s n=%d: Softmax[%d] = %v, want %v: absolute error %g (x_i = %v)", sh.name, n, i, got[i], ref[i].Hi, abs, x[i])
 					}
 				}
 			}
 		}
 	}
-	t.Logf("largest relative error %.3g = %.2f u (bound %.0f u)", worst, worst/0x1p-53, softmaxErr/0x1p-53)
+	t.Logf("largest relative error %.3g = %.2f u (bound %.0f u)", worst, inU(worst), inU(softmaxErr))
 }
 
 func floatMax(x []float64) float64 {
@@ -190,7 +193,7 @@ func TestLogSoftmaxBound(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("largest relative error %.3g = %.2f u (bound %.0f u)", worst, worst/0x1p-53, logSoftmaxErr/0x1p-53)
+	t.Logf("largest relative error %.3g = %.2f u (bound %.0f u)", worst, inU(worst), inU(logSoftmaxErr))
 }
 
 // TestLogSumExpBound: as TestSoftmaxBound for LogSumExp; the inputs the guard
@@ -226,5 +229,5 @@ func TestLogSumExpBound(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("fast path %d inputs (largest relative error %.3g = %.2f u, bound %.0f u), double-double path %d", fast, worst, worst/0x1p-53, logSumExpErr/0x1p-53, slow)
+	t.Logf("fast path %d inputs (largest relative error %.3g = %.2f u, bound %.0f u), double-double path %d", fast, worst, inU(worst), inU(logSumExpErr), slow)
 }

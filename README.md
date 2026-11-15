@@ -107,8 +107,7 @@ time):
   1.18, Expit 1.20, GammaSign 1.22, Perm 1.22, Factorial of non-integers 1.22,
   Yv 1.22, Jv 1.28, LogSumExp 1.47, GammaQInv 1.48, GammaPInv 1.54;
 - several times slower, where a double-double continued fraction or series
-  produces the rounded result: Iv 7.9, In 5.2, Softmax 4.8, LogSoftmax 4.1,
-  BetaIncInv 3.5, Binom 3.0, Yn 2.37 (91 vs 38 ns, from 33 in v0.8.0), Kve
+  produces the rounded result: Iv 7.9, In 5.2, BetaIncInv 3.5, Binom 3.0, Yn 2.37 (91 vs 38 ns, from 33 in v0.8.0), Kve
   2.4, Kv 2.3, BetaInc 2.1, Xlog1py 1.9, Ive 1.69 (open defects, #33). These are
   the v0.15.0 figures: `Kv` and `Kve` of a fractional order below 32 at
   1.5 <= x < 24 now take a continued-fraction fast path (`kv_cf2_fast.go`,
@@ -118,6 +117,14 @@ time):
   path, 0 < v < 32 with 2^-1000 <= x < 1.5 (up to 3.9 ulp there), now takes
   Temme's series (`kv_temme_fast.go`, 0.6 ulp stated, 0.500 measured); its
   timing is deferred (the machine's load was above 8).
+- `Softmax`, `LogSoftmax`, `LogSumExp` (this change; the 4.8, 4.1 and 1.47 above
+  are v0.13.0 figures): float64 kernels instead of a double-double exponential
+  per element (`softmax_fast.go`): relative error at most 8u, 5u and 4u
+  (u = 2^-53; 3.9u, 2.1u and 1.0u measured against the double-double oracle),
+  no longer correctly rounded, and the bits depend on the architecture. The
+  refbench ratios are not remeasured (timing deferred, load above 8); in the
+  in-repo benchmark `Softmax` on 10 000 points went from 144 us to about 31 us
+  (the SciPy figure of v0.13.0 is 29.8 us) at a load above 8.
 
 Since v0.5.6, `I1`, `I1e`, `K1` and `K1e` use the same fitted octave
 interpolants as `I0e` and `K0e` (and are more accurate: worst case against
