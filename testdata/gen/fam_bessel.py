@@ -505,6 +505,7 @@ def kv_edge_cases():
                  (1100.0, 898.1462390204982), (300.0, 576.3063264847694)):
         c.append(("Debye root", (v, x)))
     c += kv_cf2_cases(r)
+    c += kv_tiny_cases(r)
     return c
 
 
@@ -545,6 +546,66 @@ def kv_cf2_cases(r):
         v = r.uniform(0.01, 31.99)
         x = math.exp(r.uniform(math.log(1.5), math.log(24)))
         c.append(("cf2 random", (v, x)))
+    return c
+
+
+def kv_tiny_cases(r):
+    """Corners of kv_temme_fast.go (Temme's series for 0 < v < 32, 2^-1000 <= x
+    < 1.5), appended after the rows above so that those keep their draws: the
+    reduced order u = v - round(v) at 0 (exactly, and next to it), near +-1/2,
+    x on both sides of 1.5 and of the switches of the double-double phase, tiny x
+    down to 1e-300 and 2^-1000, v next to 32, the edges where K_v crosses 2^1020
+    (the path declines above) and MaxFloat64, and a random sweep."""
+    c = []
+    for n in (0, 1, 2, 5, 17, 31):
+        for d in (0.0, 1e-300, 1e-15, 1e-12, -1e-12, 1e-9, -1e-9, 1e-5, -1e-5, 0.03, -0.03):
+            v = n + d
+            if v <= 0 or v == 1.0:
+                continue  # v = 1 is K1 (its own rows)
+            if d == 1e-300 and n > 0:
+                continue  # n + 1e-300 is n
+            for x in (1e-300, 1e-100, 1e-8, 1e-3, 0.05, 0.3, 0.9, 1.2):
+                c.append(("temme u near 0", (v, x)))
+    for n in (0, 1, 2, 5, 17, 31):
+        for d in (0.0, 1e-9, -1e-9, 1e-6, -1e-6, 0.4999999, -0.4999999):
+            v = n + 0.5 + d if d not in (0.4999999, -0.4999999) else n + d
+            if v <= 0:
+                continue
+            for x in (1e-100, 1e-8, 1e-3, 0.05, 0.3, 0.9, 1.4999999999999998):
+                c.append(("temme u near 1/2", (v, x)))
+    for v in (0.3, 0.5, 0.7, 1.5, 1.7, 4.2, 11.3, 31.5):
+        for x in (1.4999999999999998, 1.4999999999999993, 1.49, 1.4, 1.3, 1.123, 1.0, 0.9999999999999999,
+                  0.5000000000000001, 0.49999999999999994, 0.125, 0.12499999999999999, 0.0009765625,
+                  0.0009765624999999999):
+            c.append(("temme x near edge", (v, x)))
+    for v in (0.3, 0.7, 0.9, 1.3, 2.3, 7.7, 19.9, 31.9):
+        for x in (1e-300, 2.0 ** -1000, 1e-250, 1e-150, 1e-100, 1e-50, 1e-20, 1e-8, 1e-4):
+            c.append(("temme tiny x", (v, x)))
+    for v in (31.0, 31.5, 31.75, 31.999, 31.9999999, 31.999999999999996):
+        for x in (1e-8, 1e-3, 0.05, 0.3, 0.9, 1.2, 1.4999999999999998):
+            c.append(("temme v near 32", (v, x)))
+    # the edges: K_v = 2^1020 (answered below, declined above) and MaxFloat64
+    for name, edge in (("2^1020", mp.log(mpf(2) ** 1020)), ("MaxFloat64", mp.log(mpf(1.7976931348623157e308)))):
+        for v in (0.9, 1.2, 3.3, 9.5, 20.7, 31.9):
+            with mp.workprec(200):
+                lo, hi = mpf(2.0 ** -1000), mpf(1.5)
+                for _ in range(80):
+                    mid = (lo + hi) / 2
+                    if mp.log(kv_mp(float(v), float(mid))) > edge:
+                        lo = mid
+                    else:
+                        hi = mid
+                x0 = float(lo)
+            if x0 <= 2.0 ** -1000 or x0 >= 1.5:
+                continue
+            for k in range(-3, 4):
+                c.append(("temme edge " + name, (v, x0 * (1 + k * 2.0 ** -30) if k else x0)))
+    for _ in range(400):
+        v = r.uniform(0.01, 31.99)
+        x = math.exp(r.uniform(math.log(1e-300), math.log(1.5)))
+        if len(c) % 3 == 0:
+            x = math.exp(r.uniform(math.log(0.01), math.log(1.5)))
+        c.append(("temme random", (v, x)))
     return c
 
 

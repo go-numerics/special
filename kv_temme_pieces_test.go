@@ -36,7 +36,7 @@ func TestKvTemmeHyp(t *testing.T) {
 	}
 	r := rand.New(rand.NewSource(24))
 	for i := 0; i < 300; i++ {
-		ss = append(ss, float64(r.NormFloat64()*math.Exp(float64(r.Float64()*8-6))))
+		ss = append(ss, float64(r.NormFloat64()*math.Exp(float64(float64(r.Float64()*8)-6))))
 	}
 	var wc, ws float64
 	for _, s := range ss {
@@ -194,8 +194,20 @@ func TestKvTemmeTerms(t *testing.T) {
 }
 
 // TestKvTemmeCaps: the loop declines where it cannot converge (a negative
-// tolerance is never met), and converges everywhere in the region.
+// tolerance is never met; x = 30, where the terms (x^2/4)^k/k! need about 600
+// steps), and converges everywhere in the region. Outside the region the tail
+// bound is +Inf where its geometric ratio reaches 1 (x^2/4 >= k (k + 1)): it
+// must not read as a pass.
 func TestKvTemmeCaps(t *testing.T) {
+	if _, ok := kvTemmeChain(0.3, 30, false); ok {
+		t.Error("kvTemmeChain(0.3, 30) answered past the cap")
+	}
+	if bf, bh := kvTemmeTail(1, 2, 1, 1, 1, 1); !math.IsInf(bf, 1) || !math.IsInf(bh, 1) {
+		t.Errorf("kvTemmeTail with q = k (k + 1) = %v, %v, want +Inf", bf, bh)
+	}
+	if bf, bh := kvTemmeTail(1, 3, 1, 1, 1, 1); !math.IsInf(bf, 1) || !math.IsInf(bh, 1) {
+		t.Errorf("kvTemmeTail with q > k (k + 1) = %v, %v, want +Inf", bf, bh)
+	}
 	if _, _, ok := kvTemmeSeriesTol(0.3, 0.9, true, -1); ok {
 		t.Error("kvTemmeSeriesTol(0.3, 0.9, tolerance -1) converged")
 	}
@@ -333,7 +345,7 @@ func TestKvTemmeOverflow(t *testing.T) {
 		// x so that K_v(x) is near 2^1000: ln K ~ v ln(2/x) + lnGamma(v) - ln 2
 		lg, _ := math.Lgamma(v)
 		lx := (707.0 + math.Log(2) - lg) / v
-		x := 2 * math.Exp(-float64(lx*(0.5+r.Float64())))
+		x := float64(2 * math.Exp(-float64(lx*(0.5+r.Float64()))))
 		if !(x >= kvTemmeMinX && x < kvCF2MinX) {
 			continue
 		}

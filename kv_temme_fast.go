@@ -190,6 +190,10 @@ func kvTemmeTail(k int, qh, cf, ff, pf, qf float64) (bf, bh float64) {
 	t := float64(float64(z*c1) * kvInv[k])
 	rho := float64(float64(qh*kvInv[k]) * kvInv[k+1])
 	den := 1 - rho
+	if !(den > 0) {
+		// outside the region (x^2/4 >= k (k + 1)): no bound
+		return math.Inf(1), math.Inf(1)
+	}
 	return t / den, float64(t*(float64(k)+1.25)) / den
 }
 
