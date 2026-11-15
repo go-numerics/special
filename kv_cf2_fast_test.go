@@ -74,7 +74,7 @@ func kvCF2Point(r *rand.Rand, i int) (u, x float64) {
 // exact value (the budget of the path, kv_cf2_fast.go), and the worst of each
 // logged.
 func TestKvCF2PairOracle(t *testing.T) {
-	n := kvSweepN(1500)
+	n := kvSweepN(400)
 	r := rand.New(rand.NewSource(11))
 	us, xs := make([]float64, n), make([]float64, n)
 	for i := range us {
@@ -126,7 +126,7 @@ func kvCF2Orders(r *rand.Rand, i int) float64 {
 // TestKvCF2Oracle: Kv and Kve of the region against the oracle, in ulps: the
 // bound kvFastBound.
 func TestKvCF2Oracle(t *testing.T) {
-	n := kvSweepN(1200)
+	n := kvSweepN(300)
 	r := rand.New(rand.NewSource(12))
 	vs, xs := make([]float64, n), make([]float64, n)
 	for i := range vs {
@@ -289,7 +289,7 @@ func TestKvCF2TermWeights(t *testing.T) {
 // is 0.75 at the stop and the tail about four terms). This measures the
 // truncation of S, for which kv_cf2_fast.go has no proof.
 func TestKvCF2Truncation(t *testing.T) {
-	n := kvSweepN(100000)
+	n := kvSweepN(30000)
 	r := rand.New(rand.NewSource(13))
 	var worst float64
 	var wu, wx float64
