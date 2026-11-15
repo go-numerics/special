@@ -47,11 +47,18 @@ import (
 // order is not restricted to u != 0: u = 0 (integer v) is K_0 = L - gamma + ...
 // and K_1 from the same code.
 //
-// Signs, for |u| <= 1/2, 0 < x < 1.5 (TestKvTemmeSigns checks them on a grid):
-// p_k, q_k > 0 for every k (k - |u| >= 1/2), and f_k > 0 for k >= 1 (f_0 is the
-// only term that can be negative: for u near 0 it is L - gamma, below zero for x
-// above 2 e^-gamma = 1.12, and f_1 = (f_0 + p_0 + q_0)/(1 - u^2) is positive
-// because p_0 + q_0 >= 1). So every term c_k f_k of K_u is positive for k >= 1,
+// Signs, for |u| <= 1/2, 0 < x < 1.5 (TestKvTemmeSigns also checks them on a
+// grid): p_k, q_k > 0 for every k (k - |u| >= 1/2), and f_k > 0 for k >= 1.
+// Proof (independent review of #83): with 1/Gamma(1 -/+ u) = g2 +/- u g1 and
+// Gamma(1+u) Gamma(1-u) = pi u / sin(pi u), p_0 - q_0 = u f_0 exactly, and the
+// recurrences p_k = p_(k-1)/(k-u), q_k = q_(k-1)/(k+u), f_k = (k f_(k-1) +
+// p_(k-1) + q_(k-1))/(k^2 - u^2) keep f_k = (p_k - q_k)/u for every k. For u > 0,
+// p_k/q_k = (2/x)^(2u) Gamma(k+1+u)/Gamma(k+1-u): (2/x)^(2u) > 1 since x < 2,
+// and for k >= 1, k+1-u >= 3/2 > 1.4616 (the minimum of Gamma), where Gamma
+// increases, so p_k > q_k and f_k > 0. f is even in u, and u = 0 is the limit
+// (L + psi(k+1))/k! > 0 with L = ln(2/x) > 0. f_0 is the only term that can be
+// negative: for u near 0 it is L - gamma, below zero for x above 2 e^-gamma =
+// 1.12. So every term c_k f_k of K_u is positive for k >= 1,
 // and the partial sums of K_u rise (h_k = p_k - k f_k has no sign; the series of
 // (x/2) K_(u+1) loses a factor 8 at worst, sum c_k |h_k| / |sum c_k h_k| at u =
 // -1/2, x = 1.5: TestKvTemmeCancellation, 3 bits of the double-double's 100 and
@@ -82,7 +89,7 @@ import (
 // stopping tolerance 2^-64 and the 2^-62 used below. TestKvTemmeTruncation
 // compares the stopped pair with the loop run to 2^-90.
 //
-// What is NOT proven: f_k > 0 (above: a grid), the Taylor series of g1 and g2
+// What is NOT proven: the Taylor series of g1 and g2
 // (truncated after 14 terms each, below 2^-89 at |u| = 1/2 by the computed
 // coefficients, which decay faster than 2^-m beyond m = 12; the decay of B_m for
 // m > 63 is not proved here; TestKvTemmeGammaSeries holds the sum against ln

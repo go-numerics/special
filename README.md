@@ -280,7 +280,7 @@ and checked by running the mutation by hand (for example `ylow > 0` in
 Nine deletions are reported "not a mutant" because the mutated file does not
 compile, so the gate never tests them: `kv_fast.go:166` (`if !done`), `:250`
 (`if at > prev`), `:271` (`if !(ok0 && ok1)`) and `:129` (`if !ok` of
-`kvCF2Chain`), `kv_temme_fast.go:300` (`if !ok` of `kvTemmeChain`, asserted by
+`kvCF2Chain`), `kv_temme_fast.go:312` (`if !ok` of `kvTemmeChain`, asserted by
 `TestKvTemmeCaps` at x = 30, which was not run with the deletion),
 `kv_cf2_fast.go:184` (`if !converged`; asserted by `TestKvCF2Caps`, likewise not
 run with the deletion), `binom_fast.go:136`

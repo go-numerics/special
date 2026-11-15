@@ -17,7 +17,7 @@ import (
 // of the result, and the recurrence is the "dd-light" chain of kn_fast.go.
 // Path 3 (kv_cf2_fast.go) takes 0 < v < 32 and 1.5 <= x < 24 by Steed's CF2;
 // Path 4 (kv_temme_fast.go) takes 0 < v < 32 and 2^-1000 <= x < 1.5 by Temme's
-// series. Everything else (x < 2^-1000, results of 2^1000 or more, the single
+// series. Everything else (x < 2^-1000, results of 2^1020 or more, the single
 // series of besselAsymIK) is answered by besselIK as before, bit for bit.
 //
 // Path 1, v in [32, 1100], x < 1e6 (kvDebye). With z = x/v, S = sqrt(v^2 +
