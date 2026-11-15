@@ -12,6 +12,35 @@ import (
 // a lowered cap, and if the cap were ever removed the test must reach its
 // assertions, not a table bound. This file sorts before jv_hankel_fast_test.go
 // for the same reason: Go runs the tests in file order.
+// TestHankelMinPairs: on accepted points the stopping index l is at least
+// lmin = max(ceil(|v|/2), 2), the condition under which DLMF 10.17(iii) bounds
+// the remainder by the first neglected term. At huge x the terms are tiny
+// from the start, so only this assertion (not the values) holds the condition.
+func TestHankelMinPairs(t *testing.T) {
+	checked := 0
+	for _, x := range []float64{1e15, 1e100, math.Nextafter(0x1p500, 0), 30, 1e4} {
+		for _, v := range []float64{0.3, -17.25, 39.9, 5.5, -2.7} {
+			lmin := int(math.Ceil(math.Abs(v) / 2))
+			if lmin < 2 {
+				lmin = 2
+			}
+			for _, y := range []bool{false, true} {
+				_, _, l, ok := hankelFastL(v, x, y, hankelMaxL)
+				if !ok {
+					continue
+				}
+				checked++
+				if l < lmin {
+					t.Errorf("v=%v x=%v Y=%v: answered with l = %d < lmin = %d", v, x, y, l, lmin)
+				}
+			}
+		}
+	}
+	if checked < 20 {
+		t.Errorf("only %d accepted points", checked)
+	}
+}
+
 func TestHankelPairCap(t *testing.T) {
 	r := rand.New(rand.NewSource(3))
 	checked := 0
