@@ -29,7 +29,7 @@ func TestKvFastFixture(t *testing.T) {
 	for _, scaled := range []bool{false, true} {
 		worst := map[string]float64{}
 		count := map[string]int{}
-		var debye, asym, cf2 int
+		var debye, asym, cf2, temme int
 		for _, r := range kvFixtureRows(t, scaled) {
 			got, ok := kvFastRow(r, scaled)
 			if !ok {
@@ -38,6 +38,8 @@ func TestKvFastFixture(t *testing.T) {
 			switch {
 			case math.Abs(r.args[0]) >= kvDebyeMinV:
 				debye++
+			case r.args[1] < kvCF2MinX:
+				temme++
 			case r.args[1] < kvAsymMinX:
 				cf2++
 			default:
@@ -48,8 +50,8 @@ func TestKvFastFixture(t *testing.T) {
 				worst[r.region] = e
 			}
 		}
-		if debye < 100 || asym < 100 || cf2 < 800 {
-			t.Fatalf("scaled=%v: only %d Debye, %d large-argument and %d CF2 rows reached the fast paths", scaled, debye, asym, cf2)
+		if debye < 100 || asym < 100 || cf2 < 800 || temme < 1000 {
+			t.Fatalf("scaled=%v: only %d Debye, %d large-argument, %d CF2 and %d Temme rows reached the fast paths", scaled, debye, asym, cf2, temme)
 		}
 		for reg, w := range worst {
 			t.Logf("scaled=%v %-22s %5d rows  worst %.3f ulp", scaled, reg, count[reg], w)
@@ -108,7 +110,9 @@ func TestKvFastFallbackRate(t *testing.T) {
 // bit.
 func TestKvFastFallback(t *testing.T) {
 	for _, c := range []struct{ v, x float64 }{
-		{2.5, 1.4}, {7.7, 0.9}, {33.3, 1e6}, {1200.5, 5}, {3.3, 0.2}, {0.4, 0.5}, {50.5, 2e6}, {2.5, 30}, {4.9, 40},
+		{33.3, 1e6}, {1200.5, 5}, {50.5, 2e6}, {2.5, 30}, {4.9, 40},
+		// below kvTemmeMinX, and K_v of 2^1000 or more (kv_temme_fast.go)
+		{0.4, 1e-305}, {7.7, 1e-310}, {2.5, 1e-300}, {1.4, 1e-300}, {31.9, 1e-20},
 	} {
 		if _, ok := kvFast(c.v, c.x, false); ok {
 			t.Errorf("kvFast(%g, %g) answered, expected a decline", c.v, c.x)
@@ -157,7 +161,11 @@ func TestKvFastAgainstSteed(t *testing.T) {
 			}
 		}
 	}
-	if worst > 3.5 {
+	// 3.5: the two bounds for x >= 1.5. Below, besselIK is the one that is
+	// inaccurate (up to 3.4 ulp for x in [0.5, 1.5), TestKvFastBeforeAfter logs
+	// it on the fixtures), and the path under test is held by
+	// the oracle tests of kv_temme_fast_test.go.
+	if worst > 4.5 {
 		t.Errorf("kvFast vs besselIK: %.2f ulp apart", worst)
 	}
 	t.Logf("kvFast vs besselIK: %.2f ulp apart at worst", worst)
