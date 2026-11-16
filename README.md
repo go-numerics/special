@@ -120,7 +120,8 @@ time):
 - `Softmax`, `LogSoftmax`, `LogSumExp` (this change; the 4.8, 4.1 and 1.47 above
   are v0.13.0 figures): float64 kernels instead of a double-double exponential
   per element (`softmax_fast.go`): relative error at most 8u, 5u and 4u
-  (u = 2^-53; 3.9u, 2.1u and 1.0u measured against the double-double oracle),
+  (u = 2^-53; at most 3.9u, 2.1u and 1.87u measured, the last by the
+  independent review's 320-bit oracle),
   no longer correctly rounded, and the bits depend on the architecture. The
   refbench ratios are not remeasured (timing deferred, load above 8). Which to
   use: `Softmax`, `LogSoftmax`, `LogSumExp` by default (fast, a stated bound);
