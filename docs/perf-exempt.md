@@ -11,6 +11,12 @@ SciPy counterpart, a function whose reference is not SciPy, or a building block.
 - `LogFactorial`: SciPy has no `logfactorial`; the equivalent `gammaln(n + 1)` forms n + 1 (which rounds for a non-integer n, the reason this function exists) and is the row `LogGamma`.
 - `nd.LogFactorial`: as `LogFactorial`.
 - `LogGammaSign`: returns two values; its value part is measured as `LogGamma`, its sign as `GammaSign`.
+- `SoftmaxExact`: the double-double option of `Softmax` (the v0.19.0 code); SciPy's `softmax` is the row `Softmax`, which measures the fast default.
+- `LogSoftmaxExact`: as `SoftmaxExact`, for the row `LogSoftmax`.
+- `LogSumExpExact`: as `SoftmaxExact`, for the row `LogSumExp`.
+- `nd.SoftmaxExact`: as `SoftmaxExact`.
+- `nd.LogSoftmaxExact`: as `LogSoftmaxExact`.
+- `nd.LogSumExpExact`: as `LogSumExpExact`.
 - `nd.Map1`: generic driver; every `nd.<Function>` row measures it with a real function.
 - `nd.Map2`: as `nd.Map1`.
 - `nd.Map3`: as `nd.Map1`.

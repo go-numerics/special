@@ -3,9 +3,9 @@ package special
 import (
 	"github.com/go-numerics/special/internal/libm"
 	"math"
-	"sync"
 
 	"github.com/go-numerics/special/dd"
+	"github.com/go-simd/floats"
 )
 
 // expDD returns exp(x) as a double-double (dd.ExpMant scaled).
@@ -351,76 +351,43 @@ func xlog1pyFast(x, y float64) (float64, bool) {
 
 // LogSumExp returns log(Σ exp(x_i)) without overflow or underflow: the
 // maximum m is factored out and log1p of Σ_{i≠argmax} exp(x_i - m) is taken
-// in double-double (each x_i - m exact, each exponential to about 2^-54),
-// so the result is within about half an ulp even when one term dominates.
-// It returns -Inf for an empty slice or when every x_i is -Inf, +Inf if any
+// by float64 kernels (x_i - m exact as a sum of two floats, floats.Exp, a
+// compensated sum, log1p in double-double: softmax_fast.go). The relative error
+// is at most logSumExpErr = 4·2^-53 whenever |LogSumExp| is at least the log L
+// of the sum (all m >= 0, most m < 0) AND no term that matters is subnormal:
+// when the sum of the exponentials of the others is below about n·2^-1000 the
+// terms in the subnormal range (each with an absolute error up to 2^-1075) can
+// carry the relative accuracy away (x = [0, 2^20 × -720]). Where m + L cancels
+// (m in (-2L, 0)) the double-double evaluation (LogSumExpExact) answers, whose
+// relative error is not bounded there: log1pDD's 2^-90 is magnified by
+// L/|LogSumExp| (x = [-ln 2, -ln 2]); the absolute error stays below
+// 2^-84 L + 2^-53 |LogSumExp|. Both regions are open; LogSumExpExact has the
+// same two limits. It returns -Inf for an empty slice or when every x_i is -Inf, +Inf if any
 // x_i is +Inf, NaN if any is NaN.
 func LogSumExp(x []float64) float64 {
-	m, im := math.Inf(-1), -1
-	for i, v := range x {
-		if math.IsNaN(v) {
-			return v
-		}
-		if v > m {
-			m, im = v, i
-		}
+	if len(x) == 0 {
+		return math.Inf(-1)
 	}
-	if math.IsInf(m, 0) {
-		return m // +Inf, or -Inf for empty / all -Inf
+	m := floats.Max(x) // NaN if x holds one
+	if math.IsNaN(m) || math.IsInf(m, 0) {
+		return m // NaN, +Inf, or -Inf for all -Inf
 	}
-	var s dd.DD
-	for i, v := range x {
-		if i == im {
-			continue
-		}
-		d := sumDD(v, -m)
-		if d.Hi < -746 {
-			continue
-		}
-		e, k := dd.ExpMant(d)
-		s = dd.Add(s, dd.Ldexp(e, k))
-	}
-	return dd.AddF(log1pDD(s), m).Float()
-}
-
-// softmaxDivErr bounds the relative error of softmaxDivFast against the exact
-// quotient: the residual r = a - q b is formed from exact pieces (the Sterbenz
-// difference a.Hi - p, the FMA remainder pe) and two roundings of size
-// 2^-53 |r| < 2^-106 |a|, q b.Lo is rounded at 2^-106 |a| and r/b.Hi at
-// 2^-106 |q|: under 2^-104 in all. The reference dd.Div is within 15u² =
-// 2^-100.1 of the exact quotient; 2^-98 covers both.
-const softmaxDivErr = 0x1p-98
-
-// softmaxDiv returns dd.Div(a, b).Float() for a, b > 0 normal: a float64
-// evaluation of a/b as hi + lo with the Ziv test of gamma_fast.go (zivRound),
-// the double-double division for the points it cannot decide (about 2^-44).
-func softmaxDiv(a, b dd.DD) float64 {
-	if v, ok := softmaxDivCertified(a, b); ok {
+	if v, ok := logSumExpFast(x, m); ok {
 		return v
 	}
-	return dd.Div(a, b).Float()
+	return LogSumExpExact(x)
 }
-
-// softmaxDivCertified is the float64 evaluation of softmaxDiv and whether the
-// Ziv test decided its rounding.
-func softmaxDivCertified(a, b dd.DD) (float64, bool) {
-	q := a.Hi / b.Hi
-	p := float64(q * b.Hi)
-	pe := math.FMA(q, b.Hi, -p)
-	r := ((a.Hi - p) - pe) + (a.Lo - float64(q*b.Lo))
-	q2 := r / b.Hi
-	h := q + q2
-	l := q2 - (h - q)
-	return h, zivRound(h, l, float64(softmaxDivErr*h))
-}
-
-// softmaxScratch holds the double-double exponentials of Softmax.
-var softmaxScratch sync.Pool
 
 // Softmax writes exp(x_i) / Σ_j exp(x_j) into dst (allocated when nil or
-// too short) and returns it; the maximum is subtracted first and the sum
-// is accumulated in double-double. An empty x gives an empty result; if x
-// holds NaN or +Inf the results are NaN (as SciPy's softmax).
+// too short) and returns it; dst may be x itself (any other overlap is not
+// supported). The maximum is subtracted first, x_i - m exactly as a sum of two
+// floats, the exponentials come from floats.Exp and the sum is compensated
+// (softmax_fast.go): the relative error of every result at or above 2^-1022 is
+// at most softmaxErr = 8·2^-53 (4 ulp at most; below 2^-1022 the absolute error
+// is under 2^-1073 plus the same fraction), and about 1.5 ulp in practice. For
+// the correctly rounded quotient, bit-identical on every architecture, use
+// SoftmaxExact (about 4.5 times slower). An empty x gives an empty result; if x
+// holds NaN or +Inf, or only -Inf, the results are NaN (as SciPy's softmax).
 func Softmax(dst, x []float64) []float64 {
 	if cap(dst) < len(x) {
 		dst = make([]float64, len(x))
@@ -429,49 +396,26 @@ func Softmax(dst, x []float64) []float64 {
 	if len(x) == 0 {
 		return dst
 	}
-	m := math.Inf(-1)
-	bad := false
-	for _, v := range x {
-		if math.IsNaN(v) || math.IsInf(v, 1) {
-			bad = true
-		}
-		if v > m {
-			m = v
-		}
-	}
-	if bad || math.IsInf(m, -1) {
+	m := floats.Max(x) // NaN if x holds one
+	if math.IsNaN(m) || math.IsInf(m, 0) {
 		for i := range dst {
 			dst[i] = math.NaN()
 		}
 		return dst
 	}
-	// The exponentials are kept in double-double for the division; the
-	// scratch is pooled (a fresh 16 bytes per element costs more than the
-	// division).
-	bp, _ := softmaxScratch.Get().(*[]dd.DD)
-	if bp == nil {
-		bp = new([]dd.DD)
-	}
-	if cap(*bp) < len(x) {
-		*bp = make([]dd.DD, len(x))
-	}
-	es := (*bp)[:len(x)]
-	var s dd.DD
-	for i, v := range x {
-		d := sumDD(v, -m)
-		e, k := dd.ExpMant(d)
-		es[i] = dd.Ldexp(e, k)
-		s = dd.Add(s, es[i])
-	}
-	for i := range dst {
-		dst[i] = softmaxDiv(es[i], s)
-	}
-	softmaxScratch.Put(bp)
+	softmaxFast(dst, x, m)
 	return dst
 }
 
 // LogSoftmax writes x_i - LogSumExp(x) into dst (allocated when nil or too
-// short) and returns it.
+// short) and returns it; dst may be x itself. The difference is formed as
+// (x_i - m) - log(Σ exp(x_j - m)) with x_i - m exact as a sum of two floats and
+// the logarithm in double-double, so it never cancels (both terms are
+// negative): the relative error is at most logSoftmaxErr = 5·2^-53 (softmax_fast.go)
+// unless the sum of the exponentials of the others is below about n·2^-1000,
+// where terms in the subnormal range carry the relative accuracy away (as for
+// LogSumExp). LogSoftmaxExact is the double-double evaluation, about 3.7 times
+// slower and bit-identical on every architecture.
 func LogSoftmax(dst, x []float64) []float64 {
 	if cap(dst) < len(x) {
 		dst = make([]float64, len(x))
@@ -480,38 +424,13 @@ func LogSoftmax(dst, x []float64) []float64 {
 	if len(x) == 0 {
 		return dst
 	}
-	// x_i - lse with lse kept in double-double: lse = m + log1p(s).
-	m, im := math.Inf(-1), -1
-	for i, v := range x {
-		if v > m || math.IsNaN(v) {
-			m, im = v, i
-		}
-		if math.IsNaN(v) {
-			break
-		}
-	}
+	m := floats.Max(x) // NaN if x holds one
 	if math.IsNaN(m) || math.IsInf(m, 0) {
 		for i := range dst {
 			dst[i] = math.NaN()
 		}
 		return dst
 	}
-	var s dd.DD
-	for i, v := range x {
-		if i == im {
-			continue
-		}
-		d := sumDD(v, -m)
-		e, k := dd.ExpMant(d)
-		s = dd.Add(s, dd.Ldexp(e, k))
-	}
-	lse := dd.AddF(log1pDD(s), m)
-	for i, v := range x {
-		if math.IsInf(v, -1) {
-			dst[i] = v
-			continue
-		}
-		dst[i] = dd.Sub(dd.F(v), lse).Float()
-	}
+	logSoftmaxFast(dst, x, m)
 	return dst
 }

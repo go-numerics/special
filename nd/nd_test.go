@@ -191,6 +191,31 @@ func TestMap3AndDTypes(t *testing.T) {
 	if _, err := LogSoftmax(cplx); err == nil {
 		t.Error("LogSoftmax(complex) no error")
 	}
+	if _, err := LogSumExpExact(cplx); err == nil {
+		t.Error("LogSumExpExact(complex) no error")
+	}
+	if _, err := SoftmaxExact(cplx); err == nil {
+		t.Error("SoftmaxExact(complex) no error")
+	}
+	if _, err := LogSoftmaxExact(cplx); err == nil {
+		t.Error("LogSoftmaxExact(complex) no error")
+	}
+}
+
+func TestExactReductions(t *testing.T) {
+	small := arr(t, []float64{1, 2, 3}, 3)
+	lse, err := LogSumExpExact(small)
+	if err != nil || lse != special.LogSumExpExact([]float64{1, 2, 3}) {
+		t.Errorf("LogSumExpExact = %v, %v", lse, err)
+	}
+	sm, err := SoftmaxExact(small.AsType(ndarray.Float32))
+	if err != nil || sm.DType() != ndarray.Float32 {
+		t.Errorf("SoftmaxExact: %v %v", sm, err)
+	}
+	ls, err := LogSoftmaxExact(small)
+	if err != nil || data(t, ls)[2] != special.LogSoftmaxExact(nil, []float64{1, 2, 3})[2] {
+		t.Errorf("LogSoftmaxExact: %v %v", ls, err)
+	}
 }
 
 func TestParallelAndReductions(t *testing.T) {

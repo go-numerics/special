@@ -108,6 +108,14 @@ allocate 7 to 20 objects per array call.
   change, more accurate); `Comb` by an exact integer recurrence, `Factorial2`
   from a table, `Factorial` (n >= 10) and `Xlog1py` through certified float64
   kernels, `GammaSign` without `math.Mod` (bit-identical).
+- `Softmax`, `LogSoftmax`, `LogSumExp` (#33, this change): the v0.13.0 profile of
+  `Softmax` was `dd.ExpMant` 49 % cumulative, `math.Ldexp` 18 %, `dd.Add` 8 %,
+  the certified quotient of #48 11 %. Now `floats.Exp`, an exact shift
+  x - m = h + l, a compensated sum and one reciprocal: 144 us to about 31 us on
+  10 000 points (in-repo benchmark, M4 Max, load above 8, so indicative; refbench
+  not rerun). Relative error at most 8u, 5u, 4u (accuracy.md); the results are no
+  longer correctly rounded. The remaining cost is `floats.Exp`, a scalar loop
+  (13.6 of 31 us).
 - Not done: float64 fast paths for the remaining double-double functions. A
   fast path is acceptable only if a certified error bound decides when float64
   is already correctly rounded, so that the bits do not move; none has been

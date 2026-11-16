@@ -60,16 +60,16 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | **log_expit** | 4010 | 5 | 0.50 | 1.04 | 5/5 |
 | **log_factorial** | 3307 | 5 | 1.00 | wrong | 5/5 |
 | **log_ndtr** | 6010 | 7 | 1.00 | 3.6e+12 | 7/7 |
-| **log_softmax4** | 5005 | 6 | 0.69 | 9.0e+15 | 6/6 |
+| **log_softmax4** | 5005 | 6 | 1.43 | 9.0e+15 | 6/6 |
 | **logbeta** | 7004 | 8 | 19 | wrong | 8/8 |
 | **loggamma** | 9907 | 10 | 1.00 | wrong | 10/10 |
 | **logit** | 3913 | 5 | 0.50 | 1.74 | 5/5 |
-| **logsumexp4** | 5005 | 6 | 0.50 | 3.20 | 6/6 |
+| **logsumexp4** | 5005 | 6 | 0.99 | 3.20 | 6/6 |
 | **ndtr** | 4060 | 6 | 0.50 | 1.8e+12 | 6/6 |
 | **ndtri** | 4080 | 6 | 0.50 | 2.62 | 6/6 |
 | **perm** | 3633 | 4 | 0.50 | 9.41 | 4/4 |
 | **polygamma** | 4014 | 5 | 0.50 | wrong | 5/5 |
-| **softmax4** | 5005 | 6 | 1.00 | 437 | 6/6 |
+| **softmax4** | 5005 | 6 | 1.93 | 437 | 6/6 |
 | **xlog1py** | 3007 | 4 | 0.50 | 1.26 | 4/4 |
 | **xlogy** | 2009 | 3 | 0.50 | 1.18 | 3/3 |
 | **y0** | 5013 | 6 | 1.87 | wrong | 6/6 |
@@ -523,11 +523,11 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | log_ndtr | [1,10) | 1000 | **0.50** | 0.50 | 113 | 98 |
 | log_ndtr | [10,38) | 1000 | **1.00** | 0.50 | 3.6e+12 | 3.2e+12 |
 | log_softmax4 | special | 5 | **0.21** | 0.21 | 0.21 | 0.21 |
-| log_softmax4 | moderate | 1000 | **0.50** | 0.50 | 962930 | 342308 |
-| log_softmax4 | one dominant | 1000 | **0.69** | 0.62 | 9.0e+15 | 9.0e+15 |
-| log_softmax4 | huge | 1000 | **0.56** | 0.50 | 8.8e+15 | 8.8e+15 |
-| log_softmax4 | wide spread | 1000 | **0.50** | 0.50 | 9.0e+15 | 9.0e+15 |
-| log_softmax4 | near cancellation | 1000 | **0.50** | 0.50 | 9.0e+15 | 9.0e+15 |
+| log_softmax4 | moderate | 1000 | **0.98** | 0.97 | 962930 | 342308 |
+| log_softmax4 | one dominant | 1000 | **1.43** | 1.34 | 9.0e+15 | 9.0e+15 |
+| log_softmax4 | huge | 1000 | **0.94** | 0.92 | 8.8e+15 | 8.8e+15 |
+| log_softmax4 | wide spread | 1000 | **0.96** | 0.92 | 9.0e+15 | 9.0e+15 |
+| log_softmax4 | near cancellation | 1000 | **1.11** | 1.08 | 9.0e+15 | 9.0e+15 |
 | logbeta | special | 4 | **0.10** | 0.10 | 1.05 | 1.05 |
 | logbeta | a,b in (0,1] | 1000 | **0.49** | 0.49 | 0.49 | 0.49 |
 | logbeta | a,b in (1,100] | 1000 | **0.50** | 0.50 | 28 | 26 |
@@ -552,11 +552,11 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | logit | (0,1) | 1000 | **0.50** | 0.50 | 1.74 | 1.36 |
 | logit | near 1 | 906 | **0.50** | 0.50 | 0.54 | 0.54 |
 | logsumexp4 | special | 5 | **0.39** | 0.39 | 0.39 | 0.39 |
-| logsumexp4 | moderate | 1000 | **0.50** | 0.50 | 3.20 | 1.80 |
+| logsumexp4 | moderate | 1000 | **0.78** | 0.56 | 3.20 | 1.80 |
 | logsumexp4 | one dominant | 1000 | **0.50** | 0.50 | 0.50 | 0.50 |
 | logsumexp4 | huge | 1000 | **0.50** | 0.50 | 0.50 | 0.50 |
 | logsumexp4 | wide spread | 1000 | **0.50** | 0.49 | 0.50 | 0.49 |
-| logsumexp4 | near cancellation | 1000 | **0.50** | 0.50 | 1.72 | 1.65 |
+| logsumexp4 | near cancellation | 1000 | **0.99** | 0.96 | 1.72 | 1.65 |
 | ndtr | special | 10 | **0** | 0 | 0 | 0 |
 | ndtr | [-38.5,-10) | 1000 | **0.50** | 0.50 | 1.8e+12 | 1.8e+12 |
 | ndtr | [-10,-1) | 1000 | **0.50** | 0.50 | 110 | 109 |
@@ -579,11 +579,11 @@ Errors in ULPs against mpmath; **bold**: at least as accurate as SciPy in every 
 | polygamma | x in [10,1e10) | 1000 | **0.50** | 0.50 | 13 | 12 |
 | polygamma | x<0 | 1000 | **0.50** | 0.50 | 33 | 23 |
 | softmax4 | special | 5 | **0** | 0 | 0 | 0 |
-| softmax4 | moderate | 1000 | **0.50** | 0.50 | 17 | 16 |
-| softmax4 | one dominant | 1000 | **0.50** | 0.50 | 2.31 | 1.96 |
-| softmax4 | huge | 1000 | **0.50** | 0.50 | 1.90 | 1.89 |
-| softmax4 | wide spread | 1000 | **1.00** | 0.50 | 437 | 436 |
-| softmax4 | near cancellation | 1000 | **0.50** | 0.50 | 2.82 | 2.70 |
+| softmax4 | moderate | 1000 | **1.93** | 1.84 | 17 | 16 |
+| softmax4 | one dominant | 1000 | **1.00** | 1.00 | 2.31 | 1.96 |
+| softmax4 | huge | 1000 | **1.79** | 1.68 | 1.90 | 1.89 |
+| softmax4 | wide spread | 1000 | **1.41** | 1.34 | 437 | 436 |
+| softmax4 | near cancellation | 1000 | **1.00** | 1.00 | 2.82 | 2.70 |
 | xlog1py | special | 7 | **0** | 0 | 0 | 0 |
 | xlog1py | moderate | 1000 | **0.50** | 0.50 | 1.01 | 1.01 |
 | xlog1py | y small | 1000 | **0.50** | 0.50 | 0.78 | 0.74 |

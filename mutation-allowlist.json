@@ -67,5 +67,9 @@
   {"file": "kv_cf2_fast.go", "func": "kvCF2FTail", "mode": "boundary", "verdict": "SURVIVED", "text": "den > 0  [> to >=]",
    "reason": "Equivalent mutant: at den == 0 the quotient w*dl*Df/den is +Inf (dl and Df are positive), the value the refusal returns. The deletion of the test is held (TestKvCF2FBracket: w Df >= 1 must give +Inf)."},
   {"file": "kv_cf2_fast.go", "func": "kvCF2PairTol", "mode": "boundary", "verdict": "SURVIVED", "text": "k < kvCF2MaxIters  [< to <=]",
-   "reason": "Unreachable edge: the cap only bounds a loop that never reaches it inside the range (at most about 260 steps at x = kvCF2MinX, TestKvCF2Truncation), and converging exactly at step 1000 below the range is a coincidence; one more step (index 1000 is in the table) changes only which of two declines or answers a point outside the range gets. The cap is held (TestKvCF2Caps: x = 0.01 declines)."}
+   "reason": "Unreachable edge: the cap only bounds a loop that never reaches it inside the range (at most about 260 steps at x = kvCF2MinX, TestKvCF2Truncation), and converging exactly at step 1000 below the range is a coincidence; one more step (index 1000 is in the table) changes only which of two declines or answers a point outside the range gets. The cap is held (TestKvCF2Caps: x = 0.01 declines)."},
+  {"file": "softmax_fast.go", "func": "smSum", "mode": "boundary", "verdict": "SURVIVED", "text": "len(x) <= smSmall  [<= to <]",
+   "reason": "Equivalent mutant, bit for bit: the mutation moves only len(x) = 64 to the 512-element scratch, and for len(x) <= 64 both scratch sizes run one chunk of the same length (smRun chunks by min(len(x), len(lo))), so the arithmetic is identical and only how much is zeroed differs."},
+  {"file": "softmax_fast.go", "func": "smSum", "mode": "delete", "verdict": "SURVIVED", "text": "len(x) <= smSmall",
+   "reason": "Equivalent mutant, bit for bit: deleting the test always takes the 512-element scratch; for len(x) <= 64 that is one chunk of the same length as with the 64-element scratch, and above 64 the 512-element scratch was already the one taken. Only how much is zeroed differs."}
 ]
