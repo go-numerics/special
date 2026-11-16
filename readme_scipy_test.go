@@ -79,6 +79,11 @@ var expression = map[string]struct{ fn, spelling string }{
 var unpaired = map[string]string{
 	"In":           "—", // scipy has no `in`: it is a Python keyword
 	"LogGammaSign": "—", // scipy splits it across gammaln and gammasgn
+	// the double-double versions of the log-sum-exp family: the harness times
+	// and compares the fast ones (softmax, log_softmax, logsumexp) only
+	"SoftmaxExact":    "—",
+	"LogSoftmaxExact": "—",
+	"LogSumExpExact":  "—",
 }
 
 // harnessPairs reads every Go -> scipy pairing the harness records, by two

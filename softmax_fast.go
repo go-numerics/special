@@ -22,12 +22,15 @@ import (
 //     the "wide" input of the tests). exp(h + l) = exp(h) (1 + l + l²/2 ...) with
 //     |l| <= 2^-53 |h|, so one FMA, e + e l, is exact to the l²/2 term, below 2^-88.
 //   - exp(h) is floats.Exp (Arm's optimized-routines exp, 0.511 ulp).
-//   - the sum is compensated (four interleaved TwoSum accumulators): it carries
-//     no error of its own, n 2^-106 relative, whatever n.
+//   - the sum is compensated (four interleaved TwoSum accumulators, started at
+//     0): it carries n 2^-106 relative error of its own, so none that matters.
 //
 // The bounds below are stated with u = 2^-53; docs/accuracy.md derives them and
-// the oracle tests assert them against the double-double evaluation these
-// functions replaced (kept in the tests).
+// the tests assert them against a math/big oracle (320 bits). They hold when no
+// term that matters is subnormal (the sum of the others, for LogSoftmax and
+// LogSumExp, at least about n 2^-1000) and, for LogSumExp, where |lse| >= L.
+// The double-double evaluations are SoftmaxExact, LogSoftmaxExact and
+// LogSumExpExact (softmax_exact.go).
 const (
 	// softmaxErr bounds |Softmax_i - exact| / exact for exact >= 2^-1022:
 	// e_i = exp(h_i) (1 + l_i) carries the exponential's 0.511 ulp = 1.022u and
@@ -67,14 +70,16 @@ func smShift(v, m float64) (h, l float64) {
 	return h, l
 }
 
-// smAdd is one step of a compensated sum, Fast2Sum (Dekker): s + c holds the
-// sum so far to 2^-106 relative. It needs s >= t, which holds here: every
-// accumulator starts at 1 and every summand is at most 1 (exp(h) <= 1 for
-// h <= 0, and the correction e l moves a value below 1 by a relative 2^-53 at
-// most).
+// smAdd is one step of a compensated sum, Knuth's TwoSum (no ordering
+// condition): s + c is the exact sum of the terms so far, up to the roundings
+// of c, each at most 2^-53 |c| with |c| <= n 2^-53 |s|: n 2^-106 relative in
+// all. (An earlier Fast2Sum with the accumulators started at 1 lost this when
+// the maximum was left out of the sum: every term below 2^-53 was then added
+// plain into c, and the error grew with n: 32.7 u at n = 2e4.)
 func smAdd(s, c, t float64) (float64, float64) {
 	a := s + t
-	return a, c + (t - (a - s))
+	bb := a - s
+	return a, c + ((s - (a - bb)) + (t - bb))
 }
 
 // smChunk writes exp(x_i - m) into buf (the exponentials of the corrected
@@ -98,8 +103,7 @@ func smChunk(buf, x []float64, m, mark float64, lo []float64) (dd.DD, int) {
 		lo[i] = l
 	}
 	floats.Exp(buf, buf)
-	s0, s1, s2, s3 := 1.0, 1.0, 1.0, 1.0
-	var c0, c1, c2, c3 float64
+	var s0, s1, s2, s3, c0, c1, c2, c3 float64
 	for g := range n / 4 {
 		i := 4 * g
 		e0 := math.FMA(buf[i], lo[i], buf[i])
@@ -119,9 +123,7 @@ func smChunk(buf, x []float64, m, mark float64, lo []float64) (dd.DD, int) {
 		s0, c0 = smAdd(s0, c0, e)
 	}
 	var s dd.DD
-	// s_j - 1 is exact (s_j in [1, 2^53)): the ones the accumulators started
-	// with leave no rounding error, even when the sum of the others is tiny.
-	for _, f := range [...]float64{s0 - 1, s1 - 1, s2 - 1, s3 - 1, c0, c1, c2, c3} {
+	for _, f := range [...]float64{s0, s1, s2, s3, c0, c1, c2, c3} {
 		s = dd.AddF(s, f)
 	}
 	return s, k

@@ -221,9 +221,19 @@ func TestLogSumExpBound(t *testing.T) {
 						t.Fatalf("%s n=%d: LogSumExp = %v, want %v: relative error %g > %g", sh.name, n, got, ref.Hi, rel, logSumExpErr)
 					}
 				} else {
+					// the guarded path is judged by the math/big oracle, in
+					// absolute terms (TestLogSumExpCancellationBig has the
+					// derivation); the double-double oracle shares log1pDD
+					// with it and could never fail it
 					slow++
-					if rel > 0x1p-52 {
-						t.Fatalf("%s n=%d: guarded LogSumExp = %v, want %v: relative error %g", sh.name, n, got, ref.Hi, rel)
+					if n <= 100 {
+						o := lseOracle(x)
+						l, _ := o.l.Float64()
+						lf, _ := o.lse.Float64()
+						bound := math.Ldexp(l, -84) + math.Ldexp(math.Abs(lf), -53)
+						if abs, _ := lseErr(got, o.lse); abs > bound {
+							t.Fatalf("%s n=%d: guarded LogSumExp = %v, want %v: absolute error %g > %g", sh.name, n, got, lf, abs, bound)
+						}
 					}
 				}
 			}

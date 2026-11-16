@@ -75,7 +75,7 @@ func TestLogSumExpGuard(t *testing.T) {
 		if ok {
 			t.Errorf("logSumExpFast(%v) = %v, ok: the guard must refuse (|lse| < L)", x, v)
 		}
-		got, want := LogSumExp(x), logSumExpDD(x, m)
+		got, want := LogSumExp(x), LogSumExpExact(x)
 		if got != want {
 			t.Errorf("LogSumExp(%v) = %v, double-double path %v", x, got, want)
 		}
@@ -186,6 +186,67 @@ func TestSoftmaxSpecial(t *testing.T) {
 	}
 	if v := LogSumExp([]float64{inf, inf}); !math.IsInf(v, -1) {
 		t.Errorf("LogSumExp(-Inf, -Inf) = %v", v)
+	}
+}
+
+// The Exact functions: the same special values as the fast ones, the buffers,
+// the in-place call, and agreement with the fast ones to their bounds.
+func TestExactFunctions(t *testing.T) {
+	inf, nan := math.Inf(-1), math.NaN()
+	if r := SoftmaxExact(nil, nil); len(r) != 0 {
+		t.Error("SoftmaxExact(empty)")
+	}
+	if r := LogSoftmaxExact(nil, nil); len(r) != 0 {
+		t.Error("LogSoftmaxExact(empty)")
+	}
+	if v := LogSumExpExact(nil); !math.IsInf(v, -1) {
+		t.Errorf("LogSumExpExact(nil) = %v", v)
+	}
+	for _, x := range [][]float64{{1, nan, 3}, {1, math.Inf(1)}, {inf, inf}} {
+		for i, v := range SoftmaxExact(nil, x) {
+			if !math.IsNaN(v) {
+				t.Errorf("SoftmaxExact(%v)[%d] = %v", x, i, v)
+			}
+		}
+		for i, v := range LogSoftmaxExact(nil, x) {
+			if !math.IsNaN(v) {
+				t.Errorf("LogSoftmaxExact(%v)[%d] = %v", x, i, v)
+			}
+		}
+	}
+	if v := LogSumExpExact([]float64{1, nan}); !math.IsNaN(v) {
+		t.Errorf("LogSumExpExact(1, NaN) = %v", v)
+	}
+	if v := LogSumExpExact([]float64{inf, inf}); !math.IsInf(v, -1) {
+		t.Errorf("LogSumExpExact(-Inf, -Inf) = %v", v)
+	}
+	if r := LogSoftmaxExact(nil, []float64{0, inf}); r[0] != 0 || !math.IsInf(r[1], -1) {
+		t.Errorf("LogSoftmaxExact(0, -Inf) = %v", r)
+	}
+	if v := LogSumExpExact([]float64{-1, -1, -1000}); math.Abs(v-(-1+math.Ln2)) > 1e-15 {
+		t.Errorf("LogSumExpExact(-1, -1, -1000) = %v", v)
+	}
+	x := make([]float64, 300)
+	for i := range x {
+		x[i] = float64(float64(i%17)*1.3) - 9
+	}
+	buf := make([]float64, 0, 300)
+	y := slices.Clone(x)
+	for name, pair := range map[string][2][]float64{
+		"Softmax":    {SoftmaxExact(buf, x), Softmax(nil, x)},
+		"LogSoftmax": {LogSoftmaxExact(nil, x), LogSoftmax(nil, x)},
+	} {
+		for i := range x {
+			if d := math.Abs(pair[0][i] - pair[1][i]); d > 8*0x1p-53*math.Abs(pair[0][i]) {
+				t.Fatalf("%sExact[%d] = %v, fast %v", name, i, pair[0][i], pair[1][i])
+			}
+		}
+	}
+	if got := SoftmaxExact(y, y); &got[0] != &y[0] || !slices.Equal(got, SoftmaxExact(nil, x)) {
+		t.Error("SoftmaxExact in place")
+	}
+	if v, w := LogSumExpExact(x), LogSumExp(x); math.Abs(v-w) > 4*0x1p-53*math.Abs(v) {
+		t.Errorf("LogSumExpExact %v, LogSumExp %v", v, w)
 	}
 }
 

@@ -162,7 +162,17 @@ func archHashCases() []hashCase {
 		// fusion (arm64, ppc64le, s390x, riscv64 fuse it, amd64 v1 does not), so
 		// their bits differ by architecture within the stated bound. The bound
 		// is what TestSoftmaxBound, TestLogSoftmaxBound and TestLogSumExpBound
-		// assert on every lane of the CI.
+		// assert on every lane of the CI. The Exact versions keep the row.
+		{"LogSumExpExact,SoftmaxExact,LogSoftmaxExact", func(emit func(float64)) {
+			x := spread(300, r(-50, 50))
+			emit(LogSumExpExact(x))
+			for _, v := range SoftmaxExact(nil, x) {
+				emit(v)
+			}
+			for _, v := range LogSoftmaxExact(nil, x) {
+				emit(v)
+			}
+		}},
 		{"JnZeros", func(emit func(float64)) {
 			for _, n := range []int{0, 1, 4} {
 				for _, v := range JnZeros(n, 30) {

@@ -24,6 +24,36 @@ func Softmax(x *ndarray.Array) (*ndarray.Array, error) {
 	return result(special.Softmax(nil, d), x.Shape(), f32), nil
 }
 
+// LogSumExpExact is LogSumExp with the double-double evaluation
+// (special.LogSumExpExact).
+func LogSumExpExact(x *ndarray.Array) (float64, error) {
+	d, _, err := operand(x)
+	if err != nil {
+		return 0, err
+	}
+	return special.LogSumExpExact(d), nil
+}
+
+// SoftmaxExact is Softmax with the double-double evaluation
+// (special.SoftmaxExact).
+func SoftmaxExact(x *ndarray.Array) (*ndarray.Array, error) {
+	d, f32, err := operand(x)
+	if err != nil {
+		return nil, err
+	}
+	return result(special.SoftmaxExact(nil, d), x.Shape(), f32), nil
+}
+
+// LogSoftmaxExact is LogSoftmax with the double-double evaluation
+// (special.LogSoftmaxExact).
+func LogSoftmaxExact(x *ndarray.Array) (*ndarray.Array, error) {
+	d, f32, err := operand(x)
+	if err != nil {
+		return nil, err
+	}
+	return result(special.LogSoftmaxExact(nil, d), x.Shape(), f32), nil
+}
+
 // LogSoftmax returns x - LogSumExp(x) over all elements of x, with x's shape
 // (special.LogSoftmax).
 func LogSoftmax(x *ndarray.Array) (*ndarray.Array, error) {

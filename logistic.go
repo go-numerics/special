@@ -353,11 +353,16 @@ func xlog1pyFast(x, y float64) (float64, bool) {
 // maximum m is factored out and log1p of Σ_{i≠argmax} exp(x_i - m) is taken
 // by float64 kernels (x_i - m exact as a sum of two floats, floats.Exp, a
 // compensated sum, log1p in double-double: softmax_fast.go). The relative error
-// is at most logSumExpErr = 4·2^-53 whenever |LogSumExp| is at least the log of
-// the sum, which is the case for m >= 0 and for most m < 0; the remaining
-// inputs (m in (-2L, 0), L the log of the sum, where m + L cancels) take the
-// double-double evaluation, within about half an ulp.
-// It returns -Inf for an empty slice or when every x_i is -Inf, +Inf if any
+// is at most logSumExpErr = 4·2^-53 whenever |LogSumExp| is at least the log L
+// of the sum (all m >= 0, most m < 0) AND no term that matters is subnormal:
+// when the sum of the exponentials of the others is below about n·2^-1000 the
+// terms in the subnormal range (each with an absolute error up to 2^-1075) can
+// carry the relative accuracy away (x = [0, 2^20 × -720]). Where m + L cancels
+// (m in (-2L, 0)) the double-double evaluation (LogSumExpExact) answers, whose
+// relative error is not bounded there: log1pDD's 2^-90 is magnified by
+// L/|LogSumExp| (x = [-ln 2, -ln 2]); the absolute error stays below
+// 2^-84 L + 2^-53 |LogSumExp|. Both regions are open; LogSumExpExact has the
+// same two limits. It returns -Inf for an empty slice or when every x_i is -Inf, +Inf if any
 // x_i is +Inf, NaN if any is NaN.
 func LogSumExp(x []float64) float64 {
 	if len(x) == 0 {
@@ -370,32 +375,7 @@ func LogSumExp(x []float64) float64 {
 	if v, ok := logSumExpFast(x, m); ok {
 		return v
 	}
-	return logSumExpDD(x, m)
-}
-
-// logSumExpDD is LogSumExp for finite m = max x with every exponential taken
-// in double-double (each x_i - m exact, each exponential to about 2^-54).
-func logSumExpDD(x []float64, m float64) float64 {
-	im := -1
-	for i, v := range x {
-		if v == m {
-			im = i
-			break
-		}
-	}
-	var s dd.DD
-	for i, v := range x {
-		if i == im {
-			continue
-		}
-		d := sumDD(v, -m)
-		if d.Hi < -746 {
-			continue
-		}
-		e, k := dd.ExpMant(d)
-		s = dd.Add(s, dd.Ldexp(e, k))
-	}
-	return dd.AddF(log1pDD(s), m).Float()
+	return LogSumExpExact(x)
 }
 
 // Softmax writes exp(x_i) / Σ_j exp(x_j) into dst (allocated when nil or
@@ -403,10 +383,11 @@ func logSumExpDD(x []float64, m float64) float64 {
 // supported). The maximum is subtracted first, x_i - m exactly as a sum of two
 // floats, the exponentials come from floats.Exp and the sum is compensated
 // (softmax_fast.go): the relative error of every result at or above 2^-1022 is
-// at most softmaxErr = 7·2^-53 (3.5 ulp; below that the absolute error is under
-// 2^-1073 plus the same fraction), and about 1 ulp in practice. An empty x
-// gives an empty result; if x holds NaN or +Inf, or only -Inf, the results are
-// NaN (as SciPy's softmax).
+// at most softmaxErr = 8·2^-53 (4 ulp at most; below 2^-1022 the absolute error
+// is under 2^-1073 plus the same fraction), and about 1.5 ulp in practice. For
+// the correctly rounded quotient, bit-identical on every architecture, use
+// SoftmaxExact (about 4.5 times slower). An empty x gives an empty result; if x
+// holds NaN or +Inf, or only -Inf, the results are NaN (as SciPy's softmax).
 func Softmax(dst, x []float64) []float64 {
 	if cap(dst) < len(x) {
 		dst = make([]float64, len(x))
@@ -430,7 +411,11 @@ func Softmax(dst, x []float64) []float64 {
 // short) and returns it; dst may be x itself. The difference is formed as
 // (x_i - m) - log(Σ exp(x_j - m)) with x_i - m exact as a sum of two floats and
 // the logarithm in double-double, so it never cancels (both terms are
-// negative): the relative error is at most logSoftmaxErr = 5·2^-53 (softmax_fast.go).
+// negative): the relative error is at most logSoftmaxErr = 5·2^-53 (softmax_fast.go)
+// unless the sum of the exponentials of the others is below about n·2^-1000,
+// where terms in the subnormal range carry the relative accuracy away (as for
+// LogSumExp). LogSoftmaxExact is the double-double evaluation, about 3.7 times
+// slower and bit-identical on every architecture.
 func LogSoftmax(dst, x []float64) []float64 {
 	if cap(dst) < len(x) {
 		dst = make([]float64, len(x))
