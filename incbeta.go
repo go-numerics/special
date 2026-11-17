@@ -108,8 +108,9 @@ type ibetaXY struct {
 	xd, yd dd.DD // x and y exactly (one of them is a float64 already)
 	lx, ly dd.DD
 	xExact bool // x is exact (y may be rounded); else y is exact
-	// lb = log B(a, b) when hasLB (set once by ibetaRatio: B is symmetric,
-	// so it survives a swap of the parameters with x and y).
+	// lb = log B(a, b) when hasLB: set by the inverse, which keeps one for
+	// all its steps, or by ibetaRatio's b - n branch. B is symmetric, so it
+	// survives a swap of the parameters with x and y.
 	lb    dd.DD
 	hasLB bool
 }
