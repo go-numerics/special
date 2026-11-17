@@ -1,7 +1,7 @@
 # Speed
 
 The comparison is with SciPy 1.18.1's vectorised ufuncs (C/C++, one thread),
-measured by [refbench](https://github.com/go-scikit/refbench) v0.3.0 from
+measured by [refbench](https://github.com/go-scikit/refbench) v0.4.0 from
 `bench/perf_test.go`. The generated table is [perf-table.md](perf-table.md)
 (data: `perf.json`); the public functions without a row are in
 [perf-exempt.md](perf-exempt.md).
@@ -49,46 +49,54 @@ go test -run TestPerf -cpu 1 -perf.run .       # timing (writes perf.json and th
 go test -run TestPerf -cpu 1 -perf.record .    # allocation counts only
 ```
 
-## Status: the valid run of v0.13.0 (2026-11-13)
+## Status: the valid run of v0.20.0 (2026-11-16)
 
 `perf.json` and [perf-table.md](perf-table.md) are a **valid** timing run: tag
-v0.13.0 (commit 6577eb4e807cd3c0bd835d9ed5c17d607870f868), darwin/arm64, 16
-CPUs, Go 1.27.4, SciPy 1.18.1, refbench v0.3.0 (`-perf.commit` the exact HEAD
+v0.20.0 (commit d415e46012b1f640eff1e03f2b12b475a1dc7229), darwin/arm64, 16
+CPUs, Go 1.27.4, SciPy 1.18.1, refbench v0.4.0 (`-perf.commit` the exact HEAD
 of the clean tag checkout; only `bench/go.mod` and `go.sum` differ, by the
-refbench require), 1-minute load over the rounds min 6.48, median 7.48, max
-7.99 (gate 8); 151 of 151 rows valid, 11 rounds retried after ending above the
-gate. Ratios are Go time over SciPy time; above 1 the Go loop is slower. They
+refbench require; the root module is byte-identical to the tag), 1-minute load
+over the rounds min 4.03, median 5.68, max 7.97 (gate 8); 151 of 151 rows
+valid, 2 rounds retried after ending above the gate. **SciPy is the only
+reference timed.** The Julia worker (SpecialFunctions.jl, Bessels.jl) and the
+worst-ulp columns were not run: the bench of v0.20.0 has no wiring for them (no
+`Refs`, no Julia project, no accuracy scorer), so the table has no
+other-reference section and no per-side ulp; accuracy is in
+[accuracy-table.md](accuracy-table.md). The `*Exact` softmax functions have no
+row. Ratios are Go time over SciPy time; above 1 the Go loop is slower. They
 are single-core ratios on 10 000-point calls; the `nd/` rows run on one
-goroutine here. Changes against the run of v0.8.0 (2026-11-10):
-`Jn` 1.52 to 0.18 and `Kn` 1.88 to 0.28 (v0.12.0 and v0.13.0, #33), `Yn` 33.4
-to 2.37, `LogBeta` 1.20 to 0.58, `ErfInv` 1.12 to 0.49, `ErfcInv` 1.24 to
-0.62, `Logit` 1.37 to 0.90, `Factorial` of non-integers 1.87 to 1.22.
+goroutine here. Changes against the run of v0.13.0 (2026-11-13): `Kn` 0.28 to
+0.11, `Jv` 1.28 to 0.47, `Yv` 1.22 to 0.54, `Kv` 2.32 to 0.60, `Kve` 2.37 to
+0.58, `Ive` 1.69 to 0.37, `In` 5.24 to 0.86, `Iv` 7.94 to 1.77, `Softmax` 4.84
+to 1.05, `LogSoftmax` 4.13 to 1.09, `LogSumExp` 1.47 to 0.35, `Yn` 2.37 to
+2.34.
 
-- **Faster than SciPy** (ratio below 1, verdict faster): `Gamma` 0.84 (8.48
-  against 10.08 ns per element), `nd.Gamma` 0.85, `LogGamma` 0.76, `GammaTo`
-  0.78, `LogGammaTo` 0.67, `Ndtri` 0.57, `LogNdtr` 0.59, `Ndtr` 0.84, `Erf` 0.89
-  (`ErfTo` 0.83, `ErfcTo` 0.91), `Digamma` 0.80, `Beta` 0.84, `LogBeta` 0.58,
-  `ErfInv` 0.49, `ErfcInv` 0.62, `Erfcx` 0.99, `Log1pExp` 0.92, `Zeta` 0.64,
-  `HurwitzZeta` 0.66, `Polygamma` 0.05, `J0`/`J1`/`Y0`/`Y1` 0.71–0.75, `I0`
-  0.91, `I0e` 0.30, `I1e` 0.35, `K0` 0.99, `K0e` 0.47, `K1` 0.93, `K1e` 0.37,
-  the complete elliptic integrals 0.37–0.43, `Comb` 0.85, `Factorial` of
-  integers 0.08, `Factorial2` 0.03, `JnZeros` 0.89, `Jn` 0.18 (130 against 736
-  ns per element) and `Kn` 0.28 (102 against 363 ns).
-- **Ties** (verdict tie, or within 3 percent): `Logit` 0.90, `I1` 0.97,
-  `Erfc` 1.03, `nd.Erfc` 1.03, `nd.K0` 1.03, `nd.Comb` 1.02, `nd.Logit` 0.99.
-  `nd.I1` measured 1.52 in this run with a wide interquartile range (1.78e5 to
-  1.94e5 ns against 1.15e5 for the scalar loop of the same kernel; 1.02 in the
-  v0.8.0 run): unexplained; rerun needed.
-- **Still slower, 1.08 to 1.54 times**: `LogExpit` 1.08, `Xlogy` 1.08, `GammaQ`
-  1.13, `GammaP` 1.18, `Expit` 1.20, `GammaSign` 1.22, `Perm` 1.22, `Factorial`
-  of non-integers 1.22, `Yv` 1.22, `Jv` 1.28, `LogSumExp` 1.47, `GammaQInv`
-  1.48, `GammaPInv` 1.54 (the `nd/` rows of `GammaSign` 1.67, `Expit` 1.36,
-  `Perm` 1.55).
+- **Faster than SciPy** (ratio below 1, verdict faster): `Gamma` 0.83 (8.37
+  against 10.03 ns per element), `nd.Gamma` 0.84, `LogGamma` 0.76, `GammaTo`
+  0.78, `LogGammaTo` 0.67, `Ndtri` 0.57, `LogNdtr` 0.60, `Ndtr` 0.84, `Erf` 0.88
+  (`ErfTo` 0.83, `ErfcTo` 0.91), `Digamma` 0.80, `Beta` 0.83, `LogBeta` 0.59,
+  `ErfInv` 0.49, `ErfcInv` 0.62, `Logit` 0.89, `Log1pExp` 0.92, `Zeta` 0.65,
+  `HurwitzZeta` 0.66, `Polygamma` 0.05, `J0`/`J1`/`Y0`/`Y1` 0.71–0.76, `I0`
+  0.91, `I0e` 0.29, `I1` 0.97, `I1e` 0.36, `K0` 0.93, `K0e` 0.41, `K1` 0.92,
+  `K1e` 0.37, the complete elliptic integrals 0.37–0.46, `Comb` 0.86,
+  `Factorial` of integers 0.08, `Factorial2` 0.03, `JnZeros` 0.89, `Jv` 0.47,
+  `Yv` 0.54, `Kv` 0.60, `Kve` 0.58, `Ive` 0.37, `In` 0.86, `Jn` 0.18 (128
+  against 722 ns per element), `Kn` 0.11 (40 against 357 ns) and `LogSumExp`
+  0.35.
+- **Ties** (verdict tie): `Erfc` 1.00, `Erfcx` 0.98, `LogExpit` 1.08,
+  `nd.K0` 0.98, `nd.Comb` 1.00.
+- **Still slower, 1.01 to 1.54 times** (open perf defects): `nd.Erfc` 1.01,
+  `nd.I1` 1.01, `Softmax` 1.05, `Xlogy` 1.07, `LogSoftmax` 1.09, `GammaQ` 1.13,
+  `GammaP` 1.17, `Perm` 1.20, `ExpitTo` 1.20, `Expit` 1.23, `Factorial` of
+  non-integers 1.23, `GammaSign` 1.24, `GammaQInv` 1.48, `GammaPInv` 1.54 (the
+  `nd/` rows of `Softmax` 1.20, `LogSoftmax` 1.26, `Expit` 1.34, `Xlogy` 1.14,
+  `LogExpit` 1.17, `Logit` 1.06, `Perm` 1.46, `Factorial` 1.28, `GammaSign`
+  1.75).
 - **Open gaps** (each a double-double evaluation whose result is correctly
-  rounded; see #33 for the profile of each): `Iv` 7.94, `In` 5.24, `Softmax`
-  4.84, `LogSoftmax` 4.13, `BetaIncInv`/`BetaIncCInv` 3.45, `Binom` 3.03,
-  `Yn` 2.37 (91 against 38 ns per element), `Kve` 2.37, `Kv` 2.32,
-  `BetaInc`/`BetaIncC` 2.1, `Xlog1py` 1.91, `Ive` 1.69.
+  rounded; see #33 for the profile of each; open perf defects): `BetaIncInv`
+  and `BetaIncCInv` 3.49 and 3.48, `Binom` 3.04, `Yn` 2.34 (88 against 38 ns
+  per element), `BetaInc`/`BetaIncC` 2.12 and 2.14, `Xlog1py` 1.89 (`nd`
+  2.11), `Iv` 1.77.
 
 Allocations: `BetaIncInv` and `BetaIncCInv` allocate nothing
 (`TestBetaIncInvAllocatesNothing`), `Softmax` since v0.5.6; the `nd/` rows
