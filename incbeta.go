@@ -113,6 +113,16 @@ type ibetaXY struct {
 	// survives a swap of the parameters with x and y.
 	lb    dd.DD
 	hasLB bool
+	// lbn, when not nil, keeps the log B(a0, b0 - n) of ibetaRatio's b < 40
+	// branch across calls with the same (a, b), one per orientation
+	// (index 1 when the parameters were swapped). The inverse sets it.
+	lbn *[2]ibetaLBN
+}
+
+// ibetaLBN is one cached log B of ibetaRatio's b < 40 branch.
+type ibetaLBN struct {
+	lb dd.DD
+	ok bool
 }
 
 // ibetaNewXY returns the pair for an exact x in (0, 1). The logarithms
@@ -129,7 +139,7 @@ func ibetaNewXY(x, scale float64) ibetaXY {
 }
 
 func (v ibetaXY) swap() ibetaXY {
-	return ibetaXY{x: v.y, y: v.x, xd: v.yd, yd: v.xd, lx: v.ly, ly: v.lx, xExact: !v.xExact, lb: v.lb, hasLB: v.hasLB}
+	return ibetaXY{x: v.y, y: v.x, xd: v.yd, yd: v.xd, lx: v.ly, ly: v.lx, xExact: !v.xExact, lb: v.lb, hasLB: v.hasLB, lbn: v.lbn}
 }
 
 // ibetaLogBeta returns log B(a, b) for a, b > 0 finite, as a double-double.
@@ -316,8 +326,9 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 			n--
 			b0 = 1
 		}
-		// every prefix below is for the pair (a0, b0)
-		v0.lb, v0.hasLB = ibetaLogBeta(a0, b0), true
+		// every prefix below is for the pair (a0, b0), which depends on
+		// (a, b) and the orientation only: the inverse keeps it
+		v0.lb, v0.hasLB = ibetaLogBetaCached(a0, b0, v0.lbn, swapped), true
 		wd := ibetaBupDD(b0, a0, v0.swap(), n, eps)
 		if x0 <= 0.7 {
 			return res(swapped, dd.Add(wd, ibetaBpserDD(a0, b0, v0, eps)), true)
@@ -333,6 +344,22 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 		return res(swapped, dd.F(ibetaBfrac(a0, b0, v0, lambda, 15*eps)), true)
 	}
 	return res(swapped, dd.F(ibetaBasym(a0, b0, lambda, 100*eps)), true)
+}
+
+// ibetaLogBetaCached returns ibetaLogBeta(a, b), from c[swapped] when it
+// holds one and storing it there otherwise; c may be nil.
+func ibetaLogBetaCached(a, b float64, c *[2]ibetaLBN, swapped bool) dd.DD {
+	if c == nil {
+		return ibetaLogBeta(a, b)
+	}
+	i := 0
+	if swapped {
+		i = 1
+	}
+	if !c[i].ok {
+		c[i] = ibetaLBN{lb: ibetaLogBeta(a, b), ok: true}
+	}
+	return c[i].lb
 }
 
 // ibetaLambda returns λ = (a+b)y - b = a - (a+b)x as a double-double,
