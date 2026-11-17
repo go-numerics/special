@@ -212,10 +212,14 @@ type ibetaInvF struct {
 	upper   bool
 	lt, lb  dd.DD
 	lbf     float64
+	// lab = log(a B(a, b)) for the series branch of ibetaInvTail, computed
+	// on its first use (hasLab) and the same at every u.
+	lab    dd.DD
+	hasLab bool
 }
 
 func (e *ibetaInvF) at(u float64) (g, r float64) {
-	g, r = ibetaInvTail(e.a, e.b, u, e.t, e.upper, e.lt, e.lb, e.lbf)
+	g, r = ibetaInvTail(e, u)
 	if e.upper {
 		g = -g
 	}
@@ -309,7 +313,8 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 
 // ibetaInvTail returns g = log T(u) - log t, T = 1 - I_u(a, b) if upper
 // else I_u(a, b), and r = |d log T / d log u| = u^a (1-u)^(b-1) /
-// (B(a, b) T); lt = log t, lb = log B(a, b) (lbf in float64).
+// (B(a, b) T); lt = log t, lb = log B(a, b) (lbf in float64), all from the
+// evaluator e.
 //
 // Where TOMS 708's BPSER applies with a < 1, log T is a double-double from
 // that series (the root depends on log T to within a factor 1/a there).
@@ -317,16 +322,20 @@ func ibetaInvSide(a, b, p, q float64, lb dd.DD, u0 float64, sure bool) (float64,
 // can be located to, and g = log1p((T - t)/t) once T is within a factor 2
 // of t (T - t is then exact); r only steers the step and is formed in
 // float64.
-func ibetaInvTail(a, b, u, t float64, upper bool, lt, lb dd.DD, lbf float64) (g, r float64) {
+func ibetaInvTail(e *ibetaInvF, u float64) (g, r float64) {
+	a, b, t, upper, lt, lb, lbf := e.a, e.b, e.t, e.upper, e.lt, e.lb, e.lbf
 	bpser := a < 1 && (b <= 1 || b*u <= 0.7)
 	if bpser {
 		v := ibetaNewXY(u, math.Inf(1))
 		ld := dd.Sub(dd.Add(dd.MulF(v.lx, a), dd.MulF(v.ly, b-1)), lb)
+		if !e.hasLab {
+			e.lab, e.hasLab = ibetaLogABeta(a, b), true
+		}
 		var l dd.DD
 		switch {
 		case !upper:
-			l = ibetaLogBpser(a, b, v)
-		case ibetaUpperFromLog(ibetaLogBpser(a, b, v), &l):
+			l = ibetaLogBpser(a, b, v, e.lab)
+		case ibetaUpperFromLog(ibetaLogBpser(a, b, v, e.lab), &l):
 		default:
 			bpser = false
 		}
@@ -334,7 +343,13 @@ func ibetaInvTail(a, b, u, t float64, upper bool, lt, lb dd.DD, lbf float64) (g,
 			return dd.Sub(l, lt).Float(), libm.Exp(dd.Sub(ld, l).Hi)
 		}
 	}
-	w, w1 := ibetaRatio(a, b, ibetaNewXY(u, a+b))
+	// log B(a, b) is the same at every u: hand ibetaRatio the one already
+	// computed (ibetaLogBeta orders its arguments, so it is the same value
+	// whichever way round ibetaRatio asks for it; the one branch that needs
+	// another pair, b - n, overwrites it).
+	xy := ibetaNewXY(u, a+b)
+	xy.lb, xy.hasLB = lb, true
+	w, w1 := ibetaRatio(a, b, xy)
 	v := w
 	if upper {
 		v = w1
@@ -369,9 +384,9 @@ func ibetaUpperFromLog(li dd.DD, lt *dd.DD) bool {
 
 // ibetaLogBpser returns log I_x(a, b) as a double-double from the power
 // series of ibetaBpser (b <= 1 or b·x <= 0.7):
-// log(x^a / (a B(a, b))) + log1p(a Σ).
-func ibetaLogBpser(a, b float64, v ibetaXY) dd.DD {
-	l := dd.Sub(dd.MulF(v.lx, a), ibetaLogABeta(a, b))
+// log(x^a / (a B(a, b))) + log1p(a Σ), with lab = ibetaLogABeta(a, b).
+func ibetaLogBpser(a, b float64, v ibetaXY, lab dd.DD) dd.DD {
+	l := dd.Sub(dd.MulF(v.lx, a), lab)
 	sum := dd.F(0)
 	c := dd.F(1)
 	for n := 1.0; n < 100000; n++ {
