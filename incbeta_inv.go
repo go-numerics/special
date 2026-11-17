@@ -217,7 +217,7 @@ type ibetaInvF struct {
 	lab    dd.DD
 	hasLab bool
 	// lbn: the log B(a0, b0 - n) of ibetaRatio's b < 40 branch, per
-	// orientation, kept across the steps (ibetaXY.lbn)
+	// orientation, kept across the steps (ibetaRatioCached)
 	lbn [2]ibetaLBN
 }
 
@@ -351,8 +351,8 @@ func ibetaInvTail(e *ibetaInvF, u float64) (g, r float64) {
 	// whichever way round ibetaRatio asks for it; the one branch that needs
 	// another pair, b - n, overwrites it).
 	xy := ibetaNewXY(u, a+b)
-	xy.lb, xy.hasLB, xy.lbn = lb, true, &e.lbn
-	w, w1 := ibetaRatio(a, b, xy)
+	xy.lb, xy.hasLB = lb, true
+	w, w1 := ibetaRatioCached(a, b, xy, &e.lbn)
 	v := w
 	if upper {
 		v = w1

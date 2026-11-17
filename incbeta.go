@@ -113,13 +113,10 @@ type ibetaXY struct {
 	// survives a swap of the parameters with x and y.
 	lb    dd.DD
 	hasLB bool
-	// lbn, when not nil, keeps the log B(a0, b0 - n) of ibetaRatio's b < 40
-	// branch across calls with the same (a, b), one per orientation
-	// (index 1 when the parameters were swapped). The inverse sets it.
-	lbn *[2]ibetaLBN
 }
 
-// ibetaLBN is one cached log B of ibetaRatio's b < 40 branch.
+// ibetaLBN is one cached log B of ibetaRatio's b < 40 branch (see
+// ibetaRatioCached).
 type ibetaLBN struct {
 	lb dd.DD
 	ok bool
@@ -139,7 +136,7 @@ func ibetaNewXY(x, scale float64) ibetaXY {
 }
 
 func (v ibetaXY) swap() ibetaXY {
-	return ibetaXY{x: v.y, y: v.x, xd: v.yd, yd: v.xd, lx: v.ly, ly: v.lx, xExact: !v.xExact, lb: v.lb, hasLB: v.hasLB, lbn: v.lbn}
+	return ibetaXY{x: v.y, y: v.x, xd: v.yd, yd: v.xd, lx: v.ly, ly: v.lx, xExact: !v.xExact, lb: v.lb, hasLB: v.hasLB}
 }
 
 // ibetaLogBeta returns log B(a, b) for a, b > 0 finite, as a double-double.
@@ -250,6 +247,16 @@ func ibetaScale(m dd.DD, k int, f float64) float64 {
 // ibetaRatio returns I_x(a, b) and 1 - I_x(a, b) for finite a, b > 0 and
 // x in (0, 1): TOMS 708's BRATIO.
 func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
+	return ibetaRatioCached(a, b, v, nil)
+}
+
+// ibetaRatioCached is ibetaRatio with lbn, when not nil, keeping the
+// log B(a0, b0 - n) of the b < 40 branch across calls with the same (a, b),
+// one per orientation (index 1 when the parameters were swapped): the
+// inverse's steps share it. It is an argument rather than an ibetaXY field
+// so that the forward functions' ibetaXY, copied by value throughout, does
+// not grow.
+func ibetaRatioCached(a, b float64, v ibetaXY, lbn *[2]ibetaLBN) (w, w1 float64) {
 	const eps = ibetaEps
 	// res returns (w, w1) from the directly computed one, undoing a swap.
 	// The complement is formed from the double-double (one rounding of
@@ -328,7 +335,7 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 		}
 		// every prefix below is for the pair (a0, b0), which depends on
 		// (a, b) and the orientation only: the inverse keeps it
-		v0.lb, v0.hasLB = ibetaLogBetaCached(a0, b0, v0.lbn, swapped), true
+		v0.lb, v0.hasLB = ibetaLogBetaCached(a0, b0, lbn, swapped), true
 		wd := ibetaBupDD(b0, a0, v0.swap(), n, eps)
 		if x0 <= 0.7 {
 			return res(swapped, dd.Add(wd, ibetaBpserDD(a0, b0, v0, eps)), true)
