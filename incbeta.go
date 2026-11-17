@@ -115,6 +115,13 @@ type ibetaXY struct {
 	hasLB bool
 }
 
+// ibetaLBN is one cached log B of ibetaRatio's b < 40 branch (see
+// ibetaRatioCached).
+type ibetaLBN struct {
+	lb dd.DD
+	ok bool
+}
+
 // ibetaNewXY returns the pair for an exact x in (0, 1). The logarithms
 // are multiplied by at most scale (a + b: by a, b or ν = a + (b-1)/2) and
 // carry the precision that keeps the products' absolute error below about
@@ -240,6 +247,16 @@ func ibetaScale(m dd.DD, k int, f float64) float64 {
 // ibetaRatio returns I_x(a, b) and 1 - I_x(a, b) for finite a, b > 0 and
 // x in (0, 1): TOMS 708's BRATIO.
 func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
+	return ibetaRatioCached(a, b, v, nil)
+}
+
+// ibetaRatioCached is ibetaRatio with lbn, when not nil, keeping the
+// log B(a0, b0 - n) of the b < 40 branch across calls with the same (a, b),
+// one per orientation (index 1 when the parameters were swapped): the
+// inverse's steps share it. It is an argument rather than an ibetaXY field
+// so that the forward functions' ibetaXY, copied by value throughout, does
+// not grow.
+func ibetaRatioCached(a, b float64, v ibetaXY, lbn *[2]ibetaLBN) (w, w1 float64) {
 	const eps = ibetaEps
 	// res returns (w, w1) from the directly computed one, undoing a swap.
 	// The complement is formed from the double-double (one rounding of
@@ -316,8 +333,9 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 			n--
 			b0 = 1
 		}
-		// every prefix below is for the pair (a0, b0)
-		v0.lb, v0.hasLB = ibetaLogBeta(a0, b0), true
+		// every prefix below is for the pair (a0, b0), which depends on
+		// (a, b) and the orientation only: the inverse keeps it
+		v0.lb, v0.hasLB = ibetaLogBetaCached(a0, b0, lbn, swapped), true
 		wd := ibetaBupDD(b0, a0, v0.swap(), n, eps)
 		if x0 <= 0.7 {
 			return res(swapped, dd.Add(wd, ibetaBpserDD(a0, b0, v0, eps)), true)
@@ -333,6 +351,22 @@ func ibetaRatio(a, b float64, v ibetaXY) (w, w1 float64) {
 		return res(swapped, dd.F(ibetaBfrac(a0, b0, v0, lambda, 15*eps)), true)
 	}
 	return res(swapped, dd.F(ibetaBasym(a0, b0, lambda, 100*eps)), true)
+}
+
+// ibetaLogBetaCached returns ibetaLogBeta(a, b), from c[swapped] when it
+// holds one and storing it there otherwise; c may be nil.
+func ibetaLogBetaCached(a, b float64, c *[2]ibetaLBN, swapped bool) dd.DD {
+	if c == nil {
+		return ibetaLogBeta(a, b)
+	}
+	i := 0
+	if swapped {
+		i = 1
+	}
+	if !c[i].ok {
+		c[i] = ibetaLBN{lb: ibetaLogBeta(a, b), ok: true}
+	}
+	return c[i].lb
 }
 
 // ibetaLambda returns λ = (a+b)y - b = a - (a+b)x as a double-double,
