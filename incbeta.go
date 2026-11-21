@@ -487,11 +487,12 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	// n and x enter only as the products x n_k, never as n0 n1 n2 n3 and x⁴
 	// apart: b is unbounded in the BPSER branch (a <= 1, x < 0.1, (xb)^a <=
 	// 0.7), and with b ~ 2^258, x ~ 2^-259 the product of the n_k overflows
-	// while x⁴ underflows -- 0·Inf, a NaN BetaInc. Each x n_k is about ρ e_k,
-	// so it stays below 2^200 with e; the n guard keeps the products finite
-	// even where the ratio is not yet below 1.
+	// while x⁴ underflows -- 0·Inf, a NaN BetaInc. The tail starts past the
+	// largest term, where the ratio x n_k / e_k is below 1, so each x n_k
+	// stays below e_k < 2^200 and the products stay finite without a bound
+	// on n of their own (TestIncBetaHugeBTinyX, b up to 2^1000).
 	tail := 0.0
-	for ; i+4 <= n-1 && dh > tol*sh && a1h+float64(i) < 0x1p200 && abh+float64(i) < 0x1p200; i += 4 {
+	for ; i+4 <= n-1 && dh > tol*sh && a1h+float64(i) < 0x1p200; i += 4 {
 		fi := float64(i)
 		xn0, xn1 := float64(xh*(abh+fi)), float64(xh*(abh+(fi+1)))
 		xn2, xn3 := float64(xh*(abh+(fi+2))), float64(xh*(abh+(fi+3)))
