@@ -49,3 +49,21 @@ func TestIncBetaPosSumBound(t *testing.T) {
 	}
 	t.Logf("worst relative error 2^%.1f", math.Log2(worst))
 }
+
+// TestIncBetaHugeBTinyX holds BetaInc where b is huge and x tiny, which the
+// BPSER branch reaches with b unbounded (a <= 1, x < 0.1, (xb)^a <= 0.7).
+// The blocked tail once formed n0 n1 n2 n3 and x⁴ apart: at b = 2^258 the
+// first overflows, the second underflows, and BetaInc was NaN; at b = 2^300
+// the series stopped after one block, 2^-40 off. With a = 1 and x b = 1/2 the
+// value is 1 - e^{-1/2} to within 2^-52 for every such b.
+func TestIncBetaHugeBTinyX(t *testing.T) {
+	want := -math.Expm1(-0.5)
+	for _, k := range []int{100, 199, 201, 256, 258, 259, 260, 270, 300, 500, 1000} {
+		b := math.Ldexp(1, k)
+		x := math.Ldexp(0.5, -k)
+		got := BetaInc(1, b, x)
+		if rel := math.Abs(got-want) / want; !(rel <= 0x1p-52) {
+			t.Errorf("BetaInc(1, 2^%d, 2^-%d/2) = %v, want %v (relative error %.3g)", k, k, got, want, rel)
+		}
+	}
+}

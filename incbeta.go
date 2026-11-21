@@ -483,19 +483,26 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	// that do not wait on each other. All factors are positive, so each
 	// block carries about 12 roundings (relative), below 2^-60 of the sum
 	// at the weight of these terms. e3 < 2^200 keeps D finite.
+	//
+	// n and x enter only as the products x n_k, never as n0 n1 n2 n3 and x⁴
+	// apart: b is unbounded in the BPSER branch (a <= 1, x < 0.1, (xb)^a <=
+	// 0.7), and with b ~ 2^258, x ~ 2^-259 the product of the n_k overflows
+	// while x⁴ underflows -- 0·Inf, a NaN BetaInc. Each x n_k is about ρ e_k,
+	// so it stays below 2^200 with e; the n guard keeps the products finite
+	// even where the ratio is not yet below 1.
 	tail := 0.0
-	for ; i+4 <= n-1 && dh > tol*sh && a1h+float64(i) < 0x1p200; i += 4 {
+	for ; i+4 <= n-1 && dh > tol*sh && a1h+float64(i) < 0x1p200 && abh+float64(i) < 0x1p200; i += 4 {
 		fi := float64(i)
-		n0, n1, n2, n3 := abh+fi, abh+(fi+1), abh+(fi+2), abh+(fi+3)
+		xn0, xn1 := float64(xh*(abh+fi)), float64(xh*(abh+(fi+1)))
+		xn2, xn3 := float64(xh*(abh+(fi+2))), float64(xh*(abh+(fi+3)))
 		e0, e1, e2, e3 := a1h+fi, a1h+(fi+1), a1h+(fi+2), a1h+(fi+3)
 		e23 := float64(e2 * e3)
 		e123 := float64(e1 * e23)
-		x2 := float64(xh * xh)
-		inner := e23 + float64(float64(xh*n2)*(e3+float64(xh*n3)))
-		p := float64(float64(xh*n0) * (e123 + float64(float64(xh*n1)*inner)))
+		inner := e23 + float64(xn2*(e3+xn3))
+		p := float64(xn0 * (e123 + float64(xn1*inner)))
 		q := dh / float64(e0*e123)
 		tail += float64(q * p)
-		dh = float64(q * float64(float64(x2*x2)*float64(float64(n0*n1)*float64(n2*n3))))
+		dh = float64(q * float64(float64(xn0*xn1)*float64(xn2*xn3)))
 	}
 	for ; i < n-1 && dh > tol*sh; i++ {
 		fi := float64(i)
