@@ -471,7 +471,32 @@ func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
 	// errors grow by about 3 units of 2^-53 per term, and their weight
 	// (below 2^-16 ρ^k) keeps the total under 2^-60 of the sum for a ratio
 	// of decrease ρ up to 0.9, 2^-56 up to 0.98.
+	//
+	// Four terms per division: with n_k = a+b+i+k and e_k = a+1+i+k, the
+	// next four terms are (d/D)·x n0 e1 e2 e3, (d/D)·x² n0 n1 e2 e3, ...,
+	// over the common denominator D = e0 e1 e2 e3, so their sum is
+	//
+	//	(d/D) · x n0 (e1 e2 e3 + x n1 (e2 e3 + x n2 (e3 + x n3)))
+	//
+	// and the next term (d/D) x⁴ n0 n1 n2 n3: one division where the
+	// per-term recurrence takes four in a dependent chain, and products
+	// that do not wait on each other. All factors are positive, so each
+	// block carries about 12 roundings (relative), below 2^-60 of the sum
+	// at the weight of these terms. e3 < 2^200 keeps D finite.
 	tail := 0.0
+	for ; i+4 <= n-1 && dh > tol*sh && a1h+float64(i) < 0x1p200; i += 4 {
+		fi := float64(i)
+		n0, n1, n2, n3 := abh+fi, abh+(fi+1), abh+(fi+2), abh+(fi+3)
+		e0, e1, e2, e3 := a1h+fi, a1h+(fi+1), a1h+(fi+2), a1h+(fi+3)
+		e23 := float64(e2 * e3)
+		e123 := float64(e1 * e23)
+		x2 := float64(xh * xh)
+		inner := e23 + float64(float64(xh*n2)*(e3+float64(xh*n3)))
+		p := float64(float64(xh*n0) * (e123 + float64(float64(xh*n1)*inner)))
+		q := dh / float64(e0*e123)
+		tail += float64(q * p)
+		dh = float64(q * float64(float64(x2*x2)*float64(float64(n0*n1)*float64(n2*n3))))
+	}
 	for ; i < n-1 && dh > tol*sh; i++ {
 		fi := float64(i)
 		dh = float64(dh * (xh * (abh + fi) / (a1h + fi)))
