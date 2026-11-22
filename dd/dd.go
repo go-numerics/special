@@ -216,8 +216,9 @@ func Ldexp(a DD, k int) DD {
 }
 
 // Log returns log(x) for finite x > 0 as a double-double accurate to about
-// 2^-72 relative (measured 2^-78.0 by TestLog, 2^-75.1 by TestLogNearOne,
-// 2^-75.0 on a dense 300000-point grid; the float64 tail limits it).
+// 2^-72 relative (worst measured 2^-73.8, by TestLogCellEdges at the edges
+// of the table's cells; 2^-78.0 by TestLog, 2^-75.1 by TestLogNearOne; the
+// float64 tail limits it).
 //
 // Method (table-driven, after Tang, "Table-driven implementation of the
 // logarithm function in IEEE floating-point arithmetic", ACM TOMS 16(4),
@@ -255,11 +256,14 @@ func Log(x float64) DD {
 	sl := (math.FMA(-sh, h, f) - float64(sh*l)) / h
 	// 2 atanh(s) = 2s + (2/3)s³ + s⁵(2/5 + 2s²/7) + ...
 	//
-	// Away from the cells next to 1, |log x| >= |log c| - 2|s| >= 2^-6.5 or
-	// k ln2 dominates, so the tail (below (2/3)2^-27) is under 2^-21 of the
-	// result and float64 is enough for it.
+	// Outside the cells j = 123..133 of k = 0, |log x| >= log(128/123.5)
+	// > 2^-4.9, or k ln2 dominates, so the tail (below (2/3)2^-27) is under
+	// 2^-22.7 of the result. It takes about four float64 roundings, which
+	// leaves about 2^-73.7 of the result: float64 is enough. With only
+	// j = 126..130 sent to logNearOne, the top of j = 125 reached 2^-71.9
+	// (found by review of #95; TestLogCellEdges holds both points).
 	z := float64(sh * sh)
-	if k == 0 && math.Abs(j-128) <= 2 {
+	if k == 0 && math.Abs(j-128) <= 5 {
 		// Tested before the tail, not after it: called from BetaInc, 11 % of
 		// the calls land here (8 % from its inverses), and skipping the
 		// cheap tail they would discard costs less than the test on the
@@ -278,11 +282,11 @@ func Log(x float64) DD {
 	return Add(DD{kh, kl}, lm)
 }
 
-// logNearOne finishes Log for k = 0 and the cells j = 126..130 around 1,
-// from s = sh + sl and z = sh². There log x is within a small factor of 2s
-// (|log c| <= 2^-6, |s| < 2^-9), and the cubic term (2/3)s³ is up to
-// 2^-19.6 of it, so float64 roundings in that term would cost up to 2^-70
-// of the result: it is carried in double-double. s³ = sh³ + 3sh² sl (sl² is
+// logNearOne finishes Log for k = 0 and the cells j = 123..133 around 1,
+// from s = sh + sl and z = sh². There log x is small (|log c| <= 2^-4.7,
+// |s| < 2^-9), and next to 1 within a small factor of 2s, where the cubic
+// term (2/3)s³ is up to 2^-19.6 of it, so float64 roundings in that term
+// would cost up to 2^-70 of the result: it is carried in double-double. s³ = sh³ + 3sh² sl (sl² is
 // below 2^-100 of it); 2/3 = twoThirdsHi + twoThirdsLo. The s⁵ terms are
 // below 2^-36 of 2s and stay in float64.
 func logNearOne(sh, sl, z float64, j int) DD {

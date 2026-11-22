@@ -17,7 +17,7 @@ func BenchmarkLog(b *testing.B) {
 		gen  func() float64
 	}{
 		{"wide", func() float64 { return math.Exp((r.Float64() - 0.5) * 1380) }},
-		{"near1", func() float64 { return 1 + (r.Float64()-0.5)*0x1p-6 }},
+		{"near1", func() float64 { return 1 + float64((r.Float64()-0.5)*0x1p-6) }},
 	} {
 		xs := make([]float64, 4096)
 		for i := range xs {

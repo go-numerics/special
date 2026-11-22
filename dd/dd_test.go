@@ -95,7 +95,7 @@ func TestLog(t *testing.T) {
 func TestLogNearOne(t *testing.T) {
 	worst, at := 0.0, 0.0
 	for i := -4000; i <= 4000; i++ {
-		x := 1 + float64(i)*0x1p-19 // |x - 1| <= 2^-7.0
+		x := 1 + float64(float64(i)*0x1p-19) // |x - 1| <= 2^-7.0
 		if i == 0 {
 			continue
 		}
@@ -110,6 +110,52 @@ func TestLogNearOne(t *testing.T) {
 		}
 	}
 	t.Logf("near 1: worst relative error 2^%.1f at x=%v", math.Log2(worst), at)
+}
+
+// TestLogCellEdges holds dd.Log within 2^-72 at both edges of every table
+// cell for k = -1, 0, 1, 16 ulps either side, and at 15 points inside each
+// cell: |s| is largest at the edges, and so is the float64 tail. A uniform
+// grid around 1 (TestLogNearOne) missed the top of j = 125, where the tail
+// alone reached 2^-71.9; those two points are held explicitly. Written so
+// that a NaN fails.
+func TestLogCellEdges(t *testing.T) {
+	worst, at := 0.0, 0.0
+	check := func(x float64) {
+		e := relErr(Log(x), bigLog(x))
+		if !(e <= 0x1p-72) {
+			t.Errorf("dd.Log(%v) (%#x) relative error %g (2^%.1f) > 2^-72", x, math.Float64bits(x), e, math.Log2(e))
+			return
+		}
+		if e > worst {
+			worst, at = e, x
+		}
+	}
+	// Found by review of #95, below the top edge of j = 125: 2^-71.9 and
+	// 2^-71.93 with the cubic in float64 there.
+	check(math.Float64frombits(0x3fef5fffffffff6f))
+	check(math.Float64frombits(0x3fef5fffa8891687))
+	for _, scale := range []float64{0.5, 1, 2} {
+		for j := 91; j <= 181; j++ {
+			for _, edge := range []float64{float64((float64(j) - 0.5) / 128), float64((float64(j) + 0.5) / 128)} {
+				lo, hi := edge, edge
+				for n := 0; n < 16; n++ {
+					lo, hi = math.Nextafter(lo, 0), math.Nextafter(hi, 2)
+					if x := float64(lo * scale); x != 1 {
+						check(x)
+					}
+					if x := float64(hi * scale); x != 1 {
+						check(x)
+					}
+				}
+			}
+			for i := 1; i < 16; i++ {
+				if x := float64(float64(scale*(float64(j)-0.5+float64(float64(i)/16))) / 128); x != 1 {
+					check(x)
+				}
+			}
+		}
+	}
+	t.Logf("cell edges: worst relative error 2^%.1f at x=%v", math.Log2(worst), at)
 }
 
 // TestTwoThirdsSplit holds twoThirdsHi + twoThirdsLo = 2/3 to 2^-106.
