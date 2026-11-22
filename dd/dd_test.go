@@ -86,6 +86,44 @@ func TestLog(t *testing.T) {
 	}
 }
 
+// TestLogNearOne holds dd.Log within 2^-72 where the atanh tail weighs most
+// against the result: x within 2^-7 of 1, where log x is about 2s and the
+// cubic term (2/3)s³ is up to 2^-19.6 of it (|s| up to 2^-9 at the table's
+// cells either side of 1). TestLog's points near 1 stop at |x - 1| = 1.5e-3
+// and missed it: with the cubic term in float64 the error there reached
+// 2^-69.8. Written so that a NaN fails.
+func TestLogNearOne(t *testing.T) {
+	worst, at := 0.0, 0.0
+	for i := -4000; i <= 4000; i++ {
+		x := 1 + float64(i)*0x1p-19 // |x - 1| <= 2^-7.0
+		if i == 0 {
+			continue
+		}
+		want := bigLog(x)
+		e := relErr(Log(x), want)
+		if !(e <= 0x1p-72) {
+			t.Errorf("dd.Log(%v) relative error %g (2^%.1f) > 2^-72", x, e, math.Log2(e))
+			continue
+		}
+		if e > worst {
+			worst, at = e, x
+		}
+	}
+	t.Logf("near 1: worst relative error 2^%.1f at x=%v", math.Log2(worst), at)
+}
+
+// TestTwoThirdsSplit holds twoThirdsHi + twoThirdsLo = 2/3 to 2^-106.
+func TestTwoThirdsSplit(t *testing.T) {
+	const prec = 300
+	got := new(big.Float).SetPrec(prec).SetFloat64(twoThirdsHi)
+	got.Add(got, new(big.Float).SetPrec(prec).SetFloat64(twoThirdsLo))
+	want := new(big.Float).SetPrec(prec).Quo(new(big.Float).SetPrec(prec).SetInt64(2), new(big.Float).SetPrec(prec).SetInt64(3))
+	d, _ := new(big.Float).Sub(got, want).Float64()
+	if !(math.Abs(d) <= 0x1p-106) {
+		t.Errorf("twoThirdsHi + twoThirdsLo - 2/3 = %g, want <= 2^-106", d)
+	}
+}
+
 // bigExp computes exp(a) to ~300 bits: reduce by 2^-30, Taylor, square.
 func bigExp(a *big.Float) *big.Float {
 	const prec = 400

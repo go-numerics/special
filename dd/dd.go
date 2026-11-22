@@ -216,7 +216,7 @@ func Ldexp(a DD, k int) DD {
 }
 
 // Log returns log(x) for finite x > 0 as a double-double accurate to about
-// 2^-72 relative (measured 2^-72.9; the float64 tail limits it).
+// 2^-72 relative (measured 2^-73.7 by TestLog; the float64 tail limits it).
 //
 // Method (table-driven, after Tang, "Table-driven implementation of the
 // logarithm function in IEEE floating-point arithmetic", ACM TOMS 16(4),
@@ -248,12 +248,33 @@ func Log(x float64) DD {
 	c := float64(j * (1.0 / 128))
 	f := m - c // exact
 	h, l := TwoSum(m, c)
-	sh := f / h
-	sl := (math.FMA(-sh, h, f) - float64(sh*l)) / h
+	// One division: sh = f·(1/h) may be an ulp off f/h, but sl is formed
+	// from the exact residual f - sh·h, so sh + sl carries the quotient to
+	// about 2^-104 relative either way (sl is below 2^-51 of sh, and its own
+	// two roundings are 2^-53 of it), and the two products do not wait on a
+	// second division.
+	rh := 1 / h
+	sh := float64(f * rh)
+	sl := float64((math.FMA(-sh, h, f) - float64(sh*l)) * rh)
+	// 2 atanh(s) = 2s + (2/3)s³ + s⁵(2/5 + 2s²/7) + ...
+	//
+	// The cubic term is up to 2^-19.6 of 2s (|s| < 2^-9 at the cells either
+	// side of 1, where log x is about 2s), so float64 roundings in it cost
+	// up to 2^-70 of the result: it is carried in double-double. s³ = sh³ +
+	// 3sh² sl (sl² is below 2^-100 of it); 2/3 = twoThirdsHi + twoThirdsLo.
+	// The s⁵ terms are below 2^-36 of 2s and stay in float64.
 	z := float64(sh * sh)
-	tail := float64(sh * z * (2.0/3 + float64(z*(2.0/5+float64(z*(2.0/7))))))
-	lm := AddF(DD{float64(2 * sh), float64(2 * sl)}, tail)
-	lm = Add(lm, logTable[int(j)-logTableLo])
+	ze := math.FMA(sh, sh, -z)
+	c3 := float64(sh * z)
+	c3l := math.FMA(sh, z, -c3) + float64(sh*ze) + float64(3*z*sl)
+	t3 := float64(c3 * twoThirdsHi)
+	t3l := math.FMA(c3, twoThirdsHi, -t3) + float64(c3*twoThirdsLo) + float64(c3l*twoThirdsHi)
+	rest := float64(c3 * z * (2.0/5 + float64(z*(2.0/7))))
+	// 2s + t3 + (lower parts): t3 is below 2^-17 of 2s
+	hi, e := TwoSum(float64(2*sh), t3)
+	lo := e + (float64(2*sl) + (t3l + rest))
+	hi, lo = FastTwoSum(hi, lo)
+	lm := Add(DD{hi, lo}, logTable[int(j)-logTableLo])
 	if k == 0 {
 		return lm
 	}
@@ -293,6 +314,13 @@ func LogAccurate(x float64) DD {
 	kk := float64(k)
 	return Add(Add(MulFF(kk, Ln2Hi), MulFF(kk, Ln2Lo)), lm)
 }
+
+// 2/3 = twoThirdsHi + twoThirdsLo exactly to 2^-108: float64(2/3) is
+// 6004799503160661·2^-53, short of 2/3 by 1/(3·2^53).
+const (
+	twoThirdsHi = 2.0 / 3
+	twoThirdsLo = 0x1p-53 / 3
+)
 
 // ln2 split so that ln2Hi32 has 32 significant bits (k*ln2Hi32 exact for
 // |k| < 2^21) and ln2Hi32 + ln2Lo32 = ln 2 to 2^-85.
