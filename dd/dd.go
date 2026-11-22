@@ -216,9 +216,9 @@ func Ldexp(a DD, k int) DD {
 }
 
 // Log returns log(x) for finite x > 0 as a double-double accurate to about
-// 2^-72 relative (worst measured 2^-73.8, by TestLogCellEdges at the edges
-// of the table's cells; 2^-78.0 by TestLog, 2^-75.1 by TestLogNearOne; the
-// float64 tail limits it).
+// 2^-72 relative (worst measured 2^-73.05, at x = 0x3fee9fbb3dfe119f in
+// the cell next to logNearOne's; TestLogCellEdges holds every cell edge
+// and samples those cells; the float64 tail limits it).
 //
 // Method (table-driven, after Tang, "Table-driven implementation of the
 // logarithm function in IEEE floating-point arithmetic", ACM TOMS 16(4),
@@ -256,10 +256,11 @@ func Log(x float64) DD {
 	sl := (math.FMA(-sh, h, f) - float64(sh*l)) / h
 	// 2 atanh(s) = 2s + (2/3)s³ + s⁵(2/5 + 2s²/7) + ...
 	//
-	// Outside the cells j = 123..133 of k = 0, |log x| >= log(128/123.5)
-	// > 2^-4.9, or k ln2 dominates, so the tail (below (2/3)2^-27) is under
-	// 2^-22.7 of the result. It takes about four float64 roundings, which
-	// leaves about 2^-73.7 of the result: float64 is enough. With only
+	// Outside the cells j = 123..133 of k = 0, |log x| >= log(133.5/128)
+	// > 2^-4.6, or k ln2 dominates. |s| reaches 2^-8.9 in the cells next to
+	// those (2^-8.5 near m = 1/sqrt2, where |log x| is far larger), so the
+	// tail (2/3)s³ is under 2^-22.8 of the result. It takes about four
+	// float64 roundings: measured, the worst is 2^-73.05, in j = 122. With only
 	// j = 126..130 sent to logNearOne, the top of j = 125 reached 2^-71.9
 	// (found by review of #95; TestLogCellEdges holds both points).
 	z := float64(sh * sh)

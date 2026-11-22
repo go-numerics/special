@@ -4,6 +4,7 @@ import (
 	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/big"
+	"math/rand/v2"
 	"testing"
 )
 
@@ -134,6 +135,16 @@ func TestLogCellEdges(t *testing.T) {
 	// 2^-71.93 with the cubic in float64 there.
 	check(math.Float64frombits(0x3fef5fffffffff6f))
 	check(math.Float64frombits(0x3fef5fffa8891687))
+	// The cells either side of the near-1 branch, with full random
+	// mantissas, which the short ones below miss: the worst found by review
+	// (2^-73.05, j = 122) and a seeded sample of j = 121, 122, 134, 135.
+	check(math.Float64frombits(0x3fee9fbb3dfe119f))
+	r := rand.New(rand.NewPCG(95, 122))
+	for _, j := range []float64{121, 122, 134, 135} {
+		for range 2000 {
+			check(float64((j - 0.5 + r.Float64()) / 128))
+		}
+	}
 	for _, scale := range []float64{0.5, 1, 2} {
 		for j := 91; j <= 181; j++ {
 			for _, edge := range []float64{float64((float64(j) - 0.5) / 128), float64((float64(j) + 0.5) / 128)} {
