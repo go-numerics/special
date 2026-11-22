@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/go-numerics/special/dd"
+	"github.com/go-numerics/special/internal/libm"
 )
 
 var _ = dd.F
@@ -5159,6 +5160,156 @@ func HurwitzZetaTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 			}
 			hζ0 := hurwitzAny(sζ0, qζ0)
 			ζdst[ζi] = float64(math.Ldexp(hζ0.m.Float(), hζ0.e))
+			continue ζloop
+		}
+	}
+}
+
+// GammaSignTo sets dst[i] = GammaSign(x[i]) for i < len(dst) (x at least as long),
+// bit-identical to the scalar function, in one loop with no call per
+// element: the loop of the nd functions.
+func GammaSignTo(ζdst, ζx []float64) {
+	ζx = ζx[:len(ζdst)]
+ζloop:
+	for ζi := range ζdst {
+		xζ0 := ζx[ζi]
+		{
+			switch {
+			case math.IsNaN(xζ0) || math.IsInf(xζ0, -1):
+				ζdst[ζi] = float64(math.NaN())
+				continue ζloop
+			case xζ0 > 0:
+				ζdst[ζi] = float64(1)
+				continue ζloop
+			case xζ0 == 0:
+				ζdst[ζi] = float64(math.Copysign(1, xζ0))
+				continue ζloop
+			case xζ0 == math.Trunc(xζ0):
+				ζdst[ζi] = float64(math.NaN())
+				continue ζloop
+			}
+			ζdst[ζi] = float64(gammaSignNeg(xζ0))
+			continue ζloop
+		}
+	}
+}
+
+// Factorial2To sets dst[i] = Factorial2(x[i]) for i < len(dst) (x at least as long),
+// bit-identical to the scalar function, in one loop with no call per
+// element: the loop of the nd functions.
+func Factorial2To(ζdst, ζx []float64) {
+	ζx = ζx[:len(ζdst)]
+ζloop:
+	for ζi := range ζdst {
+		nζ0 := ζx[ζi]
+		{
+			if !intArg(nζ0) {
+				ζdst[ζi] = float64(math.NaN())
+				continue ζloop
+			}
+			ζdst[ζi] = float64(Factorial2(int(nζ0)))
+			continue ζloop
+		}
+	}
+}
+
+// PermTo sets dst[i] = Perm(a[i*sa], b[i*sb]) for i < len(dst) (a stride of 0
+// repeats a single value), bit-identical to the scalar function, in one
+// loop with no call per element: the loop of the nd functions.
+func PermTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
+ζloop:
+	for ζi := range ζdst {
+		nζ0, kζ0 := ζa[ζi*ζsa], ζb[ζi*ζsb]
+		{
+			if !intArg(nζ0) || !intArg(kζ0) {
+				ζdst[ζi] = float64(math.NaN())
+				continue ζloop
+			}
+			ζdst[ζi] = float64(Perm(int64(nζ0), int64(kζ0)))
+			continue ζloop
+		}
+	}
+}
+
+// BinomTo sets dst[i] = Binom(a[i*sa], b[i*sb]) for i < len(dst) (a stride of 0
+// repeats a single value), bit-identical to the scalar function, in one
+// loop with no call per element: the loop of the nd functions.
+func BinomTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
+ζloop:
+	for ζi := range ζdst {
+		nζ0, kζ0 := ζa[ζi*ζsa], ζb[ζi*ζsb]
+		{
+			switch {
+			case math.IsNaN(nζ0) || math.IsNaN(kζ0) || math.IsInf(nζ0, 0) || math.IsInf(kζ0, 0):
+				ζdst[ζi] = float64(math.NaN())
+				continue ζloop
+			case kζ0 == math.Trunc(kζ0) && kζ0 >= 0 && kζ0 <= 64:
+				pζ0 := dd.F(1)
+				for iζ0 := 1.0; iζ0 <= kζ0; iζ0++ {
+					tζ0 := dd.AddF(sumDD(nζ0, -kζ0), iζ0)
+					pζ0 = dd.DivF(dd.Mul(pζ0, tζ0), iζ0)
+				}
+				ζdst[ζi] = float64(pζ0.Float())
+				continue ζloop
+			}
+			np1ζ0 := sumDD(nζ0, 1)
+			nk1ζ0 := dd.AddF(sumDD(nζ0, -kζ0), 1)
+			if np1ζ0.Hi > 0 && nk1ζ0.Hi > 0 && kζ0 > -1 {
+				if vζ0, okζ0 := binomFast(np1ζ0, nk1ζ0, kζ0); okζ0 {
+					ζdst[ζi] = float64(vζ0)
+					continue ζloop
+				}
+				ζdst[ζi] = float64(binomBetaDD(np1ζ0, nk1ζ0, kζ0))
+				continue ζloop
+			}
+			k1ζ0 := sumDD(kζ0, 1)
+			isPoleζ0 := func(x dd.DD) bool {
+				return x.Lo == 0 && x.Hi <= 0 && x.Hi == math.Trunc(x.Hi)
+			}
+			if isPoleζ0(k1ζ0) || isPoleζ0(nk1ζ0) {
+				ζdst[ζi] = float64(0)
+				continue ζloop
+			}
+			if isPoleζ0(np1ζ0) {
+				ζdst[ζi] = float64(math.NaN())
+				continue ζloop
+			}
+			lgζ0 := func(x dd.DD) dd.DD {
+				return dd.AddF(logGammaAbsDD(x.Hi), float64(Digamma(x.Hi)*x.Lo))
+			}
+			lζ0 := dd.Sub(lgζ0(np1ζ0), dd.Add(lgζ0(k1ζ0), lgζ0(nk1ζ0)))
+			signζ0 := float64(GammaSign(np1ζ0.Hi) * GammaSign(k1ζ0.Hi) * GammaSign(nk1ζ0.Hi))
+			ζdst[ζi] = float64(float64(signζ0 * dd.Exp(lζ0)))
+			continue ζloop
+		}
+	}
+}
+
+// Xlog1pyTo sets dst[i] = Xlog1py(a[i*sa], b[i*sb]) for i < len(dst) (a stride of 0
+// repeats a single value), bit-identical to the scalar function, in one
+// loop with no call per element: the loop of the nd functions.
+func Xlog1pyTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
+ζloop:
+	for ζi := range ζdst {
+		xζ0, yζ0 := ζa[ζi*ζsa], ζb[ζi*ζsb]
+		{
+			if vζ0, okζ0 := xlog1pyFast(xζ0, yζ0); okζ0 {
+				ζdst[ζi] = float64(vζ0)
+				continue ζloop
+			}
+			if xζ0 == 0 && !math.IsNaN(yζ0) {
+				ζdst[ζi] = float64(0)
+				continue ζloop
+			}
+			if math.IsNaN(xζ0) || math.IsNaN(yζ0) || yζ0 < -1 {
+				ζdst[ζi] = float64(math.NaN())
+				continue ζloop
+			}
+			if yζ0 == -1 || math.IsInf(yζ0, 1) || math.IsInf(xζ0, 0) {
+				ζdst[ζi] = float64(float64(xζ0 * libm.Log1p(yζ0)))
+				continue ζloop
+			}
+			ζdst[ζi] = float64(dd.MulF(log1pDD(dd.F(yζ0)), xζ0).Float())
 			continue ζloop
 		}
 	}
