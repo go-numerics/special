@@ -26,7 +26,7 @@ func ndKernelPoints() []float64 {
 		if r.Intn(2) == 0 {
 			s = -1
 		}
-		pts = append(pts, s*math.Exp(r.Float64()*1400-700), s*r.Float64()*80,
+		pts = append(pts, float64(s*math.Exp(float64(r.Float64()*1400)-700)), float64(float64(s*r.Float64())*80),
 			float64(r.Intn(700)-100), r.Float64())
 	}
 	return pts
@@ -116,8 +116,8 @@ func TestNDKernelsEqualScalar(t *testing.T) {
 	b = append(b, -1e-17, 6.707e72, 7.7e57)
 	r := rand.New(rand.NewSource(94))
 	for i := 0; i < 20000; i++ {
-		a = append(a, math.Copysign(math.Exp(r.Float64()*1400-700), r.Float64()-0.5))
-		b = append(b, math.Copysign(math.Exp(r.Float64()*1400-700), r.Float64()-0.5))
+		a = append(a, math.Copysign(math.Exp(float64(r.Float64()*1400)-700), r.Float64()-0.5))
+		b = append(b, math.Copysign(math.Exp(float64(r.Float64()*1400)-700), r.Float64()-0.5))
 	}
 	for name, f := range binary {
 		checkBinary(t, name, f.vec, f.scalar, a, b)

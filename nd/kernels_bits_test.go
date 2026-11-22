@@ -53,11 +53,11 @@ func bitsVals(n int, seed int64) []float64 {
 		case 1:
 			v[i] = float64(r.Intn(400) - 150)
 		case 2:
-			v[i] = (r.Float64() - 0.3) * 200
+			v[i] = float64((r.Float64() - 0.3) * 200)
 		case 3:
-			v[i] = math.Copysign(math.Exp(r.Float64()*1400-700), r.Float64()-0.5)
+			v[i] = math.Copysign(math.Exp(float64(r.Float64()*1400)-700), r.Float64()-0.5)
 		default:
-			v[i] = float64(r.Intn(130)) + float64(r.Intn(3))*0.5
+			v[i] = float64(r.Intn(130)) + float64(float64(r.Intn(3))*0.5)
 		}
 	}
 	return v
