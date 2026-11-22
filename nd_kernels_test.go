@@ -36,6 +36,10 @@ func ndKernelPoints() []float64 {
 // and Xlog1pyTo to the scalar function (for Factorial2 and Perm, the nd rule:
 // an argument that is not an integer of magnitude at most MaxInt32 gives NaN)
 // for every element, bit for bit.
+// rawSame is bit equality, NaN payload and sign included (sameBits treats
+// every two NaNs as equal and is not used for the nd kernels).
+func rawSame(a, b float64) bool { return math.Float64bits(a) == math.Float64bits(b) }
+
 func TestNDKernelsEqualScalar(t *testing.T) {
 	pts := ndKernelPoints()
 	intOK := func(x float64) bool { return x == math.Trunc(x) && math.Abs(x) <= math.MaxInt32 }
@@ -54,7 +58,7 @@ func TestNDKernelsEqualScalar(t *testing.T) {
 	// the scalar forms geninline expands are the same rule: they are what the
 	// generated kernels are copied from, so they are held here directly
 	for _, v := range pts {
-		if w := unary["Factorial2"].scalar(v); !sameBits(w, factorial2F(v)) {
+		if w := unary["Factorial2"].scalar(v); !rawSame(w, factorial2F(v)) {
 			t.Errorf("factorial2F(%v) = %v, rule %v", v, factorial2F(v), w)
 		}
 	}
@@ -64,7 +68,7 @@ func TestNDKernelsEqualScalar(t *testing.T) {
 		if intOK(n) && intOK(k) {
 			w = Perm(int64(n), int64(k))
 		}
-		if !sameBits(w, permF(n, k)) {
+		if !rawSame(w, permF(n, k)) {
 			t.Errorf("permF(%v, %v) = %v, rule %v", n, k, permF(n, k), w)
 		}
 	}
@@ -72,7 +76,7 @@ func TestNDKernelsEqualScalar(t *testing.T) {
 		dst := make([]float64, len(pts))
 		f.vec(dst, pts)
 		for i, v := range pts {
-			if w := f.scalar(v); !sameBits(w, dst[i]) {
+			if w := f.scalar(v); !rawSame(w, dst[i]) {
 				t.Errorf("%sTo(%v) = %v, scalar %v", name, v, dst[i], w)
 			}
 		}
@@ -105,15 +109,17 @@ func TestNDKernelsEqualScalar(t *testing.T) {
 	for i := 0; i+1 < len(pts); i++ {
 		a, b = append(a, pts[i]), append(b, pts[i+1])
 	}
+	// pairs on which Binom's two NaN operands once made the kernel and the
+	// scalar keep different payloads (review of #94), and random pairs over
+	// every scale: Binom's NaN results come from a product of two NaNs
+	a = append(a, -9.223372036854776e18, 1.7760895506199026e9, 2.53e-115)
+	b = append(b, -1e-17, 6.707e72, 7.7e57)
+	r := rand.New(rand.NewSource(94))
+	for i := 0; i < 20000; i++ {
+		a = append(a, math.Copysign(math.Exp(r.Float64()*1400-700), r.Float64()-0.5))
+		b = append(b, math.Copysign(math.Exp(r.Float64()*1400-700), r.Float64()-0.5))
+	}
 	for name, f := range binary {
-		if name == "Binom" {
-			// The scalar Binom is slow on its fallback branches; a bounded
-			// prefix keeps the suite short while the full pair set above runs
-			// for the other two.
-			a, b := a[:min(len(a), 60000)], b[:min(len(b), 60000)]
-			checkBinary(t, name, f.vec, f.scalar, a, b)
-			continue
-		}
 		checkBinary(t, name, f.vec, f.scalar, a, b)
 	}
 }
@@ -122,24 +128,30 @@ func checkBinary(t *testing.T, name string, vec func(dst, a, b []float64, sa, sb
 	t.Helper()
 	dst := make([]float64, len(a))
 	vec(dst, a, b, 1, 1)
+	bad := 0
 	for i := range a {
-		if w := scalar(a[i], b[i]); !sameBits(w, dst[i]) {
-			t.Errorf("%sTo(%v, %v) = %v, scalar %v", name, a[i], b[i], dst[i], w)
-			return
+		if w := scalar(a[i], b[i]); !rawSame(w, dst[i]) {
+			if bad < 10 {
+				t.Errorf("%sTo(%v, %v) = %#x, scalar %#x", name, a[i], b[i], math.Float64bits(dst[i]), math.Float64bits(w))
+			}
+			bad++
 		}
+	}
+	if bad > 0 {
+		t.Errorf("%sTo: %d mismatches of %d", name, bad, len(a))
 	}
 	// stride 0: the first operand repeated, then the second
 	n := min(len(a), 400)
 	d := make([]float64, n)
 	vec(d, a[:1], b, 0, 1)
 	for i := range d {
-		if w := scalar(a[0], b[i]); !sameBits(w, d[i]) {
+		if w := scalar(a[0], b[i]); !rawSame(w, d[i]) {
 			t.Errorf("%sTo stride 0 a (%v, %v) = %v, scalar %v", name, a[0], b[i], d[i], w)
 		}
 	}
 	vec(d, a, b[:1], 1, 0)
 	for i := range d {
-		if w := scalar(a[i], b[0]); !sameBits(w, d[i]) {
+		if w := scalar(a[i], b[0]); !rawSame(w, d[i]) {
 			t.Errorf("%sTo stride 0 b (%v, %v) = %v, scalar %v", name, a[i], b[0], d[i], w)
 		}
 	}

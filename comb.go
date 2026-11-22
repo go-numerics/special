@@ -306,7 +306,16 @@ func Binom(n, k float64) float64 {
 	}
 	l := dd.Sub(lg(np1), dd.Add(lg(k1), lg(nk1)))
 	sign := float64(GammaSign(np1.Hi) * GammaSign(k1.Hi) * GammaSign(nk1.Hi))
-	return float64(sign * dd.Exp(l))
+	v := float64(sign * dd.Exp(l))
+	if v != v {
+		// sign and exp(l) can both be NaN (a pole's sign, an overflowed l);
+		// which operand's payload (and sign) the product keeps depends on the
+		// operand order the compiler picked for this copy of the code, and
+		// differs between the scalar function, its expanded kernel and the
+		// architectures. One NaN, as the other branches return.
+		return math.NaN()
+	}
+	return v
 }
 
 // binomBetaDD is Binom's reference evaluation for n+1 > 0, n-k+1 > 0 and

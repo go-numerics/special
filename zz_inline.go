@@ -5279,7 +5279,12 @@ func BinomTo(ζdst, ζa, ζb []float64, ζsa, ζsb int) {
 			}
 			lζ0 := dd.Sub(lgζ0(np1ζ0), dd.Add(lgζ0(k1ζ0), lgζ0(nk1ζ0)))
 			signζ0 := float64(GammaSign(np1ζ0.Hi) * GammaSign(k1ζ0.Hi) * GammaSign(nk1ζ0.Hi))
-			ζdst[ζi] = float64(float64(signζ0 * dd.Exp(lζ0)))
+			vζ0 := float64(signζ0 * dd.Exp(lζ0))
+			if vζ0 != vζ0 {
+				ζdst[ζi] = float64(math.NaN())
+				continue ζloop
+			}
+			ζdst[ζi] = float64(vζ0)
 			continue ζloop
 		}
 	}
