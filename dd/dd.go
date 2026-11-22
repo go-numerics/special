@@ -216,7 +216,8 @@ func Ldexp(a DD, k int) DD {
 }
 
 // Log returns log(x) for finite x > 0 as a double-double accurate to about
-// 2^-72 relative (measured 2^-73.7 by TestLog; the float64 tail limits it).
+// 2^-72 relative (measured 2^-78.0 by TestLog, 2^-75.1 by TestLogNearOne,
+// 2^-75.0 on a dense 300000-point grid; the float64 tail limits it).
 //
 // Method (table-driven, after Tang, "Table-driven implementation of the
 // logarithm function in IEEE floating-point arithmetic", ACM TOMS 16(4),
@@ -248,24 +249,24 @@ func Log(x float64) DD {
 	c := float64(j * (1.0 / 128))
 	f := m - c // exact
 	h, l := TwoSum(m, c)
-	// One division: sh = f·(1/h) may be an ulp off f/h, but sl is formed
-	// from the exact residual f - sh·h, so sh + sl carries the quotient to
-	// about 2^-104 relative either way (sl is below 2^-51 of sh, and its own
-	// two roundings are 2^-53 of it), and the two products do not wait on a
-	// second division.
-	rh := 1 / h
-	sh := float64(f * rh)
-	sl := float64((math.FMA(-sh, h, f) - float64(sh*l)) * rh)
+	// Two divisions, not one reciprocal: in a throughput loop f·(1/h) with
+	// its residual corrections measured 5 % slower than this on an M4 Max.
+	sh := f / h
+	sl := (math.FMA(-sh, h, f) - float64(sh*l)) / h
 	// 2 atanh(s) = 2s + (2/3)s³ + s⁵(2/5 + 2s²/7) + ...
+	//
+	// Away from the cells next to 1, |log x| >= |log c| - 2|s| >= 2^-6.5 or
+	// k ln2 dominates, so the tail (below (2/3)2^-27) is under 2^-21 of the
+	// result and float64 is enough for it.
 	z := float64(sh * sh)
 	if k == 0 && math.Abs(j-128) <= 2 {
+		// Tested before the tail, not after it: called from BetaInc, 11 % of
+		// the calls land here (8 % from its inverses), and skipping the
+		// cheap tail they would discard costs less than the test on the
+		// others.
 		return logNearOne(sh, sl, z, int(j))
 	}
-	// Elsewhere |log x| >= |log c| - 2|s| >= 2^-6.5 or k ln2 dominates, so
-	// the tail (below (2/3)2^-27) is under 2^-21 of the result and float64
-	// is enough for it. It is evaluated at sh; 2z·sl is its first-order
-	// correction for sl (sh may be an ulp off f/h).
-	tail := math.FMA(float64(2*z), sl, float64(sh*z*(2.0/3+float64(z*(2.0/5+float64(z*(2.0/7)))))))
+	tail := float64(sh * z * (2.0/3 + float64(z*(2.0/5+float64(z*(2.0/7))))))
 	lm := AddF(DD{float64(2 * sh), float64(2 * sl)}, tail)
 	lm = Add(lm, logTable[int(j)-logTableLo])
 	if k == 0 {
