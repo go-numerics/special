@@ -257,13 +257,34 @@ func Log(x float64) DD {
 	sh := float64(f * rh)
 	sl := float64((math.FMA(-sh, h, f) - float64(sh*l)) * rh)
 	// 2 atanh(s) = 2s + (2/3)s³ + s⁵(2/5 + 2s²/7) + ...
-	//
-	// The cubic term is up to 2^-19.6 of 2s (|s| < 2^-9 at the cells either
-	// side of 1, where log x is about 2s), so float64 roundings in it cost
-	// up to 2^-70 of the result: it is carried in double-double. s³ = sh³ +
-	// 3sh² sl (sl² is below 2^-100 of it); 2/3 = twoThirdsHi + twoThirdsLo.
-	// The s⁵ terms are below 2^-36 of 2s and stay in float64.
 	z := float64(sh * sh)
+	if k == 0 && math.Abs(j-128) <= 2 {
+		return logNearOne(sh, sl, z, int(j))
+	}
+	// Elsewhere |log x| >= |log c| - 2|s| >= 2^-6.5 or k ln2 dominates, so
+	// the tail (below (2/3)2^-27) is under 2^-21 of the result and float64
+	// is enough for it. It is evaluated at sh; 2z·sl is its first-order
+	// correction for sl (sh may be an ulp off f/h).
+	tail := math.FMA(float64(2*z), sl, float64(sh*z*(2.0/3+float64(z*(2.0/5+float64(z*(2.0/7)))))))
+	lm := AddF(DD{float64(2 * sh), float64(2 * sl)}, tail)
+	lm = Add(lm, logTable[int(j)-logTableLo])
+	if k == 0 {
+		return lm
+	}
+	kk := float64(k)
+	// k*Ln2Hi is exact: Ln2Hi has 32 significant bits and |k| < 1100.
+	kh, kl := FastTwoSum(float64(kk*ln2Hi32), float64(kk*ln2Lo32))
+	return Add(DD{kh, kl}, lm)
+}
+
+// logNearOne finishes Log for k = 0 and the cells j = 126..130 around 1,
+// from s = sh + sl and z = sh². There log x is within a small factor of 2s
+// (|log c| <= 2^-6, |s| < 2^-9), and the cubic term (2/3)s³ is up to
+// 2^-19.6 of it, so float64 roundings in that term would cost up to 2^-70
+// of the result: it is carried in double-double. s³ = sh³ + 3sh² sl (sl² is
+// below 2^-100 of it); 2/3 = twoThirdsHi + twoThirdsLo. The s⁵ terms are
+// below 2^-36 of 2s and stay in float64.
+func logNearOne(sh, sl, z float64, j int) DD {
 	ze := math.FMA(sh, sh, -z)
 	c3 := float64(sh * z)
 	c3l := math.FMA(sh, z, -c3) + float64(sh*ze) + float64(3*z*sl)
@@ -274,14 +295,7 @@ func Log(x float64) DD {
 	hi, e := TwoSum(float64(2*sh), t3)
 	lo := e + (float64(2*sl) + (t3l + rest))
 	hi, lo = FastTwoSum(hi, lo)
-	lm := Add(DD{hi, lo}, logTable[int(j)-logTableLo])
-	if k == 0 {
-		return lm
-	}
-	kk := float64(k)
-	// k*Ln2Hi is exact: Ln2Hi has 32 significant bits and |k| < 1100.
-	kh, kl := FastTwoSum(float64(kk*ln2Hi32), float64(kk*ln2Lo32))
-	return Add(DD{kh, kl}, lm)
+	return Add(DD{hi, lo}, logTable[j-logTableLo])
 }
 
 // LogAccurate is Log carried further, to about 2^-104 relative: the atanh
