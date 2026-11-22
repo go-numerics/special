@@ -51,6 +51,23 @@ func TestNDKernelsEqualScalar(t *testing.T) {
 			return Factorial2(int(n))
 		}},
 	}
+	// the scalar forms geninline expands are the same rule: they are what the
+	// generated kernels are copied from, so they are held here directly
+	for _, v := range pts {
+		if w := unary["Factorial2"].scalar(v); !sameBits(w, factorial2F(v)) {
+			t.Errorf("factorial2F(%v) = %v, rule %v", v, factorial2F(v), w)
+		}
+	}
+	for i := 0; i+1 < len(pts); i++ {
+		n, k := pts[i], pts[i+1]
+		w := math.NaN()
+		if intOK(n) && intOK(k) {
+			w = Perm(int64(n), int64(k))
+		}
+		if !sameBits(w, permF(n, k)) {
+			t.Errorf("permF(%v, %v) = %v, rule %v", n, k, permF(n, k), w)
+		}
+	}
 	for name, f := range unary {
 		dst := make([]float64, len(pts))
 		f.vec(dst, pts)
