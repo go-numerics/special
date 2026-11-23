@@ -126,6 +126,30 @@ func TestThresholds(t *testing.T) {
 	}
 }
 
+// TestUserFunctionUsesEveryProcessor: from the threshold on, a user function
+// gets all w workers (its cost is unknown, main used GOMAXPROCS), not the
+// n/4000 of its nominal class. Rendezvous of w bodies proves it.
+func TestUserFunctionUsesEveryProcessor(t *testing.T) {
+	const w = 8
+	n := 8192 // 2 workers under the nominal class, w on main
+	var arrived atomic.Int32
+	met := make(chan struct{})
+	var failed atomic.Bool
+	parallelOn(w, n, costUser, func(lo, hi int) {
+		if arrived.Add(1) == w {
+			close(met)
+		}
+		select {
+		case <-met:
+		case <-time.After(2 * time.Second):
+			failed.Store(true)
+		}
+	})
+	if failed.Load() {
+		t.Errorf("fewer than %d bodies ran at once at n = %d", w, n)
+	}
+}
+
 // rendezvous makes a body wait until a second one is running at the same
 // time: the proof that two goroutines really execute bodies concurrently.
 type rendezvous struct {

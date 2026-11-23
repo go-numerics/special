@@ -148,8 +148,15 @@ func parallelOn(w, n int, c cost, body func(lo, hi int)) {
 	// n/(workerWork/per) rather than n*per/workerWork: no overflow on 32 bits.
 	// Since parallelWork is twice workerWork, n >= parallelWork/per gives at
 	// least 2 workers; the max keeps one worker correct all the same.
-	w = max(1, min(w, n/max(1, workerWork/per)))
-	block := max(blockWork/per, (n+w*blocksPerWorker-1)/(w*blocksPerWorker))
+	floor := blockWork / per
+	if c == costUser {
+		// A user function's cost is unknown, so it keeps every processor and
+		// an even cut, as it always did above the threshold.
+		floor = 1
+	} else {
+		w = max(1, min(w, n/max(1, workerWork/per)))
+	}
+	block := max(floor, (n+w*blocksPerWorker-1)/(w*blocksPerWorker))
 	var next atomic.Int64
 	// A panic of body (a function the caller supplied) is recovered in the
 	// worker it happens in, the other workers stop claiming blocks, and the
