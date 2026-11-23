@@ -438,6 +438,9 @@ func ibetaBupDD(a, b float64, v ibetaXY, n int, eps float64) dd.DD {
 // package, which renormalises after each one. Once the terms fall below
 // 2^-16 of the sum the rest is summed in float64.
 func ibetaPosSum(a, b float64, x dd.DD, k0, n int, eps float64) dd.DD {
+	if psHook != nil { // EXPERIMENT: records the call
+		psHook(a, b, x, k0, n, eps)
+	}
 	abh, abl := dd.TwoSum(a, b)
 	a1h, a1l := dd.TwoSum(a, 1)
 	xh, xl := x.Hi, x.Lo
