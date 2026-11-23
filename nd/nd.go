@@ -113,18 +113,14 @@ func parallelOn(w, n int, c cost, body func(lo, hi int)) {
 	}
 	// n/(workerWork/per) rather than n*per/workerWork: no overflow on 32 bits.
 	// Since parallelWork is twice workerWork, n >= parallelWork/per gives at
-	// least 2 workers (and a count of 1 would still be correct: run alone).
-	w = min(w, n/max(1, workerWork/per))
+	// least 2 workers; the max keeps one worker correct all the same.
+	w = max(1, min(w, n/max(1, workerWork/per)))
 	block := max(blockWork/per, (n+w*blocksPerWorker-1)/(w*blocksPerWorker))
 	var next atomic.Int64
 	run := func() {
-		for {
-			// compared as int64: the counter runs past n by up to one block
-			// per worker, which could wrap an int on 32 bits
-			start := next.Add(int64(block)) - int64(block)
-			if start >= int64(n) {
-				return
-			}
+		// start is compared as int64: the counter runs past n by up to one
+		// block per worker, which could wrap an int on 32 bits
+		for start := next.Add(int64(block)) - int64(block); start < int64(n); start = next.Add(int64(block)) - int64(block) {
 			lo := int(start)
 			body(lo, min(lo+block, n))
 		}
