@@ -4,6 +4,7 @@ import (
 	"github.com/go-numerics/special/internal/libm"
 	"math"
 	"math/big"
+	"math/rand/v2"
 	"testing"
 )
 
@@ -83,6 +84,100 @@ func TestLog(t *testing.T) {
 	t.Logf("dd.Log worst relative error %g (2^%.1f)", worst, math.Log2(worst))
 	if worst > 0x1p-72 {
 		t.Errorf("dd.Log relative error %g > 2^-72", worst)
+	}
+}
+
+// TestLogNearOne holds dd.Log within 2^-72 where the atanh tail weighs most
+// against the result: x within 2^-7 of 1, where log x is about 2s and the
+// cubic term (2/3)s³ is up to 2^-19.6 of it (|s| up to 2^-9 at the table's
+// cells either side of 1). TestLog's points near 1 stop at |x - 1| = 1.5e-3
+// and missed it: with the cubic term in float64 the error there reached
+// 2^-69.8. Written so that a NaN fails.
+func TestLogNearOne(t *testing.T) {
+	worst, at := 0.0, 0.0
+	for i := -4000; i <= 4000; i++ {
+		x := 1 + float64(float64(i)*0x1p-19) // |x - 1| <= 2^-7.0
+		if i == 0 {
+			continue
+		}
+		want := bigLog(x)
+		e := relErr(Log(x), want)
+		if !(e <= 0x1p-72) {
+			t.Errorf("dd.Log(%v) relative error %g (2^%.1f) > 2^-72", x, e, math.Log2(e))
+			continue
+		}
+		if e > worst {
+			worst, at = e, x
+		}
+	}
+	t.Logf("near 1: worst relative error 2^%.1f at x=%v", math.Log2(worst), at)
+}
+
+// TestLogCellEdges holds dd.Log within 2^-72 at both edges of every table
+// cell for k = -1, 0, 1, 16 ulps either side, and at 15 points inside each
+// cell: |s| is largest at the edges, and so is the float64 tail. A uniform
+// grid around 1 (TestLogNearOne) missed the top of j = 125, where the tail
+// alone reached 2^-71.9; those two points are held explicitly. Written so
+// that a NaN fails.
+func TestLogCellEdges(t *testing.T) {
+	worst, at := 0.0, 0.0
+	check := func(x float64) {
+		e := relErr(Log(x), bigLog(x))
+		if !(e <= 0x1p-72) {
+			t.Errorf("dd.Log(%v) (%#x) relative error %g (2^%.1f) > 2^-72", x, math.Float64bits(x), e, math.Log2(e))
+			return
+		}
+		if e > worst {
+			worst, at = e, x
+		}
+	}
+	// Found by review of #95, below the top edge of j = 125: 2^-71.9 and
+	// 2^-71.93 with the cubic in float64 there.
+	check(math.Float64frombits(0x3fef5fffffffff6f))
+	check(math.Float64frombits(0x3fef5fffa8891687))
+	// The cells either side of the near-1 branch, with full random
+	// mantissas, which the short ones below miss: the worst found by review
+	// (2^-73.05, j = 122) and a seeded sample of j = 121, 122, 134, 135.
+	check(math.Float64frombits(0x3fee9fbb3dfe119f))
+	r := rand.New(rand.NewPCG(95, 122))
+	for _, j := range []float64{121, 122, 134, 135} {
+		for range 2000 {
+			check(float64((j - 0.5 + r.Float64()) / 128))
+		}
+	}
+	for _, scale := range []float64{0.5, 1, 2} {
+		for j := 91; j <= 181; j++ {
+			for _, edge := range []float64{float64((float64(j) - 0.5) / 128), float64((float64(j) + 0.5) / 128)} {
+				lo, hi := edge, edge
+				for n := 0; n < 16; n++ {
+					lo, hi = math.Nextafter(lo, 0), math.Nextafter(hi, 2)
+					if x := float64(lo * scale); x != 1 {
+						check(x)
+					}
+					if x := float64(hi * scale); x != 1 {
+						check(x)
+					}
+				}
+			}
+			for i := 1; i < 16; i++ {
+				if x := float64(float64(scale*(float64(j)-0.5+float64(float64(i)/16))) / 128); x != 1 {
+					check(x)
+				}
+			}
+		}
+	}
+	t.Logf("cell edges: worst relative error 2^%.1f at x=%v", math.Log2(worst), at)
+}
+
+// TestTwoThirdsSplit holds twoThirdsHi + twoThirdsLo = 2/3 to 2^-106.
+func TestTwoThirdsSplit(t *testing.T) {
+	const prec = 300
+	got := new(big.Float).SetPrec(prec).SetFloat64(twoThirdsHi)
+	got.Add(got, new(big.Float).SetPrec(prec).SetFloat64(twoThirdsLo))
+	want := new(big.Float).SetPrec(prec).Quo(new(big.Float).SetPrec(prec).SetInt64(2), new(big.Float).SetPrec(prec).SetInt64(3))
+	d, _ := new(big.Float).Sub(got, want).Float64()
+	if !(math.Abs(d) <= 0x1p-106) {
+		t.Errorf("twoThirdsHi + twoThirdsLo - 2/3 = %g, want <= 2^-106", d)
 	}
 }
 

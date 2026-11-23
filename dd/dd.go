@@ -216,7 +216,9 @@ func Ldexp(a DD, k int) DD {
 }
 
 // Log returns log(x) for finite x > 0 as a double-double accurate to about
-// 2^-72 relative (measured 2^-72.9; the float64 tail limits it).
+// 2^-72 relative (worst measured 2^-73.05, at x = 0x3fee9fbb3dfe119f in
+// the cell next to logNearOne's; TestLogCellEdges holds every cell edge
+// and samples those cells; the float64 tail limits it).
 //
 // Method (table-driven, after Tang, "Table-driven implementation of the
 // logarithm function in IEEE floating-point arithmetic", ACM TOMS 16(4),
@@ -248,9 +250,27 @@ func Log(x float64) DD {
 	c := float64(j * (1.0 / 128))
 	f := m - c // exact
 	h, l := TwoSum(m, c)
+	// Two divisions, not one reciprocal: in a throughput loop f·(1/h) with
+	// its residual corrections measured 5 % slower than this on an M4 Max.
 	sh := f / h
 	sl := (math.FMA(-sh, h, f) - float64(sh*l)) / h
+	// 2 atanh(s) = 2s + (2/3)s³ + s⁵(2/5 + 2s²/7) + ...
+	//
+	// Outside the cells j = 123..133 of k = 0, |log x| >= log(133.5/128)
+	// > 2^-4.6, or k ln2 dominates. |s| reaches 2^-8.9 in the cells next to
+	// those (2^-8.5 near m = 1/sqrt2, where |log x| is far larger), so the
+	// tail (2/3)s³ is under 2^-22.8 of the result. It takes about four
+	// float64 roundings: measured, the worst is 2^-73.05, in j = 122. With only
+	// j = 126..130 sent to logNearOne, the top of j = 125 reached 2^-71.9
+	// (found by review of #95; TestLogCellEdges holds both points).
 	z := float64(sh * sh)
+	if k == 0 && math.Abs(j-128) <= 5 {
+		// Tested before the tail, not after it: called from BetaInc, 11 % of
+		// the calls land here (8 % from its inverses), and skipping the
+		// cheap tail they would discard costs less than the test on the
+		// others.
+		return logNearOne(sh, sl, z, int(j))
+	}
 	tail := float64(sh * z * (2.0/3 + float64(z*(2.0/5+float64(z*(2.0/7))))))
 	lm := AddF(DD{float64(2 * sh), float64(2 * sl)}, tail)
 	lm = Add(lm, logTable[int(j)-logTableLo])
@@ -261,6 +281,27 @@ func Log(x float64) DD {
 	// k*Ln2Hi is exact: Ln2Hi has 32 significant bits and |k| < 1100.
 	kh, kl := FastTwoSum(float64(kk*ln2Hi32), float64(kk*ln2Lo32))
 	return Add(DD{kh, kl}, lm)
+}
+
+// logNearOne finishes Log for k = 0 and the cells j = 123..133 around 1,
+// from s = sh + sl and z = sh². There log x is small (|log c| <= 2^-4.7,
+// |s| < 2^-9), and next to 1 within a small factor of 2s, where the cubic
+// term (2/3)s³ is up to 2^-19.6 of it, so float64 roundings in that term
+// would cost up to 2^-70 of the result: it is carried in double-double. s³ = sh³ + 3sh² sl (sl² is
+// below 2^-100 of it); 2/3 = twoThirdsHi + twoThirdsLo. The s⁵ terms are
+// below 2^-36 of 2s and stay in float64.
+func logNearOne(sh, sl, z float64, j int) DD {
+	ze := math.FMA(sh, sh, -z)
+	c3 := float64(sh * z)
+	c3l := math.FMA(sh, z, -c3) + float64(sh*ze) + float64(3*z*sl)
+	t3 := float64(c3 * twoThirdsHi)
+	t3l := math.FMA(c3, twoThirdsHi, -t3) + float64(c3*twoThirdsLo) + float64(c3l*twoThirdsHi)
+	rest := float64(c3 * z * (2.0/5 + float64(z*(2.0/7))))
+	// 2s + t3 + (lower parts): t3 is below 2^-17 of 2s
+	hi, e := TwoSum(float64(2*sh), t3)
+	lo := e + (float64(2*sl) + (t3l + rest))
+	hi, lo = FastTwoSum(hi, lo)
+	return Add(DD{hi, lo}, logTable[j-logTableLo])
 }
 
 // LogAccurate is Log carried further, to about 2^-104 relative: the atanh
@@ -293,6 +334,13 @@ func LogAccurate(x float64) DD {
 	kk := float64(k)
 	return Add(Add(MulFF(kk, Ln2Hi), MulFF(kk, Ln2Lo)), lm)
 }
+
+// 2/3 = twoThirdsHi + twoThirdsLo exactly to 2^-108: float64(2/3) is
+// 6004799503160661·2^-53, short of 2/3 by 1/(3·2^53).
+const (
+	twoThirdsHi = 2.0 / 3
+	twoThirdsLo = 0x1p-53 / 3
+)
 
 // ln2 split so that ln2Hi32 has 32 significant bits (k*ln2Hi32 exact for
 // |k| < 2^21) and ln2Hi32 + ln2Lo32 = ln 2 to 2^-85.
