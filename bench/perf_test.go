@@ -235,6 +235,9 @@ var kernels = []kernel{
 	{name: "BetaTo", spec: "Beta", k2: special.BetaTo},
 	{name: "LogBetaTo", spec: "LogBeta", k2: special.LogBetaTo},
 	{name: "XlogyTo", spec: "Xlogy", k2: special.XlogyTo},
+	{name: "GammaSignTo", spec: "GammaSign", k1: special.GammaSignTo},
+	{name: "BinomTo", spec: "Binom", k2: special.BinomTo},
+	{name: "Xlog1pyTo", spec: "Xlog1py", k2: special.Xlog1pyTo},
 	{name: "HurwitzZetaTo", spec: "HurwitzZeta", k2: special.HurwitzZetaTo},
 }
 

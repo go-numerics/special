@@ -14,7 +14,7 @@ func Gamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.Gam
 func LogGamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.LogGammaTo, x) }
 
 // GammaSign applies special.GammaSign element-wise.
-func GammaSign(x *ndarray.Array) (*ndarray.Array, error) { return Map1(special.GammaSign, x) }
+func GammaSign(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.GammaSignTo, x) }
 
 // Digamma applies special.Digamma element-wise.
 func Digamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.DigammaTo, x) }
@@ -84,7 +84,9 @@ func LogBeta(a, b *ndarray.Array) (*ndarray.Array, error) {
 }
 
 // Binom applies special.Binom element-wise to the broadcast arguments.
-func Binom(a, b *ndarray.Array) (*ndarray.Array, error) { return Map2(special.Binom, a, b) }
+func Binom(a, b *ndarray.Array) (*ndarray.Array, error) {
+	return apply2(special.BinomTo, special.Binom, a, b)
+}
 
 // Xlogy applies special.Xlogy element-wise to the broadcast arguments.
 func Xlogy(a, b *ndarray.Array) (*ndarray.Array, error) {
@@ -92,7 +94,9 @@ func Xlogy(a, b *ndarray.Array) (*ndarray.Array, error) {
 }
 
 // Xlog1py applies special.Xlog1py element-wise to the broadcast arguments.
-func Xlog1py(a, b *ndarray.Array) (*ndarray.Array, error) { return Map2(special.Xlog1py, a, b) }
+func Xlog1py(a, b *ndarray.Array) (*ndarray.Array, error) {
+	return apply2(special.Xlog1pyTo, special.Xlog1py, a, b)
+}
 
 // HurwitzZeta applies special.HurwitzZeta element-wise to the broadcast arguments.
 func HurwitzZeta(a, b *ndarray.Array) (*ndarray.Array, error) {
@@ -131,7 +135,7 @@ func Comb(n, k *ndarray.Array) (*ndarray.Array, error) {
 // Perm applies special.Perm element-wise to the broadcast arguments;
 // arguments that are not integers give NaN.
 func Perm(n, k *ndarray.Array) (*ndarray.Array, error) {
-	return Map2(func(n, k float64) float64 {
+	return apply2(special.PermTo, func(n, k float64) float64 {
 		if !isInt(n) || !isInt(k) {
 			return math.NaN()
 		}
@@ -141,12 +145,7 @@ func Perm(n, k *ndarray.Array) (*ndarray.Array, error) {
 
 // Factorial2 applies special.Factorial2 element-wise; non-integers give NaN.
 func Factorial2(n *ndarray.Array) (*ndarray.Array, error) {
-	return Map1(func(n float64) float64 {
-		if !isInt(n) {
-			return math.NaN()
-		}
-		return special.Factorial2(int(n))
-	}, n)
+	return apply1(special.Factorial2To, n)
 }
 
 func isInt(x float64) bool { return x == math.Trunc(x) && math.Abs(x) <= math.MaxInt32 }

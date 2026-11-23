@@ -169,12 +169,17 @@ The three without a pairing, and why:
 - **`LogGammaSign`** — no scipy counterpart in any spelling; scipy splits the
   two results across `gammaln` and `gammasgn`.
 
-The 20 `…To` slice kernels — `GammaTo`, `ErfTo`, `XlogyTo` and the rest — are the
+The 25 `…To` slice kernels — `GammaTo`, `ErfTo`, `XlogyTo` and the rest (since
+the `nd` batch API runs on them, `GammaSignTo`, `Factorial2To`, `PermTo`,
+`BinomTo` and `Xlog1pyTo` are among them) — are the
 batch form of the function they are named after and compute the same thing, so
-they share its scipy equivalent rather than earning rows here. One exception is
+they share its scipy equivalent rather than earning rows here. Two exceptions are
 worth knowing: **`TrigammaTo` is exported while `Trigamma` is not**, so that
 kernel has no scalar form in the public API. It is psi'(x), which scipy spells
-`polygamma(1, x)` — the same function `Polygamma` already provides.
+`polygamma(1, x)` — the same function `Polygamma` already provides. And
+**`Factorial2To` and `PermTo` take float64 arguments**, like the `nd` functions
+they serve: an argument that is not an integer of magnitude at most 2^31-1 gives
+NaN, where `Factorial2` and `Perm` take integers.
 
 `Zeta` and `HurwitzZeta` share one scipy name, `zeta(x, q=None)`, which takes
 the second argument optionally. `LogFactorial` is bracketed as a call rather

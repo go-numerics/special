@@ -213,7 +213,7 @@ exported from `special`.
 | # | SciPy | MATLAB | Go | Status | Missing / dep |
 |---|---|---|---|---|---|
 | C1 | complex arguments of `gamma`, `loggamma`, `psi`, `erf`, `erfc`, `wofz`, `jv`, `yv`, `iv`, `kv`, `hankel*`, `hyp2f1`, `expi`, `exp1`, `lambertw`, `spence`, `sph_harm_y` | all accept complex | | missing | `complex128` API and kernels (AMOS for Bessel, Lanczos/Stirling for `loggamma`, Faddeeva for `erf`); a design decision first: parallel `ZXxx` functions or generics |
-| C2 | array (ufunc) layer for every scalar above | all accept arrays | `nd` subpackage (31 kernels) and the 20 `...To` slice kernels | partial | each new scalar function needs its `nd` form to keep the broadcasting contract; only about half of the 67 existing scalars have one |
+| C2 | array (ufunc) layer for every scalar above | all accept arrays | `nd` subpackage (31 kernels) and the 25 `...To` slice kernels | partial | each new scalar function needs its `nd` form to keep the broadcasting contract; only about half of the 67 existing scalars have one |
 
 ## 12. Beyond SciPy: Mathematica and MATLAB (Symbolic Math Toolbox) only
 

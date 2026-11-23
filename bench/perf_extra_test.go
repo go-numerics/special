@@ -160,6 +160,14 @@ func xrows() []xrow {
 			}},
 		xrow{name: "nd/Factorial2", fn: "nd.Factorial2", ref: "sp.factorial2", setup: "[np.arange(n) % 201]",
 			mk: func() func() { return func() { mustND(nd.Factorial2(dfArr)) } }},
+		xrow{name: "Factorial2To", fn: "Factorial2To", ref: "sp.factorial2", setup: "[np.arange(n) % 201]",
+			mk: func() func() {
+				dfF := floatsOf(df)
+				return func() {
+					special.Factorial2To(dst, dfF)
+					sink = dst[0]
+				}
+			}},
 	)
 
 	// Combinations and permutations: N = 20 + i mod 80, k = 7i mod 21 (k <= N).
@@ -193,6 +201,15 @@ func xrows() []xrow {
 				mk: func() func() { return func() { mustND(c.g(cnArr, ckArr)) } }},
 		)
 	}
+
+	rs = append(rs, xrow{name: "PermTo", fn: "PermTo", ref: "sp.perm", setup: comb,
+		mk: func() func() {
+			cnF, ckF := floatsOf(cn), floatsOf(ck)
+			return func() {
+				special.PermTo(dst, cnF, ckF, 1, 1)
+				sink = dst[0]
+			}
+		}})
 
 	// Zeros of Jn: SciPy's jn_zeros is a Python function over specfun.
 	rs = append(rs, xrow{name: "JnZeros", fn: "JnZeros", ref: "lambda: sp.jn_zeros(2, 20)", setup: "[]",
