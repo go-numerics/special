@@ -2,6 +2,7 @@ package nd_test
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 
@@ -38,7 +39,7 @@ func BenchmarkPar(b *testing.B) {
 			for k := range args {
 				d := make([]float64, n)
 				for i := range d {
-					d[i] = fn.lo[k] + (fn.hi[k]-fn.lo[k])*rng.Float64()
+					d[i] = math.FMA(fn.hi[k]-fn.lo[k], rng.Float64(), fn.lo[k])
 				}
 				args[k], _ = ndarray.FromData(d, n)
 			}

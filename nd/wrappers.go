@@ -14,7 +14,9 @@ func Gamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.Gam
 func LogGamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.LogGammaTo, x) }
 
 // GammaSign applies special.GammaSign element-wise.
-func GammaSign(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.GammaSignTo, x) }
+func GammaSign(x *ndarray.Array) (*ndarray.Array, error) {
+	return apply1c(costCheap, special.GammaSignTo, x)
+}
 
 // Digamma applies special.Digamma element-wise.
 func Digamma(x *ndarray.Array) (*ndarray.Array, error) { return apply1(special.DigammaTo, x) }
@@ -85,7 +87,7 @@ func LogBeta(a, b *ndarray.Array) (*ndarray.Array, error) {
 
 // Binom applies special.Binom element-wise to the broadcast arguments.
 func Binom(a, b *ndarray.Array) (*ndarray.Array, error) {
-	return apply2(special.BinomTo, special.Binom, a, b)
+	return apply2c(costCheap, special.BinomTo, special.Binom, a, b)
 }
 
 // Xlogy applies special.Xlogy element-wise to the broadcast arguments.
@@ -135,7 +137,7 @@ func Comb(n, k *ndarray.Array) (*ndarray.Array, error) {
 // Perm applies special.Perm element-wise to the broadcast arguments;
 // arguments that are not integers give NaN.
 func Perm(n, k *ndarray.Array) (*ndarray.Array, error) {
-	return apply2(special.PermTo, func(n, k float64) float64 {
+	return apply2c(costCheap, special.PermTo, func(n, k float64) float64 {
 		if !isInt(n) || !isInt(k) {
 			return math.NaN()
 		}
@@ -145,29 +147,39 @@ func Perm(n, k *ndarray.Array) (*ndarray.Array, error) {
 
 // Factorial2 applies special.Factorial2 element-wise; non-integers give NaN.
 func Factorial2(n *ndarray.Array) (*ndarray.Array, error) {
-	return apply1(special.Factorial2To, n)
+	return apply1c(costCheap, special.Factorial2To, n)
 }
 
 func isInt(x float64) bool { return x == math.Trunc(x) && math.Abs(x) <= math.MaxInt32 }
 
 // GammaP applies special.GammaP element-wise to the broadcast arguments.
-func GammaP(a, x *ndarray.Array) (*ndarray.Array, error) { return Map2(special.GammaP, a, x) }
+func GammaP(a, x *ndarray.Array) (*ndarray.Array, error) {
+	return map2(costHeavy, special.GammaP, a, x)
+}
 
 // GammaQ applies special.GammaQ element-wise to the broadcast arguments.
-func GammaQ(a, x *ndarray.Array) (*ndarray.Array, error) { return Map2(special.GammaQ, a, x) }
+func GammaQ(a, x *ndarray.Array) (*ndarray.Array, error) {
+	return map2(costHeavy, special.GammaQ, a, x)
+}
 
 // GammaPInv applies special.GammaPInv element-wise to the broadcast arguments.
-func GammaPInv(a, p *ndarray.Array) (*ndarray.Array, error) { return Map2(special.GammaPInv, a, p) }
+func GammaPInv(a, p *ndarray.Array) (*ndarray.Array, error) {
+	return map2(costHeavy, special.GammaPInv, a, p)
+}
 
 // GammaQInv applies special.GammaQInv element-wise to the broadcast arguments.
-func GammaQInv(a, q *ndarray.Array) (*ndarray.Array, error) { return Map2(special.GammaQInv, a, q) }
+func GammaQInv(a, q *ndarray.Array) (*ndarray.Array, error) {
+	return map2(costHeavy, special.GammaQInv, a, q)
+}
 
 // BetaInc applies special.BetaInc element-wise to the broadcast arguments.
-func BetaInc(a, b, x *ndarray.Array) (*ndarray.Array, error) { return Map3(special.BetaInc, a, b, x) }
+func BetaInc(a, b, x *ndarray.Array) (*ndarray.Array, error) {
+	return map3(costHeavy, special.BetaInc, a, b, x)
+}
 
 // BetaIncC applies special.BetaIncC element-wise to the broadcast arguments.
 func BetaIncC(a, b, x *ndarray.Array) (*ndarray.Array, error) {
-	return Map3(special.BetaIncC, a, b, x)
+	return map3(costHeavy, special.BetaIncC, a, b, x)
 }
 
 // Bessel functions.
@@ -267,10 +279,10 @@ func Kn(n, x *ndarray.Array) (*ndarray.Array, error) {
 
 // BetaIncInv applies special.BetaIncInv element-wise to the broadcast arguments.
 func BetaIncInv(a, b, p *ndarray.Array) (*ndarray.Array, error) {
-	return Map3(special.BetaIncInv, a, b, p)
+	return map3(costHeavy, special.BetaIncInv, a, b, p)
 }
 
 // BetaIncCInv applies special.BetaIncCInv element-wise to the broadcast arguments.
 func BetaIncCInv(a, b, q *ndarray.Array) (*ndarray.Array, error) {
-	return Map3(special.BetaIncCInv, a, b, q)
+	return map3(costHeavy, special.BetaIncCInv, a, b, q)
 }
