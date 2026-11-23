@@ -27,6 +27,11 @@ var parBenchFns = []struct {
 	{"Expit", 1, []float64{-10}, []float64{10}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.Expit(a[0]) }},
 	{"Erf", 1, []float64{-3}, []float64{3}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.Erf(a[0]) }},
 	{"Gamma", 1, []float64{0.5}, []float64{20}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.Gamma(a[0]) }},
+	{"Binom", 2, []float64{1, 0}, []float64{50, 50}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.Binom(a[0], a[1]) }},
+	{"HurwitzZeta", 2, []float64{1.5, 0.5}, []float64{10, 5}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.HurwitzZeta(a[0], a[1]) }},
+	{"Beta", 2, []float64{0.5, 0.5}, []float64{30, 30}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.Beta(a[0], a[1]) }},
+	{"EllipK", 1, []float64{0}, []float64{0.99}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.EllipK(a[0]) }},
+	{"J0", 1, []float64{0}, []float64{50}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.J0(a[0]) }},
 	{"BetaInc", 3, []float64{0.5, 0.5, 0.01}, []float64{30, 30, 0.99}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.BetaInc(a[0], a[1], a[2]) }},
 	{"BetaIncInv", 3, []float64{0.5, 0.5, 0.01}, []float64{30, 30, 0.99}, func(a []*ndarray.Array) (*ndarray.Array, error) { return nd.BetaIncInv(a[0], a[1], a[2]) }},
 }

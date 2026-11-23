@@ -17,7 +17,7 @@ import (
 // detector sees any overlap of two blocks), every range must lie in [0, n),
 // and below the threshold the body must run once on the whole range.
 func TestParallelOnCoversEveryIndexOnce(t *testing.T) {
-	for _, c := range []cost{costCheap, costLight, costMedium, costHeavy} {
+	for _, c := range append([]cost{costUser}, costClasses...) {
 		serial := parallelWork / int(c)
 		perWorker := max(1, workerWork/int(c))
 		sizes := []int{0, 1, 2, 7, serial - 1, serial, serial + 1, 2 * serial, 2*perWorker - 1, 2 * perWorker,
@@ -61,7 +61,7 @@ func TestParallelOnCoversEveryIndexOnce(t *testing.T) {
 // TestPolicyInvariant: a call over the serial threshold is worth at least two
 // workers, for every cost class (parallelOn relies on it).
 func TestPolicyInvariant(t *testing.T) {
-	for _, c := range []cost{costCheap, costLight, costMedium, costHeavy} {
+	for _, c := range append([]cost{costUser}, costClasses...) {
 		if parallelWork/int(c)/max(1, workerWork/int(c)) < 2 {
 			t.Errorf("cost %d: threshold %d is under two workers of %d", c, parallelWork/int(c), workerWork/int(c))
 		}
@@ -126,7 +126,7 @@ func TestBoundarySizesBitIdentical(t *testing.T) {
 	defer runtime.GOMAXPROCS(old)
 	for _, procs := range []int{1, 2, 3, 7} {
 		runtime.GOMAXPROCS(procs)
-		for _, n := range []int{0, 1, 2, 79, 80, 81, 163, 3332, 3333, 3334, 9999, 10000, 10001, 20011} {
+		for _, n := range []int{0, 1, 2, 79, 80, 81, 163, 6665, 6666, 6667, 13332, 13333, 13334, 332, 333, 334, 999, 1000, 1001, 3332, 3333, 3334, 7999, 8000, 8001, 9999, 10000, 10001, 20011} {
 			x := make([]float64, n)
 			p := make([]float64, n)
 			for i := range x {
@@ -142,7 +142,7 @@ func TestBoundarySizesBitIdentical(t *testing.T) {
 					}
 				}
 			}
-			r, err := GammaSign(ax) // costCheap, apply1c
+			r, err := GammaSign(ax) // costCheap, apply1
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -162,7 +162,7 @@ func TestBoundarySizesBitIdentical(t *testing.T) {
 				t.Fatal(err)
 			}
 			check("GammaP", data(t, r), func(i int) float64 { return special.GammaP(x[i], p[i]) })
-			r, err = Map1(special.J0, ax) // costMedium
+			r, err = Map1(special.J0, ax) // costUser
 			if err != nil {
 				t.Fatal(err)
 			}

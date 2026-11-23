@@ -48,8 +48,10 @@ func main() {
 Arrays (`github.com/go-numerics/special/nd`): any real dtype in, Float32 kept
 as Float32, everything else Float64; NumPy broadcasting; a call is split across
 cores once its estimated work (elements times a per-function cost class) passes
-about 40 µs, so a cheap function such as `GammaSign` needs about 10 000
-elements and `BetaInc` or `BetaIncInv` about 80; the goroutines claim blocks of
+about 40 µs, so a cheap function such as `GammaSign` needs about 13 000
+elements, `Binom` about 330 and `BetaInc` about 80 (classes come from the
+measured cost of each function); a function you pass to `Map1` keeps a
+threshold of 8000 elements; the goroutines claim blocks of
 elements from a shared counter, so slow cores and uneven elements do not stall
 the call. Results are bit-identical whatever the split
 ([docs/perf.md](docs/perf.md#multicore)).

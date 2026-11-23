@@ -34,19 +34,53 @@ var ErrShape = errors.New("nd: shapes cannot be broadcast")
 // (3 ns each) are 26 us and gain nothing from 16 goroutines, while 64
 // elements of BetaIncInv (2 us each) are already worth four.
 //
-// The classes are measured medians at one core (Apple M4 Max, BenchmarkPar):
-// GammaSign 3.3, Expit 7, Erf 9, Gamma 12, BetaInc 460, BetaIncInv 2100. An
-// estimate that is off by a factor of three costs little: the thresholds
-// below scale linearly with it and the policy only needs the order of
-// magnitude.
+// The class of each function of this package is taken from its measured cost
+// (ns per element, docs/perf.json, one core): the table costs below lists
+// them and TestCostsMatchMeasurement fails when one is more than a class away
+// from the measurement, so the classes cannot drift. An estimate that is off
+// by a factor of three costs little: the thresholds scale linearly with it and
+// the policy only needs the order of magnitude.
 type cost int
 
 const (
-	costCheap  cost = 4   // GammaSign, Factorial2, Perm, Binom
-	costLight  cost = 12  // the generated *To kernels: Erf, Gamma, Expit...
-	costMedium cost = 60  // scalar functions of unknown cost (Map1, Map2, Map3)
-	costHeavy  cost = 500 // series and continued fractions: BetaInc, GammaP, inverses
+	costTiny   cost = 3    // under 4 ns: GammaSign, Factorial2 (serial at 8192 elements, as measured)
+	costCheap  cost = 6    // 4 to 8 ns: Expit, Ellip*, the scaled Bessel functions
+	costLight  cost = 12   // 7 to 22 ns: Gamma, Erf, J0, I0
+	costMedium cost = 40   // 22 to 70 ns: Beta, Kn
+	costDear   cost = 120  // 70 to 250 ns: Binom, HurwitzZeta, GammaP, Jn
+	costHeavy  cost = 500  // 250 ns to 0.9 us: BetaInc, Jv, Kv, GammaPInv
+	costHuge   cost = 1500 // over 0.9 us: BetaIncInv
+	// costUser is the class of a function the caller supplies to Map1, Map2
+	// or Map3: its cost is unknown, so the threshold is the one these
+	// functions have always had (8000 elements, about main's 8192).
+	costUser cost = 5
 )
+
+// costClasses lists the classes in increasing order.
+var costClasses = []cost{costTiny, costCheap, costLight, costMedium, costDear, costHeavy, costHuge}
+
+// costs is the class of each function of this package, by name.
+var costs = map[string]cost{
+	"Beta": costMedium, "BetaInc": costHeavy, "BetaIncC": costHeavy,
+	"BetaIncCInv": costHuge, "BetaIncInv": costHuge, "Binom": costDear,
+	"Comb": costLight, "Digamma": costLight, "EllipE": costCheap,
+	"EllipK": costCheap, "EllipKm1": costCheap, "Erf": costLight,
+	"ErfInv": costCheap, "Erfc": costLight, "ErfcInv": costCheap,
+	"Erfcx": costCheap, "Factorial": costLight, "Factorial2": costTiny,
+	"Gamma": costLight, "GammaP": costDear, "GammaPInv": costHeavy,
+	"GammaQ": costDear, "GammaQInv": costHeavy, "GammaSign": costTiny,
+	"HurwitzZeta": costDear, "I0": costLight, "I0e": costCheap,
+	"I1": costLight, "I1e": costCheap, "In": costDear, "Iv": costHeavy,
+	"Ive": costHeavy, "J0": costLight, "J1": costLight, "Jn": costDear,
+	"Jv": costHeavy, "K0": costLight, "K0e": costCheap, "K1": costLight,
+	"K1e": costCheap, "Kn": costMedium, "Kv": costHeavy, "Kve": costHeavy,
+	"LogBeta": costLight, "LogExpit": costLight, "LogFactorial": costLight,
+	"LogGamma": costCheap, "Log1pExp": costLight, "LogNdtr": costCheap,
+	"Logit": costCheap, "Expit": costCheap, "Ndtr": costLight,
+	"Ndtri": costCheap, "Perm": costLight, "Polygamma": costLight,
+	"Xlog1py": costLight, "Xlogy": costCheap, "Y0": costLight,
+	"Y1": costLight, "Yn": costDear, "Yv": costHeavy, "Zeta": costLight,
+}
 
 // Work quanta of the parallel policy, in nanoseconds (see parallel).
 const (
@@ -117,7 +151,26 @@ func parallelOn(w, n int, c cost, body func(lo, hi int)) {
 	w = max(1, min(w, n/max(1, workerWork/per)))
 	block := max(blockWork/per, (n+w*blocksPerWorker-1)/(w*blocksPerWorker))
 	var next atomic.Int64
+	// A panic of body (a function the caller supplied) is recovered in the
+	// worker it happens in, the other workers stop claiming blocks, and the
+	// first value is raised again in the calling goroutine once all are done:
+	// the caller can recover it exactly as it can on the serial path.
+	var (
+		mu       sync.Mutex
+		panicked bool
+		value    any
+	)
 	run := func() {
+		defer func() {
+			if r := recover(); r != nil {
+				mu.Lock()
+				if !panicked {
+					panicked, value = true, r
+				}
+				mu.Unlock()
+				next.Store(int64(n) + int64(block)) // nothing left to claim
+			}
+		}()
 		// start is compared as int64: the counter runs past n by up to one
 		// block per worker, which could wrap an int on 32 bits
 		for start := next.Add(int64(block)) - int64(block); start < int64(n); start = next.Add(int64(block)) - int64(block) {
@@ -131,11 +184,16 @@ func parallelOn(w, n int, c cost, body func(lo, hi int)) {
 	}
 	run()
 	wg.Wait()
+	if panicked {
+		panic(value)
+	}
 }
 
-// Map1 applies f element-wise to a.
+// Map1 applies f element-wise to a. From 8000 elements on, f is called from
+// several goroutines at once, so it must be safe for that; a panic of f is
+// raised again in the calling goroutine, as on a serial loop.
 func Map1(f func(float64) float64, a *ndarray.Array) (*ndarray.Array, error) {
-	return map1(costMedium, f, a)
+	return map1(costUser, f, a)
 }
 
 // map1 is Map1 for a function of the given cost.
@@ -285,9 +343,10 @@ func direct(args ...*ndarray.Array) (data [][]float64, st []int, shape []int, f3
 
 // Map2 applies f element-wise to the broadcast pair (a, b). Operands of one
 // shape, or one of them a single element, run one loop with no index
-// arithmetic and no call through a second closure per element.
+// arithmetic and no call through a second closure per element. As for Map1,
+// f may be called concurrently and a panic of f reaches the caller.
 func Map2(f func(x, y float64) float64, a, b *ndarray.Array) (*ndarray.Array, error) {
-	return map2(costMedium, f, a, b)
+	return map2(costUser, f, a, b)
 }
 
 // map2 is Map2 for a function of the given cost.
@@ -311,9 +370,10 @@ func map2(c cost, f func(x, y float64) float64, a, b *ndarray.Array) (*ndarray.A
 }
 
 // Map3 applies f element-wise to the broadcast triple (a, b, c), with the
-// same direct loop as Map2 where the operands allow it.
+// same direct loop as Map2 where the operands allow it. As for Map1, f may be
+// called concurrently and a panic of f reaches the caller.
 func Map3(f func(x, y, z float64) float64, a, b, c *ndarray.Array) (*ndarray.Array, error) {
-	return map3(costMedium, f, a, b, c)
+	return map3(costUser, f, a, b, c)
 }
 
 // map3 is Map3 for a function of the given cost.
@@ -349,12 +409,7 @@ func size(shape []int) int {
 // special (special.ErfTo etc., generated by tools/geninline with the
 // kernel expanded in the loop): each goroutine runs that one loop over its
 // chunk, with no call per element.
-func apply1(loop func(dst, x []float64), a *ndarray.Array) (*ndarray.Array, error) {
-	return apply1c(costLight, loop, a)
-}
-
-// apply1c is apply1 for a kernel of the given cost.
-func apply1c(c cost, loop func(dst, x []float64), a *ndarray.Array) (*ndarray.Array, error) {
+func apply1(c cost, loop func(dst, x []float64), a *ndarray.Array) (*ndarray.Array, error) {
 	x, f32, err := operand(a)
 	if err != nil {
 		return nil, err
@@ -367,12 +422,7 @@ func apply1c(c cost, loop func(dst, x []float64), a *ndarray.Array) (*ndarray.Ar
 // apply2 is Map2 for the functions with an array variant: operands
 // of the same shape, or one of them a single element, run the loop
 // directly; any other broadcast goes through mapN with f.
-func apply2(loop func(dst, a, b []float64, sa, sb int), f func(x, y float64) float64, a, b *ndarray.Array) (*ndarray.Array, error) {
-	return apply2c(costLight, loop, f, a, b)
-}
-
-// apply2c is apply2 for a kernel of the given cost.
-func apply2c(c cost, loop func(dst, a, b []float64, sa, sb int), f func(x, y float64) float64, a, b *ndarray.Array) (*ndarray.Array, error) {
+func apply2(c cost, loop func(dst, a, b []float64, sa, sb int), f func(x, y float64) float64, a, b *ndarray.Array) (*ndarray.Array, error) {
 	x, xf32, err := operand(a)
 	if err != nil {
 		return nil, err

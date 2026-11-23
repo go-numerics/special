@@ -15,11 +15,14 @@ goroutines, by a policy measured on `nd/parallel_bench_test.go`
 
 Per element, one core: `GammaSign` 3.3 ns, `Expit` 7, `Erf` 9, `Gamma` 12,
 `BetaInc` 460, `BetaIncInv` 2100. One threshold in elements cannot serve costs
-400 times apart, so each function has a cost class (`costCheap` 4 ns,
-`costLight` 12 ns, `costMedium` 60 ns for scalar functions of unknown cost,
-`costHeavy` 500 ns for the incomplete beta and gamma family and their
-inverses), and a call is parallel when `n x cost` is at least 40 µs, with at
-most `n x cost / 20 µs` workers. The workers claim blocks (at least 8 µs of
+400 times apart, so each function has a cost class (3, 6, 12, 40, 120, 500 or
+1500 ns), taken from its measured per-element time in `docs/perf.json`:
+`TestCostsMatchMeasurement` fails when a class is more than one class away from
+the measurement, so the classes cannot drift. A function the caller passes to
+`Map1`, `Map2` or `Map3` has an unknown cost and keeps the threshold it always
+had (8000 elements); it is called from several goroutines and a panic of it is
+raised again in the calling goroutine. A call is parallel when `n x cost` is at
+least 40 µs, with at most `n x cost / 20 µs` workers. The workers claim blocks (at least 8 µs of
 work, eight per worker) from an atomic counter instead of one equal chunk
 each, so a slow core or an expensive run of elements delays only its own block.
 Every element is computed by one call of the same function, so the result does
