@@ -49,6 +49,15 @@ go test -run TestPerf -cpu 1 -perf.run .       # timing (writes perf.json and th
 go test -run TestPerf -cpu 1 -perf.record .    # allocation counts only
 ```
 
+## Update 2026-11-23: table re-measured with the five new kernels
+
+`perf.json` and [perf-table.md](perf-table.md) are now a new valid run, taken
+on the branch that adds `GammaSignTo`, `Factorial2To`, `PermTo`, `BinomTo` and
+`Xlog1pyTo` (commit 7c12baa4047fe0f8e4fd32bb31897f597cd286ea, darwin/arm64,
+Go 1.27.4, SciPy 1.18.1, 1-minute load min 2.71, median 3.07, max 6.30; 156 of
+156 rows valid, 0 retries). The ratios quoted in the next section are those of
+the v0.20.0 run and are not refreshed; the table is the current data.
+
 ## Status: the valid run of v0.20.0 (2026-11-16)
 
 `perf.json` and [perf-table.md](perf-table.md) are a **valid** timing run: tag
