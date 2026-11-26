@@ -191,12 +191,18 @@ func TestY1TinyArgument(t *testing.T) {
 // TestSinCosPiNonFinite: sinPi and cosPi of NaN and Inf are NaN (documented).
 func TestSinCosPiNonFinite(t *testing.T) {
 	for _, x := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
-		if got := sinPi(x); !math.IsNaN(got) {
-			t.Errorf("sinPi(%v) = %v, want NaN", x, got)
-		}
-		if got := cosPi(x); !math.IsNaN(got) {
-			t.Errorf("cosPi(%v) = %v, want NaN", x, got)
-		}
+		// Without poly.go:63/94 the Inf reaches a float-to-int conversion
+		// whose result is architecture-defined: a crash on amd64.
+		mustNotPanic(t, "sinPi", func() {
+			if got := sinPi(x); !math.IsNaN(got) {
+				t.Errorf("sinPi(%v) = %v, want NaN", x, got)
+			}
+		})
+		mustNotPanic(t, "cosPi", func() {
+			if got := cosPi(x); !math.IsNaN(got) {
+				t.Errorf("cosPi(%v) = %v, want NaN", x, got)
+			}
+		})
 	}
 }
 
