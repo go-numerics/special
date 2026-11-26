@@ -230,17 +230,19 @@ func TestSoftmaxFamilyNonFinite(t *testing.T) {
 			})
 		}
 	}
-	if got := SoftmaxExact(nil, []float64{math.Inf(-1), 0}); got[0] != 0 || got[1] != 1 {
-		t.Errorf("SoftmaxExact([-Inf 0]) = %v, want [0 1]", got)
-	}
-	if got := Softmax(nil, []float64{math.Inf(-1), 0}); got[0] != 0 || got[1] != 1 {
-		t.Errorf("Softmax([-Inf 0]) = %v, want [0 1]", got)
-	}
-	for _, f := range []func(dst, x []float64) []float64{LogSoftmax, LogSoftmaxExact} {
-		if got := f(nil, []float64{math.Inf(-1), 0}); !math.IsInf(got[0], -1) || got[1] != 0 {
-			t.Errorf("LogSoftmax([-Inf 0]) = %v, want [-Inf 0]", got)
+	mustNotPanic(t, "softmax with -Inf", func() {
+		if got := SoftmaxExact(nil, []float64{math.Inf(-1), 0}); got[0] != 0 || got[1] != 1 {
+			t.Errorf("SoftmaxExact([-Inf 0]) = %v, want [0 1]", got)
 		}
-	}
+		if got := Softmax(nil, []float64{math.Inf(-1), 0}); got[0] != 0 || got[1] != 1 {
+			t.Errorf("Softmax([-Inf 0]) = %v, want [0 1]", got)
+		}
+		for _, f := range []func(dst, x []float64) []float64{LogSoftmax, LogSoftmaxExact} {
+			if got := f(nil, []float64{math.Inf(-1), 0}); !math.IsInf(got[0], -1) || got[1] != 0 {
+				t.Errorf("LogSoftmax([-Inf 0]) = %v, want [-Inf 0]", got)
+			}
+		}
+	})
 }
 
 // TestSoftmaxFamilyDstReuse: a dst too short is replaced by a result of
@@ -301,23 +303,25 @@ func TestSoftmaxFamilyDstReuse(t *testing.T) {
 func TestLogSumExpNonFinite(t *testing.T) {
 	inf, nan := math.Inf(1), math.NaN()
 	for name, f := range map[string]func([]float64) float64{"LogSumExp": LogSumExp, "LogSumExpExact": LogSumExpExact} {
-		if got := f(nil); !math.IsInf(got, -1) {
-			t.Errorf("%s(nil) = %v, want -Inf", name, got)
-		}
-		if got := f([]float64{1, inf}); !math.IsInf(got, 1) {
-			t.Errorf("%s([1 +Inf]) = %v, want +Inf", name, got)
-		}
-		if got := f([]float64{math.Inf(-1), math.Inf(-1)}); !math.IsInf(got, -1) {
-			t.Errorf("%s([-Inf -Inf]) = %v, want -Inf", name, got)
-		}
-		if got := f([]float64{1, nan}); !math.IsNaN(got) {
-			t.Errorf("%s([1 NaN]) = %v, want NaN", name, got)
-		}
-		if got := f([]float64{nan, 1, inf}); !math.IsNaN(got) {
-			t.Errorf("%s([NaN 1 +Inf]) = %v, want NaN", name, got)
-		}
-		if got := f([]float64{math.Inf(-1), 0}); got != 0 {
-			t.Errorf("%s([-Inf 0]) = %v, want 0", name, got)
-		}
+		mustNotPanic(t, name, func() {
+			if got := f(nil); !math.IsInf(got, -1) {
+				t.Errorf("%s(nil) = %v, want -Inf", name, got)
+			}
+			if got := f([]float64{1, inf}); !math.IsInf(got, 1) {
+				t.Errorf("%s([1 +Inf]) = %v, want +Inf", name, got)
+			}
+			if got := f([]float64{math.Inf(-1), math.Inf(-1)}); !math.IsInf(got, -1) {
+				t.Errorf("%s([-Inf -Inf]) = %v, want -Inf", name, got)
+			}
+			if got := f([]float64{1, nan}); !math.IsNaN(got) {
+				t.Errorf("%s([1 NaN]) = %v, want NaN", name, got)
+			}
+			if got := f([]float64{nan, 1, inf}); !math.IsNaN(got) {
+				t.Errorf("%s([NaN 1 +Inf]) = %v, want NaN", name, got)
+			}
+			if got := f([]float64{math.Inf(-1), 0}); got != 0 {
+				t.Errorf("%s([-Inf 0]) = %v, want 0", name, got)
+			}
+		})
 	}
 }
