@@ -22,7 +22,8 @@ the measurement, so the classes cannot drift. A function the caller passes to
 `Map1`, `Map2` or `Map3` has an unknown cost and keeps the threshold it always
 had (8000 elements); it is called from several goroutines and a panic of it is
 raised again in the calling goroutine. A call is parallel when `n x cost` is at
-least 40 µs, with at most `n x cost / 20 µs` workers. The workers claim blocks (at least 8 µs of
+least 40 µs, with at most `n x cost / 8 µs` workers (a user function uses every
+processor, as it always did). The workers claim blocks (at least 8 µs of
 work, eight per worker) from an atomic counter instead of one equal chunk
 each, so a slow core or an expensive run of elements delays only its own block.
 Every element is computed by one call of the same function, so the result does

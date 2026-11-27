@@ -89,7 +89,7 @@ const (
 	parallelWork = 40_000
 	// workerWork is the work each worker must be worth: a call uses at most
 	// total/workerWork workers.
-	workerWork = 20_000
+	workerWork = 8_000
 	// blockWork is the smallest block a worker claims at a time.
 	blockWork = 8_000
 	// blocksPerWorker is the number of blocks per worker the call is cut
