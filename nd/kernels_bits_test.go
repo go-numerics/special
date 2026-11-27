@@ -107,7 +107,7 @@ func bitsSame(t *testing.T, name string, got, want *ndarray.Array, gerr, werr er
 }
 
 func TestKernelsEqualMapPath(t *testing.T) {
-	const n = 20000 // above parallelMin, so the chunks have lo > 0
+	const n = 20000 // above the cheap-class threshold, so the blocks have lo > 0
 	for _, dt := range []string{"float64", "float32", "int64"} {
 		x, y := bitsVals(n, 1), bitsVals(n, 2)
 		if dt == "int64" {

@@ -38,7 +38,7 @@ func TestMapDirectLayouts(t *testing.T) {
 		if err != nil {
 			t.Fatal(l.name, err)
 		}
-		want2, err := mapN(func(v []float64) float64 { return f2(v[0], v[1]) }, a, b)
+		want2, err := mapN(costMedium, func(v []float64) float64 { return f2(v[0], v[1]) }, a, b)
 		if err != nil {
 			t.Fatal(l.name, err)
 		}
@@ -46,7 +46,7 @@ func TestMapDirectLayouts(t *testing.T) {
 		if err != nil {
 			t.Fatal(l.name, err)
 		}
-		want3, err := mapN(func(v []float64) float64 { return f3(v[0], v[1], v[2]) }, a, b, c)
+		want3, err := mapN(costMedium, func(v []float64) float64 { return f3(v[0], v[1], v[2]) }, a, b, c)
 		if err != nil {
 			t.Fatal(l.name, err)
 		}

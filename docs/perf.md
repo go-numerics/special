@@ -6,6 +6,52 @@ measured by [refbench](https://github.com/go-scikit/refbench) v0.4.0 from
 (data: `perf.json`); the public functions without a row are in
 [perf-exempt.md](perf-exempt.md).
 
+## Multicore
+
+The tables below are single core. The `nd` functions also split one call across
+goroutines, by a policy measured on `nd/parallel_bench_test.go`
+(`BenchmarkPar`; Apple M4 Max, 12 P + 4 E cores, interleaved with abbench at
+1-minute load at most 6, 6 to 8 rounds, GOMAXPROCS 1 against 16).
+
+Per element, one core: `GammaSign` 3.3 ns, `Expit` 7, `Erf` 9, `Gamma` 12,
+`BetaInc` 460, `BetaIncInv` 2100. One threshold in elements cannot serve costs
+400 times apart, so each function has a cost class (3, 6, 12, 40, 120, 500 or
+1500 ns), taken from its measured per-element time in `docs/perf.json`:
+`TestCostsMatchMeasurement` fails when a class is more than one class away from
+the measurement, so the classes cannot drift. A function the caller passes to
+`Map1`, `Map2` or `Map3` has an unknown cost and keeps the threshold it always
+had (8000 elements); it is called from several goroutines and a panic of it is
+raised again in the calling goroutine. A call is parallel when `n x cost` is at
+least 40 µs, with at most `n x cost / 8 µs` workers (a user function uses every
+processor, as it always did). The 8 µs was chosen by judgement from a noisy
+sweep (load 9 to 13), not as a measured optimum: it is what moved EllipK at
+n = 8192 from 30.9 µs (20 µs per worker, 2 workers) to 27.1 µs (-12 %). The workers claim blocks (at least 8 µs of
+work, eight per worker) from an atomic counter instead of one equal chunk
+each, so a slow core or an expensive run of elements delays only its own block.
+Every element is computed by one call of the same function, so the result does
+not depend on the split.
+
+Crossover measured with the previous policy (one threshold of 8192 elements,
+16 equal chunks), 16 cores against 1, time ratio:
+
+| n | GammaSign | Expit | Erf | Gamma | BetaInc | BetaIncInv |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1024 | 1.0 (serial) | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 |
+| 4096 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 |
+| 8192 | 1.12 slower | 0.75 | 0.66 | 0.55 | 0.13 | 0.12 |
+| 16384 | 0.98 | 0.64 | 0.56 | 0.44 | 0.13 | 0.12 |
+| 65536 | 0.36 | 0.36 | 0.37 | 0.25 | 0.13 | 0.12 |
+
+With the cost-aware policy (same machine, 16 cores, time against the previous
+policy): `BetaInc` at n = 1024 and 4096 takes 0.18 and 0.15 of the time
+(467 to 86 µs, 1938 to 288 µs), `BetaIncInv` 0.16 and 0.13, `Gamma` at 4096
+0.79, `Erf` at 4096 0.88, `GammaSign` at 8192 0.83 (it is now serial there,
+27 µs of work), and no row measured slower.
+
+The cheap kernels stop scaling near 3x on 16 cores (allocation and memory
+bandwidth); the expensive ones reach 8x, which is what 12 P and 4 E cores give
+on this code.
+
 ## Method
 
 - **One core on both sides.** refbench sets `GOMAXPROCS=1` around the run and

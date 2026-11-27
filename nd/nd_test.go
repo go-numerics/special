@@ -219,7 +219,7 @@ func TestExactReductions(t *testing.T) {
 }
 
 func TestParallelAndReductions(t *testing.T) {
-	n := 3*parallelMin + 7
+	n := 3*(1<<13) + 7 // above the light-class threshold: split when GOMAXPROCS > 1
 	v := make([]float64, n)
 	for i := range v {
 		v[i] = -5 + 10*float64(i)/float64(n)
