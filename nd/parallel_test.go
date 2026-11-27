@@ -76,7 +76,10 @@ func TestParallelOnWorkerBound(t *testing.T) {
 		c    cost
 		max  int
 	}{
-		{16, 3 * workerWork / int(costHeavy), costHeavy, 3},
+		// one element short of 9 workers' worth: the cap is 8, while the
+		// blocks (at least blockWork each) number 9, so only the cap holds
+		// the count at 8
+		{16, 9*(workerWork/int(costHeavy)) - 1, costHeavy, 8},
 		{2, 1000000, costLight, 2},
 		{16, 1000000, costCheap, 16},
 	} {
@@ -92,6 +95,12 @@ func TestParallelOnWorkerBound(t *testing.T) {
 			running--
 			mu.Unlock()
 		})
+		if tc.n < parallelWork/int(tc.c) {
+			t.Fatalf("w %d n %d cost %d: below the serial threshold %d, the case tests nothing", tc.w, tc.n, tc.c, parallelWork/int(tc.c))
+		}
+		if peak < 2 {
+			t.Errorf("w %d n %d cost %d: %d bodies at once, want a parallel run", tc.w, tc.n, tc.c, peak)
+		}
 		if peak > tc.max {
 			t.Errorf("w %d n %d cost %d: %d bodies at once, bound %d", tc.w, tc.n, tc.c, peak, tc.max)
 		}

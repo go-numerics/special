@@ -146,8 +146,9 @@ func parallelOn(w, n int, c cost, body func(lo, hi int)) {
 		return
 	}
 	// n/(workerWork/per) rather than n*per/workerWork: no overflow on 32 bits.
-	// Since parallelWork is twice workerWork, n >= parallelWork/per gives at
-	// least 2 workers; the max keeps one worker correct all the same.
+	// Since parallelWork is at least twice workerWork (TestPolicyInvariant),
+	// n >= parallelWork/per gives at least 2 workers; the max keeps one worker
+	// correct all the same.
 	floor := blockWork / per
 	if c == costUser {
 		// A user function's cost is unknown, so it keeps every processor and

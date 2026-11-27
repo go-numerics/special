@@ -23,7 +23,9 @@ the measurement, so the classes cannot drift. A function the caller passes to
 had (8000 elements); it is called from several goroutines and a panic of it is
 raised again in the calling goroutine. A call is parallel when `n x cost` is at
 least 40 µs, with at most `n x cost / 8 µs` workers (a user function uses every
-processor, as it always did). The workers claim blocks (at least 8 µs of
+processor, as it always did). The 8 µs was chosen by judgement from a noisy
+sweep (load 9 to 13), not as a measured optimum: it is what moved EllipK at
+n = 8192 from 30.9 µs (20 µs per worker, 2 workers) to 27.1 µs (-12 %). The workers claim blocks (at least 8 µs of
 work, eight per worker) from an atomic counter instead of one equal chunk
 each, so a slow core or an expensive run of elements delays only its own block.
 Every element is computed by one call of the same function, so the result does
