@@ -57,7 +57,7 @@ func TestYnRecurNegativeOrder(t *testing.T) {
 func TestLemmaPow2IsLdexpAtNormalExponents(t *testing.T) {
 	for _, eh := range []float64{1, 1.5, 1.9999999999999998, 1.2345678901234567, 0.5000000000000001} {
 		for k := -1021; k <= -980; k++ {
-			a, b := eh*pow2(k), math.Ldexp(eh, k)
+			a, b := float64(eh*pow2(k)), math.Ldexp(eh, k)
 			if math.Float64bits(a) != math.Float64bits(b) {
 				t.Errorf("%v*pow2(%d) = %v, Ldexp = %v", eh, k, a, b)
 			}

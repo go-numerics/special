@@ -120,7 +120,7 @@ func TestBesselAsymNegativePhase(t *testing.T) {
 	checked := 0
 	for v := 0; v <= 7; v++ {
 		for i := 0; i < 80; i++ {
-			x := 2000 + 0.4*float64(i)
+			x := 2000 + float64(0.4*float64(i))
 			j, y, ok := besselAsymJY(float64(v), x, true, true)
 			if !ok {
 				continue
