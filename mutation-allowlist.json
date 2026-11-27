@@ -5,6 +5,8 @@
    "reason": "Same as x <= 0.6, for the Y1 series pair against its cell pair at exactly x = 1.5."},
   {"file": "jn_yn_fast.go", "func": "jyCellPair", "mode": "boundary", "verdict": "SURVIVED", "text": "x >= cells[i+1].lo  [>= to >]",
    "reason": "At x equal to a cell's lower edge, the previous cell and this one both cover x (cells overlap their shared edge, and each pair carries its own error bound), so the pair differs by roundings inside that bound and the certified result does not change. The index-overrun side of this loop (i+1 < len(cells)) is held by TestJYCellPairLastCell."},
+  {"file": "jn_yn_fast.go", "func": "jyCellPair", "mode": "boundary", "verdict": "caught by PANIC", "text": "k < 12  [< to <=]",
+   "reason": "The mutant reads rc[12] of the 12-element coefficient array: an index-out-of-range panic on every call, so the suite goes red at once, by a panic and not by an assertion (a bounds check, not a test, refuses it). Listed so the gate does not depend on which test reaches it first."},
   {"file": "jn_yn_fast.go", "func": "jyMin", "mode": "boundary", "verdict": "SURVIVED", "text": "a < b  [< to <=]",
    "reason": "Equivalent mutant: jyMin(a, b) with a == b returns b instead of a, the same float64 value (the operands are finite and positive, see its doc)."},
   {"file": "jn_yn_fast.go", "func": "jyMax", "mode": "boundary", "verdict": "SURVIVED", "text": "a > b  [> to >=]",
