@@ -14,7 +14,7 @@ and complete elliptic integrals — with an element-wise layer over
 
 🌐 **[Website](https://go-numerics.github.io)** · 📚 **[Documentation](https://go-numerics.github.io/docs/latest/special/)**
 
-It is the numerical foundation of the go-numerics statistics library: every
+It is the numerical foundation of the [go-statistics](https://github.com/go-statistics/stats) library: every
 distribution's cdf and quantile function is computed with these functions,
 so their accuracy is the product. Each function is measured in ULPs against
 [mpmath](https://mpmath.org) at high precision, over its whole domain —
